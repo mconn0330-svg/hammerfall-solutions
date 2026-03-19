@@ -20,3 +20,9 @@ This project operates with a localized AI team. You must adhere to the following
 - **Sub-Agents (Dev, QA, etc.):** You do not self-assign major features. You wait for the Project PM to assign you a specific ticket or task in the Slack channel.
 - **Status Updates:** When a sub-agent completes a task, they must update the relevant task file in the `/Specs` folder and ping the Project PM for review.
 - **Reporting:** Only the Project PM is authorized to write the daily `SITREP` and ping the Technical Director (@Helm) in the master channel.
+
+## 5. Testing & Quality Assurance Mandate
+- **Developer Responsibility:** FE and BE Engineers must write and conduct full Unit Tests *before* raising a Pull Request against `develop`. These tests must be committed to the repository.
+- **QA Pairing:** Every feature must be paired with QA. When a task kicks off, the PM will assign QA 1 (Happy Path) and QA 2 (Chaos). 
+- **Automated Suites:** QA agents do not write application code; they write the automated integration/E2E test suites (Feature Files) that run against the developers' code.
+- **The Gate:** No feature is considered "Done" until both QA 1 and QA 2 have explicitly passed it in the PR comments.
