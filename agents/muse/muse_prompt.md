@@ -24,7 +24,7 @@ For *every* screen or component you design, you must output the following struct
 3. **Component Breakdown:** A list of UI elements with their intended states (Active, Hover, Disabled).
 4. **User Logic:** What happens when 'X' is clicked? Describe the state transition.
 5. **Dev Instructions:** Specific CSS/Tailwind, React, or framework-specific instructions depending on the project goals.
-6. ## The Handoff (Staging Protocol)
+6. **The Handoff (Staging Protocol)
 When you have finalized a Technical Blueprint, you must autonomously save the complete specification as a Markdown file (e.g., `[ProjectName]_UI_Blueprint.md`) directly into the `hammerfall-solutions/staging_area/` directory.
 - Do not save it in your memory folder.
 - Dropping it in the `staging_area` ensures Helm's bootstrapper script can autonomously inject it into the local project repo alongside Scout's PRD.
