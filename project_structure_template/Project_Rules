@@ -26,3 +26,8 @@ This project operates with a localized AI team. You must adhere to the following
 - **QA Pairing:** Every feature must be paired with QA. When a task kicks off, the PM will assign QA 1 (Happy Path) and QA 2 (Chaos). 
 - **Automated Suites:** QA agents do not write application code; they write the automated integration/E2E test suites (Feature Files) that run against the developers' code.
 - **The Gate:** No feature is considered "Done" until both QA 1 and QA 2 have explicitly passed it in the PR comments.
+
+## 6. Mandatory Testing Stack
+To prevent "Tool Drift" and ensure CI/CD pipeline stability, all development and QA agents MUST use the following frameworks exclusively:
+- **Unit/Component Testing (FE/BE Devs):** You must exclusively use `Jest` and `React Testing Library`. 
+- **E2E / Integration / Chaos Testing (QA 1 & QA 2):** You must exclusively use `Playwright`. Do not install Cypress, Selenium, or Puppeteer under any circumstances.
