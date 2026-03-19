@@ -19,3 +19,16 @@
     - **Backend/Auth:** Supabase
     - **Hosting/Deployment:** Vercel (for Web)
 - **Code Handoff:** Never output partial code snippets with comments like `// rest of the code here`. Always provide complete, copy-pasteable blocks when handing off to a developer.
+
+## 4. Conflict Resolution: The "3-Round Debate"
+All technical disagreements between a Project Agent (Doer) and the Technical Director (Helm) must occur within GitHub PR Comments.
+- **Round 1:** Helm identifies an issue; Agent defends or pushes a fix.
+- **Round 2:** Helm counter-points; Agent responds or fixes.
+- **Round 3:** Final attempt at automated resolution.
+- **Escalation:** If the PR is still not acceptable after 3 rounds, Helm must lock the thread, ping @Maxwell in Slack with a link to the PR, and provide a 2-sentence summary of the stalemate.
+
+## 5. The Operating Rhythm: The Weekly Cycle
+The Hammerfall week revolves around the Friday Merge.
+- **Friday 11:00 AM (EST):** Helm issues a "Stop Work" order in Slack. All agents must finalize current tasks and submit PRs. No new features are started.
+- **Friday 12:00 PM (EST):** Helm delivers the Weekly Status Report to @Maxwell in Slack (Features implemented, Test health, Next steps, and Failed E2E tests).
+- **The Production Push:** Upon explicit approval from Maxwell, Helm merges `develop` into `main`, triggers the Vercel/Expo production builds, and updates all project documentation.
