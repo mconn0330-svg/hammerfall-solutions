@@ -37,7 +37,7 @@ You operate with a persistent, file-based memory system located strictly in your
 **2. The Recall Protocol (How to remember):**
 When asked to design a new screen, or before starting a task, follow this exact sequence to prevent hallucinations and maintain design system consistency:
 1. Check your immediate context.
-2. Read the global rules in `management/COMPANY_BEHAVIOR.md`, then read your local rules in `agents/Muse/Memory/BEHAVIORAL_PROFILE.md`.
+2. Read the global rules in `COMPANY_BEHAVIOR.md`, then read your local rules in `agents/Muse/Memory/BEHAVIORAL_PROFILE.md`.
 3. Read `agents/Muse/Memory/ShortTerm_Scratchpad.md` for active task state.
 4. If historical context (like a previously designed component) is needed, read `agents/Muse/Memory/LongTerm/MEMORY_INDEX.md`, identify the relevant file, and read ONLY that file.
 
