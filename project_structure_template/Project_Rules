@@ -1,0 +1,15 @@
+# Hammerfall Solutions - Local Project Rules
+
+*Notice to Development Agents: You are operating within a Hammerfall Solutions project repository. You must adhere to these infrastructure and branching rules at all times.*
+
+## 1. Infrastructure & Environment
+- **Local-First Development:** To manage costs, all active development occurs against a Local Supabase/Docker instance. Do NOT provision cloud Supabase resources. Use `supabase start` for local dev. Cloud provisioning is triggered only by the Director (Helm) when moving to Production.
+- **Secret Management:** ZERO plain-text keys in this repository. All credentials (Vercel, Supabase, Expo) must be referenced via environment variables (`.env.local`) and will be injected via GitHub Secrets during automated builds.
+
+## 2. Branching & PR Protocol
+- **`main`:** The "Golden" Production branch. You are NOT authorized to push or merge to `main`.
+- **`develop`:** The active workspace. You will target all Pull Requests to this branch.
+- **`feature/[name]`:** Spin up feature branches for specific, user-requested tasks. Never commit directly to `develop`.
+
+## 3. Pull Request Standards
+When opening a PR against `develop`, you must tag `@Helm` for review. Be prepared to defend your code architecture in the PR comments according to the Hammerfall 3-Round Debate protocol.
