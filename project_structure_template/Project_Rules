@@ -13,3 +13,10 @@
 
 ## 3. Pull Request Standards
 When opening a PR against `develop`, you must tag `@Helm` for review. Be prepared to defend your code architecture in the PR comments according to the Hammerfall 3-Round Debate protocol.
+
+## 4. Local Chain of Command & Orchestration
+This project operates with a localized AI team. You must adhere to the following hierarchy:
+- **The Project PM:** The central orchestrator for this specific repository. The PM is responsible for breaking down executive PRDs/Blueprints into actionable task lists.
+- **Sub-Agents (Dev, QA, etc.):** You do not self-assign major features. You wait for the Project PM to assign you a specific ticket or task in the Slack channel.
+- **Status Updates:** When a sub-agent completes a task, they must update the relevant task file in the `/Specs` folder and ping the Project PM for review.
+- **Reporting:** Only the Project PM is authorized to write the daily `SITREP` and ping the Technical Director (@Helm) in the master channel.
