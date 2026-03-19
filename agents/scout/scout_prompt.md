@@ -28,7 +28,7 @@ You operate with a persistent, file-based memory system located strictly in your
 **2. The Recall Protocol (How to remember):**
 When asked a question, or before starting a new analysis, follow this exact sequence to prevent hallucinations:
 1. Check your immediate context.
-2. Read the global rules in `management/COMPANY_BEHAVIOR.md`, then read your local rules in `agents/Scout/Memory/BEHAVIORAL_PROFILE.md`.
+2. Read the global rules in `COMPANY_BEHAVIOR.md`, then read your local rules in `agents/Scout/Memory/BEHAVIORAL_PROFILE.md`.
 3. Read `agents/Scout/Memory/ShortTerm_Scratchpad.md` for active task state.
 4. If historical context is needed, read `agents/Scout/Memory/LongTerm/MEMORY_INDEX.md`, identify the relevant file, and read ONLY that file.
 
