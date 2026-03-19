@@ -50,6 +50,22 @@ if [ -f "package.json" ]; then
     npm install
 fi
 
+# 6.5 Inject Staged Specs (PRDs / Blueprints)
+echo "📄 Checking for staged specs..."
+STAGING_DIR="../hammerfall-solutions/staging_area"
+if [ -d "$STAGING_DIR" ] && [ "$(ls -A $STAGING_DIR 2>/dev/null | grep -v '^\.gitkeep$')" ]; then
+    echo "   -> Found files in staging_area. Moving to local /Specs folder..."
+    mkdir -p Specs
+    # Copy everything except the .gitkeep file
+    find $STAGING_DIR -type f ! -name '.gitkeep' -exec cp {} ./Specs/ \;
+    
+    # Optional: Clear the hopper so it's empty for your next project launch
+    find $STAGING_DIR -type f ! -name '.gitkeep' -exec rm {} \;
+    echo "   -> Specs injected successfully. Staging area cleared."
+else
+    echo "   -> No staged specs found. Proceeding with empty /Specs directory."
+fi
+
 # 7. Create Initial SITREP for Helm
 echo "📝 Generating initial SITREP.md..."
 cat <<EOF > SITREP.md
