@@ -1,0 +1,133 @@
+Master Product Requirements Document (PRD)
+Product: I.B.I.S. (Intelligent Battlefield Information System) Document Owner: Scout (Senior Product Strategist) Date: March 2026
+1. Executive Summary & Product Vision
+I.B.I.S. is a B2B2C marketplace and operational ecosystem designed to eliminate administrative friction in live-action airsoft events, ultimately scaling into a tech-facilitated live-action game engine.
+The Root Cause (The "Bleeding-Neck" Problem): Contextual whiplash and administrative drag. The transition from ticket purchase to game execution is broken, causing severe delays on game day, breaking player immersion, and burning out staff.
+The "Why Now?": The maturation of agentic AI development, edge computing, and backend-as-a-service (BaaS) allows a lean team to build real-time, offline-capable, hierarchical data syncing affordably.
+The Unfair Advantage (Distribution): Forced adoption via a "Bowling Pin" GTM strategy. By solving the producer's most painful bottleneck (Saturday morning check-ins), producers will mandate player app downloads, resulting in a $0 Customer Acquisition Cost (CAC).
+2. Market Strategy & Viability
+Cagan's Four Big Risks Audit
+Value Risk (Low): Producers will pay to solve check-in bottlenecks. Players will adopt what is mandated to play.
+Usability Risk (Medium/High): Using a phone during a simulated firefight requires dead-simple, high-contrast, glove-friendly UI.
+Feasibility Risk (Medium): De-risked by deferring the hardest tech (live geospatial tracking/syncing) to Phase 3, allowing the team to nail the database architecture first.
+Business Viability (Low/Medium): The B2B2C and contextual commerce models drastically increase Revenue Per User, validating the TAM.
+SWOT Analysis
+Strengths: Deep understanding of airsoft mechanics; holistic ecosystem vision; strong contextual commerce integration.
+Weaknesses: High initial engineering scope (rostering hierarchy + ticketing); reliance on user hardware in outdoor environments.
+Opportunities: Expansion into adjacent live-action markets (mil-sim, paintball); monopolizing the airsoft gear affiliate space.
+Threats: Dead cell zones at rural event sites; phone battery drain during 8-hour events.
+3. Target Personas & Jobs to Be Done (JTBD)
+1. The Producer (Primary Customer)
+JTBD: "Help me centralize my logistics, roster my players, and automate game-day administration so I can run a scalable, profitable event without burning out my staff."
+Value: Total ecosystem control, reduced overhead, and new revenue streams (affiliates).
+2. The Player (Primary User)
+JTBD: "Help me bypass administrative friction and stay fully immersed in the 'power fantasy' so I feel like I am in a real-world video game."
+Value: Zero-wait check-ins, clear communication, and tech-facilitated gameplay.
+3. The Staff Member (Operational Lever)
+JTBD: "Give me a single source of truth for player locations, rule changes, and schedules so I can manage the game dynamically instead of reacting blindly."
+Value: Real-time oversight, digital command structure, and instant communication.
+4. Monetization & Go-To-Market (GTM) Strategy
+The "À La Carte" SaaS + Ticketing Model
+"Basics" Tier (The Wedge): Free or nominal monthly fee ($29/mo) + Transaction Fee (e.g., $1.50 + 2.5% per ticket). Includes Phase 1 core (Ticketing, Waivers, QR Kiosk Check-in, Rostering).
+"Basics+" Tier: $149-$299/mo + Ticket Fees. Unlocks Phase 2 features (Series linking, Rule Authoring, Global Artifacts).
+"Whole Ecosystem": $499+/mo or Enterprise + Ticket Fees. Unlocks Phase 3 Live Game Engine.
+À La Carte Add-ons: Bulk SMS text credits, extra cloud storage, physical QR-scanning kiosk rentals.
+Contextual Commerce (The VC Multiplier)
+Packing List Affiliates: Producers set mandatory gear sheets in-app. IBIS dynamically links required items to major retailers (Evike, Airsoft GI) using native affiliate links. IBIS takes a 5-8% cut.
+In-Game Sponsorships (Phase 3): Gear vendors sponsor digital map assets (e.g., "KWA Armory Control Zone").
+Targeted Vendor Leads: Post-AAR, highly segmented email offers based on a player's exact in-game role (Sniper, Support).
+5. The Phased Product Roadmap
+Phase 1: "Unified Command" MVP (Operations & Context)
+Focus: Owning the pre-game lifecycle, ticketing, and player rostering.
+Event Container: Greenfield event creation (dates, locations, schedule, context).
+Ticketing & Monetization: Stripe-integrated ticket sales tied to specific event containers.
+Waivers & Kiosk Check-In: Digital pre-check, distributed waivers, and rapid "one-click" QR scanner kiosks for on-site staff.
+Packing Lists & Commerce: Producers set mandatory gear, linked directly to affiliate retail partners.
+Hierarchical Rostering: Faction creation (logos, uniforms, lore) and automated/manual assignment of players into Factions -> Platoons -> Squads.
+Role-Based Dashboards: Producer task readiness, Staff roster oversight, Player utility/pre-check status.
+Strictly Scoped Comms: Persistent text chat automatically generated based on roster hierarchy (Faction, Squad) and core push/email notifications.
+Phase 2: The SaaS Moat & VC Scale (Franchising)
+Focus: Enterprise-grade platform features to lock in high-LTV producers.
+Event Series & Narrative: Connecting multiple events to build cohesive storylines based on gameplay outcomes.
+Templating Engine: Rapid deployment of game modes or whole events based on past successes.
+Global Artifact & Asset Management: Permission-tagged rules, maps, and briefings with deep external drive linking (Google Workspace, OneDrive).
+Rule Authoring Engine: Native, syncable document creation.
+Automated Post-Event AARs: System-consolidated surveys and data categorization.
+Phase 3: The Live-Action Game Engine (Geospatial Mechanics)
+Focus: The "Power Fantasy" – turning physical airsoft into a tech-facilitated video game.
+The Tactical Grid: Editable geo-maps, geofencing (boundaries/safe zones), and low-latency live geolocation for staff.
+Map-to-Schedule Sync: Objectives trigger automatically based on the Phase 1 schedule.
+Dynamic Respawn Logic: Anti-camping routing, squad grouping, and player-placed respawns.
+Objectives & Minigames: Capture points, QR-based data hacks, HVT eliminations, and resource retrieval.
+Environmental Hazards: Rad zones, out-of-bounds death timers, and UI-activated protective equipment.
+The "Active" Run-Time Mode: Live command center for staff to push immediate overrides and schedule shifts.
+Phase 4: The Cognitive Battlefield (AI Integration)
+Focus: Leveraging LLMs to reduce cognitive load and create dynamic scenarios.
+AI Pre-Game Support Agent: LLM trained on Phase 2 artifacts to auto-answer player questions.
+Dynamic Balancing: AI monitors Phase 3 geospatial data to detect "steamrolling" and suggests real-time map adjustments to staff.
+Generative Storyboarding: AI assists producers by generating narrative briefing scripts or suggesting objective placements.
+Synthesized AARs: AI ingests post-game surveys, chat logs, and map data to write comprehensive executive summaries.
+6. Phase 1 UX/UI Constraints & Guardrails
+Designers must adhere strictly to these physical and environmental realities:
+The "Tactical Glove" Rule: Buttons, sliders, and navigation elements must be massive. No tiny text links.
+The "High-Noon Glare" Rule: Mobile UI will be used in direct sunlight. High contrast is mandatory.
+The "Spotty Cell Tower" Rule: The player's Check-In QR code must be accessible offline (cached locally or Apple/Google Wallet). The staff iPad scanner must queue offline scans and sync when reconnected.
+The Cognitive Load Limit: Use progressive disclosure. Only show the user the exact next step they need to take.
+7. Phase 1 Engineering & Database Architecture
+Core Epics
+Epic 1: The Event Container, Commerce, & Ticketing: Create the centralized event page, Stripe sync, and affiliate Packing List integration.
+Epic 2: Frictionless Check-In & Waivers: Build the Pre-Check Dashboard, the high-contrast Player QR Screen, and the rapid-fire Staff Scanner Kiosk (<3 seconds per scan).
+Epic 3: Hierarchical Rostering: Build the Faction Builder, the drag-and-drop Roster Matrix, and the Player Roster View.
+Epic 4: Scoped Comms & Role-Based Dashboards: Build role-specific home screens and hierarchical chat channels (no manual group creation allowed in V1).
+Core Database Schema (Supabase/PostgreSQL)
+Use UUIDs for primary keys. Enforce strict Foreign Key constraints.
+users: id, email, legal_name, callsign, phone, global_role
+events: id, producer_id, title, location_name, start_date, end_date, status
+ticket_tiers: id, event_id, name, price, inventory_count
+packing_lists: id, event_id, item_name, is_mandatory, affiliate_url
+registrations: id (QR generator), event_id, user_id, ticket_tier_id, waiver_signed, payment_status, check_in_status, check_in_time
+factions: id, event_id, name, commander_id
+platoons: id, faction_id, name
+squads: id, platoon_id, name, squad_leader_id
+roster_assignments: id, registration_id (Unique), squad_id, event_role
+chat_channels: id, event_id, target_type, target_id (Polymorphic)
+messages: id, channel_id, sender_id, content, created_at
+Supabase Row Level Security (RLS) Policies
+Enable RLS on all tables to enforce the "Fog of War" and protect PII.
+-- EVENTS & COMMERCE (The Producer's Lock)
+CREATE POLICY "Public events are viewable by everyone" ON events FOR SELECT USING (status = 'published' OR status = 'active');
+CREATE POLICY "Producers can update their own events" ON events FOR ALL USING (auth.uid() = producer_id);
+CREATE POLICY "Ticket tiers are viewable by everyone" ON ticket_tiers FOR SELECT USING (true);
+CREATE POLICY "Producers manage their event tiers" ON ticket_tiers FOR ALL USING (
+  EXISTS (SELECT 1 FROM events WHERE events.id = ticket_tiers.event_id AND events.producer_id = auth.uid())
+);
+
+-- REGISTRATIONS (The Privacy Shield)
+CREATE POLICY "Players can view their own registrations" ON registrations FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Producers can manage event registrations" ON registrations FOR ALL USING (
+  EXISTS (SELECT 1 FROM events WHERE events.id = registrations.event_id AND events.producer_id = auth.uid())
+);
+
+-- ROSTER ASSIGNMENTS (The Fog of War)
+CREATE POLICY "Players see their faction roster" ON roster_assignments FOR SELECT USING (
+  squad_id IN (
+    SELECT s.id FROM squads s JOIN platoons p ON s.platoon_id = p.id WHERE p.faction_id = (
+      SELECT p2.faction_id FROM roster_assignments ra2 JOIN squads s2 ON ra2.squad_id = s2.id JOIN platoons p2 ON s2.platoon_id = p2.id WHERE ra2.registration_id IN (SELECT id FROM registrations WHERE user_id = auth.uid())
+    )
+  )
+);
+
+-- CHAT MESSAGES (The Fog of War)
+CREATE POLICY "Players can only access their assigned comms" ON messages FOR ALL USING (
+  EXISTS (
+    SELECT 1 FROM chat_channels cc WHERE cc.id = messages.channel_id AND (
+      cc.target_id IN (
+        SELECT s.id FROM roster_assignments ra JOIN squads s ON ra.squad_id = s.id WHERE ra.registration_id IN (SELECT id FROM registrations WHERE user_id = auth.uid())
+        UNION
+        SELECT p.id FROM roster_assignments ra JOIN squads s ON ra.squad_id = s.id JOIN platoons p ON s.platoon_id = p.id WHERE ra.registration_id IN (SELECT id FROM registrations WHERE user_id = auth.uid())
+        UNION
+        SELECT f.id FROM roster_assignments ra JOIN squads s ON ra.squad_id = s.id JOIN platoons p ON s.platoon_id = p.id JOIN factions f ON p.faction_id = f.id WHERE ra.registration_id IN (SELECT id FROM registrations WHERE user_id = auth.uid())
+      )
+    )
+  )
+);
