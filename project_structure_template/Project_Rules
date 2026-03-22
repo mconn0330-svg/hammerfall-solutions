@@ -1,33 +1,35 @@
-# Hammerfall Solutions - Local Project Rules
+# Hammerfall Solutions — Local Project Rules
 
-*Notice to Development Agents: You are operating within a Hammerfall Solutions project repository. You must adhere to these infrastructure and branching rules at all times.*
+Notice: You are operating in a Hammerfall project repo.
+Adhere to these rules at all times.
 
 ## 1. Infrastructure & Environment
-- **Local-First Development:** To manage costs, all active development occurs against a Local Supabase/Docker instance. Do NOT provision cloud Supabase resources. Use `supabase start` for local dev. Cloud provisioning is triggered only by the Director (Helm) when moving to Production.
-- **Secret Management:** ZERO plain-text keys in this repository. All credentials (Vercel, Supabase, Expo) must be referenced via environment variables (`.env.local`) and will be injected via GitHub Secrets during automated builds.
+- Local-First: all active development uses a local Supabase/Docker instance.
+  Do NOT provision cloud Supabase. Cloud triggers on first merge to main.
+- Zero plain-text keys. All credentials via .env.local and GitHub Secrets.
 
 ## 2. Branching & PR Protocol
-- **`main`:** The "Golden" Production branch. You are NOT authorized to push or merge to `main`.
-- **`develop`:** The active workspace. You will target all Pull Requests to this branch.
-- **`feature/[name]`:** Spin up feature branches for specific, user-requested tasks. Never commit directly to `develop`.
+- main: golden production branch. You are NOT authorized to push here.
+- develop: active workspace. All PRs target develop.
+- replit/ui-v1: Replit UI prototype branch. Read-only reference for agents.
+- feature/[name]: only on explicit user request.
 
 ## 3. Pull Request Standards
-When opening a PR against `develop`, you must tag `@Helm` for review. Be prepared to defend your code architecture in the PR comments according to the Hammerfall 3-Round Debate protocol.
+Tag @Helm on every PR against develop.
+Be prepared for the 3-Round Debate on architecture.
 
-## 4. Local Chain of Command & Orchestration
-This project operates with a localized AI team. You must adhere to the following hierarchy:
-- **The Project PM:** The central orchestrator for this specific repository. The PM is responsible for breaking down executive PRDs/Blueprints into actionable task lists.
-- **Sub-Agents (Dev, QA, etc.):** You do not self-assign major features. You wait for the Project PM to assign you a specific ticket or task in the Slack channel.
-- **Status Updates:** When a sub-agent completes a task, they must update the relevant task file in the `/Specs` folder and ping the Project PM for review.
-- **Reporting:** Only the Project PM is authorized to write the daily `SITREP` and ping the Technical Director (@Helm) in the master channel.
+## 4. Chain of Command
+- PM: central orchestrator. Breaks down PRDs into tasks.
+- Doers (FE, BE, UX, QA): wait for PM task assignment.
+- Status updates: update the task file in specs/ and ping PM.
+- SITREPs: only PM writes the daily SITREP and pings Helm.
 
-## 5. Testing & Quality Assurance Mandate
-- **Developer Responsibility:** FE and BE Engineers must write and conduct full Unit Tests *before* raising a Pull Request against `develop`. These tests must be committed to the repository.
-- **QA Pairing:** Every feature must be paired with QA. When a task kicks off, the PM will assign QA 1 (Happy Path) and QA 2 (Chaos). 
-- **Automated Suites:** QA agents do not write application code; they write the automated integration/E2E test suites (Feature Files) that run against the developers' code.
-- **The Gate:** No feature is considered "Done" until both QA 1 and QA 2 have explicitly passed it in the PR comments.
+## 5. Testing Mandate
+- FE/BE devs write unit tests before raising any PR.
+- QA Engineer runs both Integration and Chaos suites.
+- Both "QA Integration: PASS" and "QA Chaos: PASS" required before merge.
 
-## 6. Mandatory Testing Stack
-To prevent "Tool Drift" and ensure CI/CD pipeline stability, all development and QA agents MUST use the following frameworks exclusively:
-- **Unit/Component Testing (FE/BE Devs):** You must exclusively use `Jest` and `React Testing Library`. 
-- **E2E / Integration / Chaos Testing (QA 1 & QA 2):** You must exclusively use `Playwright`. Do not install Cypress, Selenium, or Puppeteer under any circumstances.
+## 6. Testing Stack (no exceptions)
+- Unit/Component (FE/BE): Jest and React Testing Library only.
+- E2E/Integration/Chaos (QA): Playwright only.
+- Do not install Cypress, Selenium, or Puppeteer under any circumstances.
