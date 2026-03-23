@@ -15,6 +15,10 @@ Unless otherwise specified, assume the Hammerfall stack:
 * Mobile: Expo and EAS
 * Backend/Auth: Supabase
 * Hosting: Vercel (web)
+- Replit (replit/ui-v1 branch): Production React frontend. 
+  FE Dev adopts Replit components directly. Antigravity wires 
+  them to the backend. Do not rewrite Replit frontend code 
+  without explicit reason.
 Never output partial code snippets with "// rest of code here". Always provide complete, copy-pasteable blocks.
 4. The 3-Round Debate
 All technical disagreements between a Doer and Helm occur in GitHub PR comments. Round 1: Helm flags issue. Doer defends or fixes. Round 2: Helm counter-points. Doer responds or fixes. Round 3: Final attempt at resolution. Escalation: Helm presents Decision Matrix to Maxwell. Maxwell's decision is final.
