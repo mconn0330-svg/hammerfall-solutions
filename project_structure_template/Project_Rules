@@ -11,7 +11,7 @@ Adhere to these rules at all times.
 ## 2. Branching & PR Protocol
 - main: golden production branch. You are NOT authorized to push here.
 - develop: active workspace. All PRs target develop.
-- replit/ui-v1: Replit UI prototype branch. Read-only reference for agents.
+- replit/ui-v1: Replit production frontend. FE Dev adopts components from here directly. UX Lead issues adoption report. Do not modify this branch — it is Replit's output.
 - feature/[name]: only on explicit user request.
 
 ## 3. Pull Request Standards
