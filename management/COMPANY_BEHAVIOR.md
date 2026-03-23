@@ -27,7 +27,7 @@ The Two Triggers
 What "Log This" Means for Each Environment
 Claude.ai Project agents (Core Helm, Scout, Muse):
 When Maxwell says "log this", Helm writes the entry directly
-to Hammerfall Memory/memory-queue in Google Drive.
+to C:\Users\xbox5\My Drive\Hammerfall Solutions\Hammerfall Memory\memory-queue.gdoc
 Format: date, target agent, decision + reasoning,
 MEMORY_INDEX flag if warranted. Confirm to Maxwell when written.
 If Drive is unavailable, produce the markdown block for manual
