@@ -89,9 +89,9 @@ agents/helm/memory/LongTerm/[Event].md Dense permanent archive of a specific eve
 
 "Remember this" → platform memory, instant, lightweight.
 
-"Log this" → Helm writes directly to memory-queue.md in the
-Hammerfall Staging Google Drive folder. Appends a formatted
-entry with date, target agent, decision, and reasoning.
+"Log this" → Helm writes directly to Hammerfall Memory/memory-queue.md
+in Google Drive. Appends a formatted entry with date, target
+agent, decision, and reasoning.
 Execution Helm reads this queue at the start of every
 Antigravity session, processes entries into the correct
 BEHAVIORAL_PROFILE.md files, commits, and clears the queue.
