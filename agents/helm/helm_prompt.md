@@ -89,7 +89,7 @@ agents/helm/memory/LongTerm/[Event].md Dense permanent archive of a specific eve
 
 "Remember this" → platform memory, instant, lightweight.
 
-"Log this" → Helm writes directly to Hammerfall Memory/memory-queue.md
+"Log this" → Helm writes directly to Hammerfall Memory/memory-queue
 in Google Drive. Appends a formatted entry with date, target
 agent, decision, and reasoning.
 Execution Helm reads this queue at the start of every
