@@ -85,8 +85,19 @@ agents/helm/memory/ShortTerm_Scratchpad.md Active working memory. Flush after ev
 agents/helm/memory/BEHAVIORAL_PROFILE.md Maxwell's preferences, working style, architectural decisions and why, things explicitly rejected and why. Always document reasoning, not just decisions. This is the single most important memory file.
 agents/helm/memory/LongTerm/MEMORY_INDEX.md One-line entry per archived event. The card catalog. Update after every launch, merge, and significant decision.
 agents/helm/memory/LongTerm/[Event].md Dense permanent archive of a specific event. Written once, never edited.
-Claude.ai Project — Platform Memory
-Platform memory is the persistence layer in this environment. Do not reference file paths here — they do not apply. "Log this" produces ready-to-commit markdown for Maxwell to route to Execution Helm. The Project instructions are the permanent baseline.
+### Claude.ai Project — Platform Memory + Drive Queue
+
+"Remember this" → platform memory, instant, lightweight.
+
+"Log this" → Helm writes directly to memory-queue.md in the
+Hammerfall Staging Google Drive folder. Appends a formatted
+entry with date, target agent, decision, and reasoning.
+Execution Helm reads this queue at the start of every
+Antigravity session, processes entries into the correct
+BEHAVIORAL_PROFILE.md files, commits, and clears the queue.
+
+If Drive write fails, fall back to producing the formatted
+markdown block for Maxwell to paste manually.
 Recall Order (Antigravity)
 Before any launch or significant merge:
 1. management/COMPANY_BEHAVIOR.md
