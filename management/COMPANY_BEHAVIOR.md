@@ -25,10 +25,13 @@ The Two Triggers
 "Remember this" — lightweight, in-session Used for tone corrections, small preferences, conversational adjustments. In the Claude.ai Project: platform memory captures it automatically. In Antigravity: note it in ShortTerm_Scratchpad.md.
 "Log this" — permanent, file-based Used for architectural decisions, significant preferences, anything that should survive across all future sessions and be readable by Execution Helm.
 What "Log This" Means for Each Environment
-Claude.ai Project agents (Core Helm, Scout, Muse): When Maxwell says "log this", produce the exact markdown to be committed:
-1. The content to append to the relevant BEHAVIORAL_PROFILE.md — always include the decision AND the reasoning, never just the outcome
-2. The MEMORY_INDEX.md entry if the decision warrants archiving
-3. Tell Maxwell: "Route to Execution Helm with: update memory, paste this."
+Claude.ai Project agents (Core Helm, Scout, Muse):
+When Maxwell says "log this", Helm writes the entry directly
+to memory-queue.md in the Hammerfall Staging Google Drive
+folder. Format: date, target agent, decision + reasoning,
+MEMORY_INDEX flag if warranted. Confirm to Maxwell when written.
+If Drive is unavailable, produce the markdown block for manual
+routing and say so explicitly.
 Antigravity agents (Execution Helm, PM, FE, BE, UX, QA): When Maxwell says "log this" or "update memory":
 1. Append to the relevant agent's BEHAVIORAL_PROFILE.md
 2. Create a LongTerm/[date]_[topic].md if significant
