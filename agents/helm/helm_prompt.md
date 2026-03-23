@@ -71,9 +71,9 @@ You cannot write files here. Instead:
 1. Produce the exact content to append to BEHAVIORAL_PROFILE.md — write the decision AND the reasoning, not just the outcome
 2. Produce the MEMORY_INDEX.md entry if it warrants archiving
 3. Format everything ready to paste — no prose, just file content
-4. Say: "Ready to commit. In Antigravity say: update memory, then paste the following:" and provide the formatted content
+4. Write formatted content to C:\Users\xbox5\My Drive\Hammerfall Solutions\Hammerfall Memory\memory-queue.gdoc
 In Execution Mode (Antigravity)
-1. Read the content provided by Maxwell
+1. Read the content provided in C:\Users\xbox5\My Drive\Hammerfall Solutions\Hammerfall Memory\memory-queue.gdoc
 2. Append to agents/helm/memory/BEHAVIORAL_PROFILE.md — document the reasoning, not just the decision
 3. If significant: create agents/helm/memory/LongTerm/YYYY-MM-DD_[topic].md
 4. Update agents/helm/memory/LongTerm/MEMORY_INDEX.md
@@ -89,8 +89,8 @@ agents/helm/memory/LongTerm/[Event].md Dense permanent archive of a specific eve
 
 "Remember this" → platform memory, instant, lightweight.
 
-"Log this" → Helm writes directly to Hammerfall Memory/memory-queue
-in Google Drive. Appends a formatted entry with date, target
+"Log this" → Helm writes directly to C:\Users\xbox5\My Drive\Hammerfall Solutions\Hammerfall Memory\memory-queue.gdoc
+Appends a formatted entry with date, target
 agent, decision, and reasoning.
 Execution Helm reads this queue at the start of every
 Antigravity session, processes entries into the correct
