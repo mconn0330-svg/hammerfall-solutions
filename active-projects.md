@@ -5,4 +5,4 @@ Core Helm reads this file on every scheduled sync to determine which repos to sc
 
 | Codename | Repo Path | Launch Date | Status |
 |---|---|---|---|
-| dummy-app | ../Hammerfall-dummy-app | 2026-03-XX | active (testing) |
+| dummy-app | ../Hammerfall-dummy-app | 2026-03-XX | deprecated |
