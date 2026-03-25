@@ -1,3 +1,3 @@
 # Short Term Scratchpad
 
-*Flushed following dummy-app launch.*
+*Flushed following punk_tuner experiment.*
