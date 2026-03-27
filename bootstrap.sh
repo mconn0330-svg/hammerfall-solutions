@@ -200,8 +200,21 @@ if [ -z "$PROJECT_REF" ]; then
   echo "  Get it from supabase.com/dashboard and add to .env.local manually."
 else
   SUPABASE_URL="https://$PROJECT_REF.supabase.co"
+
+  # Try new publishable key format first, fall back to legacy anon key
   SUPABASE_ANON_KEY=$(supabase projects api-keys --project-ref "$PROJECT_REF" \
-    | grep "anon" | awk '{print $NF}')
+    | grep -E "publishable|anon" | head -1 | awk '{print $NF}')
+
+  # Fallback warning if key still blank (new key format may require dashboard reveal)
+  if [ -z "$SUPABASE_ANON_KEY" ]; then
+    echo ""
+    echo "  ⚠️  Could not retrieve publishable/anon key automatically."
+    echo "  Supabase new key format requires manual reveal."
+    echo "  Get it from: supabase.com/dashboard/project/$PROJECT_REF/settings/api-keys"
+    echo "  Then update .env.local: NEXT_PUBLIC_SUPABASE_ANON_KEY=your-key-here"
+    echo ""
+    SUPABASE_ANON_KEY="REPLACE_WITH_KEY_FROM_SUPABASE_DASHBOARD"
+  fi
 
   # Write credentials to .env.local
   cat > .env.local << EOF
@@ -218,6 +231,9 @@ EOF
 
   echo "  -> Cloud project created: $SUPABASE_URL"
   echo "  -> Credentials written to .env.local"
+  if [ "$SUPABASE_ANON_KEY" = "REPLACE_WITH_KEY_FROM_SUPABASE_DASHBOARD" ]; then
+    echo "  -> ⚠️  Anon key placeholder — update .env.local manually before building"
+  fi
 fi
 
 # ── 14. Install Node Dependencies ────────────────────────────
