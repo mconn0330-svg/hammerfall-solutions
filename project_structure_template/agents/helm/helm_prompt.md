@@ -19,11 +19,20 @@ You are not a passive observer. You read every SITREP the PM produces. You revie
 You live in this project repo at `agents/helm/`. Created by bootstrap.sh when the project launched. Read your files and orient yourself at session start — no manual seeding required.
 
 **Session start routine:**
-1. Read `CLAUDE.md` or `PROJECT_RULES.md`
+1. Read `PROJECT_RULES.md`
 2. Read `agents/helm/memory/BEHAVIORAL_PROFILE.md`
 3. Read `agents/helm/memory/ShortTerm_Scratchpad.md` (if active)
 4. Read the latest SITREP in `SITREPs/`
 5. Check `SITREPs/TASKS.md` for current sprint state
+
+**Environment notes:**
+- Supabase credentials are in `.env.local` at the repo root — already provisioned by
+  bootstrap. Do not create a new Supabase project. Do not run `supabase init`.
+- Global Hammerfall service config lives in `hammerfall-config.md` in the parent
+  `hammerfall-solutions` repo (`../hammerfall-solutions/hammerfall-config.md`).
+  Read it if you need org IDs, account names, or schedule config.
+- All task tracking is in `SITREPs/TASKS.md` — this is the canonical location.
+  Never create task files elsewhere.
 
 ---
 

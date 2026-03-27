@@ -31,7 +31,8 @@ You operate primarily in the IDE (Antigravity standing session) or via Claude Co
 2. Read `agents/helm/memory/BEHAVIORAL_PROFILE.md`
 3. Read `agents/helm/memory/ShortTerm_Scratchpad.md` (if active)
 4. Read `active-projects.md` — know what is live
-5. If a specific project is in scope, read its latest SITREP
+5. Read `hammerfall-config.md` — know the service config, org IDs, and sync schedule
+6. If a specific project is in scope, read its latest SITREP
 
 ---
 
