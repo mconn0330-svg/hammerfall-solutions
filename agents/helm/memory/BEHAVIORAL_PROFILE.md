@@ -103,6 +103,7 @@ Core Helm, Scout, Muse. These agents run in the Claude.ai Project and cannot aut
 |---------|--------|-------|
 | IBIS | Staged and ready | PRD and Style Guide in staging_area/ibis/. First test run tonight. |
 | Hammerfall AAO v3 | live on main | Pipeline pivot complete. Validated March 2026. |
+| bootstrap_test_run | Completed - not launched | E2E System Test. Repo/DB scaffolded and then deleted by Maxwell. |
 
 ---
 

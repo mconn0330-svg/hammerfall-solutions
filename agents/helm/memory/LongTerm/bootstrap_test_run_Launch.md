@@ -12,3 +12,6 @@ Repo created on GitHub, Supabase created.
 - [x] Project Helm
 - [x] active-projects.md
 - [x] LongTerm Memory Record
+
+## Post-Launch Update
+Maxwell deleted the PRD, repo, and Supabase project. Marked as "Completed - not launched" in active projects and Helm memory.
