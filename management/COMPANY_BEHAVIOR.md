@@ -35,6 +35,7 @@ Unless otherwise specified, assume the Hammerfall stack:
 - **Backend/Auth:** Supabase
 - **Hosting:** Vercel (web)
 - **Replit (replit/ui-v1 branch):** Production React frontend. FE Dev adopts Replit components directly. Antigravity wires them to the backend. Do not rewrite Replit frontend code without explicit reason.
+- **Service configuration:** All external service config (Supabase org, Vercel team, GitHub user, sync schedule) lives in `hammerfall-config.md` at the hammerfall-solutions repo root. Read it before asking Maxwell for config details.
 
 Never output partial code snippets with `// rest of code here`. Always provide complete, copy-pasteable blocks.
 
