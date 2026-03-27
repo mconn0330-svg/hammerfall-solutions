@@ -1,0 +1,111 @@
+# Hammerfall Config
+
+Global configuration read by `bootstrap.sh` and all Helm instances at session start.
+Maintained by Core Helm. Update this file when account details change.
+
+> **SECURITY RULE:** This file never contains secret values — only environment variable
+> names. Actual secrets live in your shell profile (`~/.zshrc`) and GitHub Secrets.
+> This file is safe to commit.
+
+---
+
+## Identity
+
+```
+hammerfall_github_user: mconn0330-svg
+hammerfall_github_org: mconn0330-svg
+```
+
+---
+
+## Supabase
+
+```
+supabase_org_id: nninqwpylkzcpffccgvq
+supabase_region: us-east-1
+```
+
+*Note: Database passwords are generated automatically by bootstrap.sh at project
+creation time using `openssl rand`. No password env var required. Each project
+gets a unique password written to its own `.env.local`.*
+
+---
+
+## GitHub
+
+```
+github_token_env: GITHUB_TOKEN
+```
+
+*Note: `gh auth login` handles most GitHub CLI operations. This token is used
+for any programmatic API calls Helm needs to make (PR checks, file reads, etc.)*
+
+---
+
+## Vercel
+
+```
+vercel_team_id: team_8mxY3FJcuwUNbthWXlyPaIP7
+vercel_token_env: VERCEL_TOKEN
+```
+
+*Vercel links automatically on first merge to main via bootstrap.*
+
+---
+
+## Replit
+
+```
+replit_team: mconn0330
+replit_token_env: REPLIT_TOKEN
+```
+
+*Replit uses GitHub OAuth — token used for any direct Replit API calls if needed.*
+
+---
+
+## EAS / Expo (mobile projects)
+
+```
+eas_account: Bandit0330
+eas_token_env: EXPO_TOKEN
+```
+
+*Only used when a project includes a mobile component. Bootstrap checks for
+this when scaffolding mobile projects.*
+
+---
+
+## Scheduled Sync
+
+```
+sync_schedule_morning: 07:00
+sync_schedule_midday: 12:00
+sync_schedule_evening: 18:00
+```
+
+*These values are the canonical schedule times. If you change them here,
+update the /schedule tasks in Claude Code to match.*
+
+---
+
+## Shell Profile Reference
+
+The following env vars must be set in your shell profile (`~/.zshrc` on Mac/Linux,
+or as User environment variables on Windows). Add these once and they persist:
+
+```bash
+export GITHUB_TOKEN=ghp_your-github-pat-here
+export VERCEL_TOKEN=your-vercel-token-here
+export REPLIT_TOKEN=your-replit-token-here
+export EXPO_TOKEN=your-expo-token-here
+```
+
+*Note: No Supabase password env var needed. Bootstrap generates a unique
+cryptographically random password per project automatically.*
+
+After editing `~/.zshrc`, run: `source ~/.zshrc` to load immediately.
+
+---
+
+*Maintained by Core Helm · hammerfall-solutions/hammerfall-config.md*
