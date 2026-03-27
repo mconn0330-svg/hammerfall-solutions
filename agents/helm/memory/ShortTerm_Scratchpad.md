@@ -1,3 +1,3 @@
 # Short Term Scratchpad
 
-*Flushed following punk_tuner experiment.*
+*Flushed following bootstrap_test_run launch.*
