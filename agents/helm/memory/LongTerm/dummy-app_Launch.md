@@ -1,20 +1,20 @@
 # LongTerm Memory — dummy-app Launch
 
-**Event:** dummy-app Project Launch
-**Date:** 2026-03-24
+**Event:** dummy-app Project Launch (Re-initiation)
+**Date:** 2026-03-27
 **Participants:** Maxwell, Execution Helm
 
 ---
 
 ## What Happened
 
-The "go word" for project `dummy-app` was issued. The `bootstrap.sh` script was executed automatically to scaffold the new project.
+The "go word" for project `dummy-app` was issued and fully verified. The `bootstrap.sh` script was executed automatically via Git Bash to scaffold the new project since PowerShell/WSL paths were failing.
 
-* Master template was cloned and scaffolded.
+* Master template was cloned and scaffolded into `../Hammerfall-dummy-app`.
 * `PROJECT_RULES.md` and `REPLIT_INSTRUCTIONS.md` were injected successfully.
-* Staged specs (`dummy-task-PRD.md` and `dummy-task-ux-style-guide.md`) were identified and moved to `specs/ready/`.
+* Staged specs (`PRD.md`, `style_guide.md`, `market_research.md`, `implementation_plan.md`) were identified and moved to `specs/ready/`.
 * Git was initialized and branches `main`, `develop`, and `replit/ui-v1` were pushed to the remote repository.
-* The local Supabase environment was scaffolded and the active branch was set to `develop`.
+* The local Supabase environment was scaffolded, DB linked, and the active branch was set to `develop`.
 
 ## Current State
 * Project `dummy-app` repository is spun up correctly.
@@ -22,4 +22,5 @@ The "go word" for project `dummy-app` was issued. The `bootstrap.sh` script was 
 * Local environment is prepared for AntiGravity DOER agents.
 
 ## Next Actions
-* Maxwell can now assign PM or FE tasks for dummy-app development.
+* Maxwell can now assign FE/BE tasks for dummy-app development using the `develop` branch.
+

@@ -1,4 +1,3 @@
 # Scout — ShortTerm Scratchpad
 
-Active working memory for the current session.
-Transfer relevant entries to BEHAVIORAL_PROFILE.md at session end, then clear this file.
+*Flushed following dummy-app phase closure (2026-03-27).*
