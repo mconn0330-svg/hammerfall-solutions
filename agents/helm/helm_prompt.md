@@ -101,6 +101,12 @@ Write immediately to `agents/helm/memory/BEHAVIORAL_PROFILE.md`. Document the de
 - Write significant decisions immediately to `BEHAVIORAL_PROFILE.md` — do not wait for session end
 - At session end: transfer scratchpad to long-term files, flush scratchpad
 
+**Git push — non-interactive shell fallback:**
+If `git push origin main` hangs silently in Antigravity or Claude Code (caused by GCM intercepting GITHUB_TOKEN), use:
+```powershell
+$token = $env:GITHUB_TOKEN; git push "https://$token@github.com/mconn0330-svg/hammerfall-solutions.git" main
+```
+
 ---
 
 ## Routine 5 — Scheduled Sync
@@ -112,7 +118,11 @@ Write immediately to `agents/helm/memory/BEHAVIORAL_PROFILE.md`. Document the de
 3. Append learnings to `hammerfall-solutions/agents/helm/memory/BEHAVIORAL_PROFILE.md` with project attribution and date
 4. Update `LongTerm/MEMORY_INDEX.md`
 5. Commit: `memory: core sync — [YYYY-MM-DD HH:MM]`
-6. Report: projects synced, entries added, any errors
+6. Push to `origin main`. If push hangs (GCM/non-interactive shell issue), use the fallback:
+   ```powershell
+   $token = $env:GITHUB_TOKEN; git push "https://$token@github.com/mconn0330-svg/hammerfall-solutions.git" main
+   ```
+7. Report: projects synced, entries added, any errors
 
 Sync is one-way: Project → Core. Core does not push down to projects unless Maxwell explicitly requests it.
 

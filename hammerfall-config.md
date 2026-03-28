@@ -40,6 +40,21 @@ github_token_env: GITHUB_TOKEN
 *Note: `gh auth login` handles most GitHub CLI operations. This token is used
 for any programmatic API calls Helm needs to make (PR checks, file reads, etc.)*
 
+### ⚠️ Known Issue — Git Push Hangs in Non-Interactive Shell (Antigravity / Claude Code)
+
+**Root cause:** `GITHUB_TOKEN` is set as a shell environment variable, which causes Git Credential Manager (GCM) to intercept HTTPS pushes. In a non-interactive PowerShell session (Antigravity, Claude Code), GCM has no TTY to surface its authentication prompt and hangs silently.
+
+**Standard push (works in a normal interactive terminal):**
+```bash
+git push origin main
+```
+
+**Fallback push (use when the above hangs in Antigravity or Claude Code):**
+```powershell
+$token = $env:GITHUB_TOKEN; git push "https://$token@github.com/mconn0330-svg/hammerfall-solutions.git" main
+```
+For project repos, replace the URL with the appropriate GitHub repo path.
+
 ---
 
 ## Vercel
