@@ -101,9 +101,28 @@ Core Helm, Scout, Muse. These agents run in the Claude.ai Project and cannot aut
 
 | Project | Status | Notes |
 |---------|--------|-------|
-| IBIS | Staged and ready | PRD and Style Guide in staging_area/ibis/. First test run tonight. |
+| IBIS (v1) | Defunct | Scaffolded at `../ibis`. Deprecated by Maxwell (March 2026). Do not use. |
+| project-icarus | Defunct | Scaffolded at `../project-icarus`. Deprecated by Maxwell (March 2026). Do not use. |
 | Hammerfall AAO v3 | live on main | Pipeline pivot complete. Validated March 2026. |
 | bootstrap_test_run | Completed - not launched | E2E System Test. Repo/DB scaffolded and then deleted by Maxwell. |
+| dummy-app | Launched / Active | Repo scaffolded, DB provisioned, specs injected (March 2026). FE/BE dev ready. |
+
+---
+
+## Project Syncs
+
+### 2026-03-28 — dummy-app Initial Build Complete (Project Helm)
+
+**Context:** Project Helm from dummy-app (Repo: ../Hammerfall-dummy-app) synced via Routine 5 scheduled sync.
+
+**Decision:** Accept Replit frontend as-is with minor tokenization fixes.
+**Reasoning:** UX Lead report confirmed all components match the Neo-Terminal style guide. Only 3 hardcoded hex values needed to be promoted to Tailwind tokens (`terminal-highlight`, `terminal-separator`, `terminal-bar`). No structural or behavioral changes required. This preserves Replit's production-quality output and avoids unnecessary rewrites.
+
+**Decision:** Testing stack established as Jest 30 + RTL (unit) and Playwright (E2E/chaos).
+**Reasoning:** Per PROJECT_RULES.md Rule 6 — no exceptions. Cypress, Selenium, Puppeteer are banned. 101 unit tests covering all components, utilities, and integration. Chaos suite covers XSS, massive payloads, rapid-fire interactions, SQL injection attempts, and empty-state edge cases.
+
+**Decision:** `setupFilesAfterEnv` is the correct Jest config key for test setup files.
+**Reasoning:** `setupFiles` runs before the framework; `setupFilesAfterEnv` runs after jsdom is initialized, which is required for `@testing-library/jest-dom` matchers to attach to `expect`.
 
 ---
 
