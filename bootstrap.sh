@@ -8,6 +8,24 @@
 # =============================================================
 set -e
 
+# ── Self-Healing Bash Resolver ────────────────────────────────
+# Dynamically derives Git Bash path via 'where git' to handle
+# non-standard install locations. Re-invokes via Git Bash if
+# running under Windows system bash or MINGW/CYGWIN environments.
+_UNAME="$(uname -s 2>/dev/null || echo unknown)"
+if [[ "$_UNAME" == MINGW* ]] || [[ "$_UNAME" == CYGWIN* ]] || \
+   { [ -n "$WINDIR" ] && [ "$_UNAME" = "Linux" ] && \
+     grep -qi "microsoft" /proc/version 2>/dev/null; }; then
+  GIT_BASH="$(where git 2>/dev/null | head -1 | \
+    sed 's|\\cmd\\git.exe|\\bin\\bash.exe|')"
+  if [ -n "$GIT_BASH" ] && [ -f "$GIT_BASH" ]; then
+    echo "Re-invoking via Git Bash: $GIT_BASH"
+    exec "$GIT_BASH" "$0" "$@"
+  else
+    echo "WARNING: Could not locate Git Bash dynamically. Proceeding with current shell."
+  fi
+fi
+
 # ── 1. Parameter Validation ───────────────────────────────────
 PROJECT_NAME=$1
 if [ -z "$PROJECT_NAME" ]; then
