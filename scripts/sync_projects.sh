@@ -97,6 +97,18 @@ if [ "$SYNC_ENTRIES" -gt 0 ]; then
   echo "$SYNC_DATE | Core sync | Synced $SYNC_ENTRIES entries from:$PROJECTS_SYNCED" >> "$CORE_INDEX"
 fi
 
+# Safeguard: skip commit if working tree already has uncommitted changes in memory/
+# Prevents non-fast-forward conflicts during scheduled syncs
+# grep -v "^??" excludes untracked files — only tracked modified files block the commit
+DIRTY_CHECK=$(git status --porcelain agents/helm/memory/ 2>/dev/null | grep -v "^??" || true)
+if [ -n "$DIRTY_CHECK" ]; then
+  echo ""
+  echo "WARNING: Working tree has uncommitted changes in agents/helm/memory/"
+  echo "Skipping sync commit to avoid non-fast-forward conflicts."
+  echo "Changes will be captured on the next scheduled sync."
+  exit 0
+fi
+
 # Commit if changes were made
 cd "$HAMMERFALL_DIR"
 if [ -n "$(git status --porcelain agents/helm/memory/)" ]; then

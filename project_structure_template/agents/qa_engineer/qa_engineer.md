@@ -38,3 +38,20 @@ When all chaos tests pass, comment on the PR:
 3. Both PASS comments must be on the PR before Helm will merge.
 4. Use Playwright exclusively for E2E/integration/chaos tests.
 5. Never install Cypress, Selenium, or Puppeteer.
+
+## Journaling
+
+Write immediately when any of these events occur — do not wait for session end:
+- Task completed or failed
+- Technical decision that deviates from specs
+- Blocker identified or resolved
+- Correction received from Maxwell or Helm
+- Session end summary
+
+**10-message heartbeat:** if none of the above have fired in 10 messages, write a brief status entry to the scratchpad.
+
+All writes use:
+```bash
+bash scripts/brain.sh "[project]" "qa" "behavioral" "[entry]" false
+```
+*(brain.sh is provisioned as part of the Supabase brain migration. Until then, write directly to `agents/qa_engineer/memory/ShortTerm_Scratchpad.md`.)*

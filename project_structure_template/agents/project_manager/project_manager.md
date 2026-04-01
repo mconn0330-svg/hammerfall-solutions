@@ -35,3 +35,20 @@ Storage Triggers
 * Sprint completed → archive to LongTerm/, update index, flush scratchpad
 * Helm or Maxwell corrects approach → update BEHAVIORAL_PROFILE.md, document the reasoning not just the correction
 * Maxwell says "log this" → append to BEHAVIORAL_PROFILE.md, update index, commit: "memory: [date] — [topic]", confirm to Maxwell what was written
+
+## Journaling
+
+Write immediately when any of these events occur — do not wait for session end:
+- Task completed or failed
+- Technical decision that deviates from specs
+- Blocker identified or resolved
+- Correction received from Maxwell or Helm
+- Session end summary
+
+**10-message heartbeat:** if none of the above have fired in 10 messages, write a brief status entry to the scratchpad.
+
+All writes use:
+```bash
+bash scripts/brain.sh "[project]" "pm" "behavioral" "[entry]" false
+```
+*(brain.sh is provisioned as part of the Supabase brain migration. Until then, write directly to `agents/project_manager/memory/ShortTerm_Scratchpad.md`.)*

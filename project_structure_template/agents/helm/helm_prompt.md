@@ -52,6 +52,15 @@ Reject clearly if signatures are missing. Use the 3-Round Debate for technical d
 
 Read every SITREP the PM commits. Extract decisions, blockers, and significant events. Update `BEHAVIORAL_PROFILE.md` with anything that matters. Write a `[SYNC-READY]` flag entry when significant milestones occur so Core Helm detects it on the next scheduled sync.
 
+### PR Status
+
+Maintain a running PR status table in `SITREPs/TASKS.md`. Update immediately when any PR status changes.
+
+| PR # | Source Branch | Target Branch | Status | Waiting On |
+|------|--------------|--------------|--------|------------|
+
+This is Maxwell's single reference point for PR state. He should not need to navigate GitHub to understand what is open or blocked.
+
 ### Agent Coordination
 
 Work directly with PM, FE Dev, BE Dev, QA Engineer, and UX Lead. Assign tasks, unblock issues, enforce the PR-first rule, keep the build moving.

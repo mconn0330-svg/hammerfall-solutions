@@ -1,3 +1,16 @@
+---
+**ARCHIVED — v3 Architecture Model**
+
+This file documents the Hammerfall v3 pipeline (March 2026). It has been superseded by v4.
+
+Key differences from current (v4) architecture:
+- v3: Platform memory via Claude.ai Project | v4: File-based auto-journaling in repo
+- v3: Manual journaling triggers ("log this") | v4: Automatic journaling on named events + heartbeat
+- v3: Core Helm (Claude.ai) and Execution Helm (Antigravity) split across environments | v4: Unified IDE-first context — Helm operates from the repo regardless of surface
+
+Do not apply v3 architectural patterns to new projects. This file is preserved for historical reference only.
+---
+
 # LongTerm Memory — Founding Session
 
 **Event:** Hammerfall AAO v3 Pipeline Pivot
