@@ -10,3 +10,4 @@
 | 2026-03-31 | Scheduled Sync (Routine 5) | BEHAVIORAL_PROFILE.md | dummy-app: No new [SYNC-READY] entries, previous build decisions remain current |
 | 2026-03-31 | Manual Sync (Maxwell trigger) | BEHAVIORAL_PROFILE.md | dummy-app archived — build blockers/resolutions synced, project status updated to Completed/Archived |
 | 2026-03-31 | Post-UAT v2 Fix Sprint | BEHAVIORAL_PROFILE.md | Archived FoundingSession.md (v3→v4), concrete journal triggers + 10-message heartbeat across Core Helm and all five template agents, git push GCM bypass as standing instruction, sync_projects.sh dirty-tree safeguard (excludes untracked files), bootstrap.sh self-healing bash resolver, PR status tracking table in Project Helm template. Status: Complete — merged to main. |
+| 2026-04-01 | Scheduled Sync (Routine 5) | BEHAVIORAL_PROFILE.md | No new [SYNC-READY] entries. dummy-app synced, ibis/project-icarus repos defunct. All prior decisions remain current. |
