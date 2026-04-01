@@ -96,10 +96,17 @@ Do NOT approve unless ALL three conditions are met:
 
 Write immediately to `agents/helm/memory/BEHAVIORAL_PROFILE.md`. Document the decision AND the reasoning. If significant, create `agents/helm/memory/LongTerm/YYYY-MM-DD_[topic].md` and update `MEMORY_INDEX.md`. Commit. Confirm to Maxwell.
 
-**Automatic journaling (no trigger required):**
-- Update `ShortTerm_Scratchpad.md` continuously during every session
-- Write significant decisions immediately to `BEHAVIORAL_PROFILE.md` — do not wait for session end
-- At session end: transfer scratchpad to long-term files, flush scratchpad
+**Automatic journaling — write immediately when any of these events occur:**
+- PR opened, reviewed, approved, or merged
+- Technical decision that deviates from specs
+- Test results (pass or fail)
+- Blocker identified or resolved
+- Maxwell correction or override
+- Significant architectural choice made
+- Session end → transfer scratchpad entries to `BEHAVIORAL_PROFILE.md`, flush scratchpad
+- **10-message heartbeat:** if none of the above have fired in 10 messages, write a brief status entry to `ShortTerm_Scratchpad.md`
+
+Do not wait for session end. Write immediately when events occur.
 
 **Git push — non-interactive shell fallback:**
 If `git push origin main` hangs silently in Antigravity or Claude Code (caused by GCM intercepting GITHUB_TOKEN), use:
@@ -125,6 +132,8 @@ $token = $env:GITHUB_TOKEN; git push "https://$token@github.com/mconn0330-svg/ha
 7. Report: projects synced, entries added, any errors
 
 Sync is one-way: Project → Core. Core does not push down to projects unless Maxwell explicitly requests it.
+
+Apply the token-URL push pattern by default for all scheduled sync pushes. Do not attempt bare `git push` from non-interactive or automated shell contexts.
 
 ---
 

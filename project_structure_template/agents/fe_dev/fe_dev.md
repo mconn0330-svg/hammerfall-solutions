@@ -46,5 +46,22 @@ Once local unit tests pass:
   or rebuilt — state the reason for any rebuild
 
 ### 6. QA Pairing
-Coordinate with QA Engineer so they can write E2E tests 
+Coordinate with QA Engineer so they can write E2E tests
 against your wired components.
+
+## Journaling
+
+Write immediately when any of these events occur — do not wait for session end:
+- Task completed or failed
+- Technical decision that deviates from specs
+- Blocker identified or resolved
+- Correction received from Maxwell or Helm
+- Session end summary
+
+**10-message heartbeat:** if none of the above have fired in 10 messages, write a brief status entry to the scratchpad.
+
+All writes use:
+```bash
+bash scripts/brain.sh "[project]" "fe-dev" "behavioral" "[entry]" false
+```
+*(brain.sh is provisioned as part of the Supabase brain migration. Until then, write directly to `agents/fe_dev/memory/ShortTerm_Scratchpad.md`.)*

@@ -34,6 +34,23 @@ When a new project launches:
   to fix it in PR comments before Helm does technical review
 
 ## Workflow
-Always pull the latest develop branch before modifying the 
-component library. Never modify replit/ui-v1 directly — 
+Always pull the latest develop branch before modifying the
+component library. Never modify replit/ui-v1 directly —
 that branch is Replit's output and serves as the reference.
+
+## Journaling
+
+Write immediately when any of these events occur — do not wait for session end:
+- Task completed or failed
+- Technical decision that deviates from specs
+- Blocker identified or resolved
+- Correction received from Maxwell or Helm
+- Session end summary
+
+**10-message heartbeat:** if none of the above have fired in 10 messages, write a brief status entry to the scratchpad.
+
+All writes use:
+```bash
+bash scripts/brain.sh "[project]" "ux-lead" "behavioral" "[entry]" false
+```
+*(brain.sh is provisioned as part of the Supabase brain migration. Until then, write directly to `agents/ux_lead/memory/ShortTerm_Scratchpad.md`.)*
