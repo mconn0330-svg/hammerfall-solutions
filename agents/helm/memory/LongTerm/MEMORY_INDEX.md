@@ -8,3 +8,4 @@
 | 2026-03-28 | Scheduled Sync (Routine 5) | BEHAVIORAL_PROFILE.md | dummy-app build decisions: Replit frontend tokenization, Jest 30 + RTL + Playwright testing stack, setupFilesAfterEnv config |
 | 2026-03-30 | Scheduled Sync (Routine 5) | BEHAVIORAL_PROFILE.md | Status check: dummy-app build stable, no new [SYNC-READY] entries, testing in progress |
 | 2026-03-31 | Scheduled Sync (Routine 5) | BEHAVIORAL_PROFILE.md | dummy-app: No new [SYNC-READY] entries, previous build decisions remain current |
+| 2026-03-31 | Manual Sync (Maxwell trigger) | BEHAVIORAL_PROFILE.md | dummy-app archived — build blockers/resolutions synced, project status updated to Completed/Archived |

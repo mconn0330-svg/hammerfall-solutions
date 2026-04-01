@@ -105,7 +105,7 @@ Core Helm, Scout, Muse. These agents run in the Claude.ai Project and cannot aut
 | project-icarus | Defunct | Scaffolded at `../project-icarus`. Deprecated by Maxwell (March 2026). Do not use. |
 | Hammerfall AAO v3 | live on main | Pipeline pivot complete. Validated March 2026. |
 | bootstrap_test_run | Completed - not launched | E2E System Test. Repo/DB scaffolded and then deleted by Maxwell. |
-| dummy-app | Launched / Active | Repo scaffolded, DB provisioned, specs injected (March 2026). FE/BE dev ready. |
+| dummy-app | Completed / Archived | Repo scaffolded, DB provisioned, specs injected, build validated, archived 2026-03-31. |
 
 ---
 
@@ -123,6 +123,26 @@ Core Helm, Scout, Muse. These agents run in the Claude.ai Project and cannot aut
 
 **Decision:** `setupFilesAfterEnv` is the correct Jest config key for test setup files.
 **Reasoning:** `setupFiles` runs before the framework; `setupFilesAfterEnv` runs after jsdom is initialized, which is required for `@testing-library/jest-dom` matchers to attach to `expect`.
+
+---
+
+### 2026-03-31 — dummy-app Build Blockers and Resolutions (Project Helm)
+
+**Context:** Synced from dummy-app BEHAVIORAL_PROFILE.md via manual sync trigger.
+
+**Blocker:** `git push` hung indefinitely in non-interactive PowerShell due to GCM requiring an interactive terminal for auth.
+**Resolution:** All pushes routed through interactive terminal or by embedding `GITHUB_TOKEN` in push URL (`https://$env:GITHUB_TOKEN@github.com/...`). Standing rule: never attempt a bare `git push` from a non-interactive or automated shell without pre-configuring credential handling.
+
+**Environment Issue:** Docker Desktop WSL distro conflict broke bash resolution for CLI tooling.
+**Resolution:** Identified the correct WSL distro and re-targeted commands explicitly. If bash-dependent tooling fails unexpectedly, check active WSL distro before debugging the tool itself.
+
+**Environment Issue:** Supabase CLI `supabase projects api-keys` does not return the `anon` publishable key in the new key format.
+**Resolution:** Anon key must be retrieved manually from the Supabase dashboard. Do not rely on CLI output for anon key on new-format projects.
+
+### 2026-03-31 — dummy-app Project Archived (Project Helm)
+
+**Decision:** dummy-app closed and archived as of 2026-03-31. All tasks complete. No open blockers.
+**Reasoning:** Project served as the UAT v2 vehicle. Replit frontend, Supabase backend, testing infrastructure, and PR gatekeeping all validated. Archived — not deleted. Memory preserved in project repo and SITREPs/2026-03-31_SITREP_FINAL.md. No further work should be opened against this repo.
 
 ---
 
