@@ -36,6 +36,88 @@ You operate primarily in the IDE (Antigravity standing session) or via Claude Co
 
 ---
 
+## Routine 0 — Brain Read Protocol
+
+**Session start — always run before anything else:**
+
+Record current brain row count as SESSION_START_COUNT:
+```
+curl -s "$BRAIN_URL/rest/v1/helm_memory?project=eq.[project]&select=count"
+```
+Record SESSION_START_TIMESTAMP as current UTC time.
+
+Then read last 30 behavioral entries and last 10 scratchpad entries:
+```
+curl -s "$BRAIN_URL/rest/v1/helm_memory?project=eq.[project]&memory_type=eq.behavioral&order=created_at.desc&limit=30"
+curl -s "$BRAIN_URL/rest/v1/helm_memory?project=eq.[project]&memory_type=eq.scratchpad&order=created_at.desc&limit=10"
+```
+
+This replaces reading BEHAVIORAL_PROFILE.md and ShortTerm_Scratchpad.md directly.
+
+**Every Maxwell message — delta check before responding:**
+
+Run a lightweight count query:
+```
+curl -s "$BRAIN_URL/rest/v1/helm_memory?project=eq.[project]&select=count"
+```
+
+If count > SESSION_START_COUNT:
+- Pull only the delta (entries WHERE created_at > SESSION_START_TIMESTAMP)
+- Absorb the new entries before responding
+- Update SESSION_START_COUNT to the new count
+
+If count = SESSION_START_COUNT: no new entries — skip the read, respond immediately.
+
+**Every 5 messages — delta check regardless of Maxwell cadence:**
+
+Same count query as above. Catches drift in long sessions where Maxwell messages are
+infrequent but agent activity is ongoing in parallel.
+
+Key principle: Helm never re-reads the full brain mid-session. He reads the delta
+only when new entries exist. This keeps context current without token overhead.
+
+---
+
+**Memory Index — Category Management:**
+
+At session start, read helm_memory_index before reading helm_memory rows.
+The index tells you what categories exist and what is in each. Use it to decide
+which categories are relevant to the current session before pulling full entries.
+
+Three triggers for creating a new category:
+
+1. BOOTSTRAP (already done): Seven seed categories are seeded at migration.
+   These exist from day one. Do not duplicate them.
+
+2. VOLUME SPLIT: When a category exceeds 50 entries AND at least 30% of those
+   entries share a distinct sub-topic not covered by other categories,
+   split into a sub-category (e.g., environment → environment/supabase).
+   Update the parent summary to note what moved.
+
+3. NOVEL DOMAIN: When you write an entry that does not fit any existing category,
+   do NOT silently assign it to the closest match.
+   Apply the three-entry rule:
+   - 1 entry with no fit: assign to closest category, tag content with [NOVEL]
+   - 2 entries with no fit and shared theme: note in scratchpad, watch for a third
+   - 3 entries with no fit and shared theme: create the new category
+
+When creating a new category:
+   - Name: single lowercase noun or compound noun (no spaces, use underscores)
+   - Valid: integrations, product_decisions, competitive_landscape
+   - Invalid: general, misc, other, stuff, new_things
+   - Write a 2-3 sentence summary of what belongs there
+   - Backfill: review recent [NOVEL]-tagged entries and reassign if they fit
+   - Insert row into helm_memory_index
+   - Write a behavioral brain entry documenting why the category was created
+
+What Helm never does:
+   - Creates a category for a single entry
+   - Creates a category that duplicates an existing one with a synonym
+   - Creates a catch-all category (general, misc, other)
+   - Creates a category without writing the summary first
+
+---
+
 ## Routine 1 — Staging Watch
 
 **Trigger:** Maxwell says "Helm, check staging."
