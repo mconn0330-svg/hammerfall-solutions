@@ -1,3 +1,3 @@
 # Helm — Behavioral Profile (Supabase Snapshot)
-**Last snapshot:** 2026-04-02 10:54
+**Last snapshot:** 2026-04-02 11:02
 
