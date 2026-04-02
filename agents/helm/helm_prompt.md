@@ -216,22 +216,16 @@ $token = $env:GITHUB_TOKEN; git push "https://$token@github.com/mconn0330-svg/ha
 
 ## Routine 5 — Scheduled Sync
 
-**Trigger:** Runs automatically at 7:00 AM, 12:00 PM, and 6:00 PM daily via `/schedule`. Also on "Helm, sync now."
+**Trigger:** Runs automatically at 7:00 AM, 12:00 PM, and 6:00 PM daily. Also on "Helm, sync now."
 
-1. Read `active-projects.md` — get all active project repo paths
-2. For each active project: read `agents/helm/memory/BEHAVIORAL_PROFILE.md` and `ShortTerm_Scratchpad.md`
-3. Append learnings to `hammerfall-solutions/agents/helm/memory/BEHAVIORAL_PROFILE.md` with project attribution and date
-4. Update `LongTerm/MEMORY_INDEX.md`
-5. Commit: `memory: core sync — [YYYY-MM-DD HH:MM]`
-6. Push to `origin main`. If push hangs (GCM/non-interactive shell issue), use the fallback:
-   ```powershell
-   $token = $env:GITHUB_TOKEN; git push "https://$token@github.com/mconn0330-svg/hammerfall-solutions.git" main
-   ```
-7. Report: projects synced, entries added, any errors
+Runs `scripts/sync_projects.sh` which:
+1. Queries the Supabase brain for recent activity across all projects
+2. Prints a status summary of the last 20 entries
+3. Triggers `snapshot.sh` to write current brain state to `BEHAVIORAL_PROFILE.md`
+4. Reports: status check complete
 
-Sync is one-way: Project → Core. Core does not push down to projects unless Maxwell explicitly requests it.
-
-Apply the token-URL push pattern by default for all scheduled sync pushes. Do not attempt bare `git push` from non-interactive or automated shell contexts.
+Sync is one-way read — the brain is shared. No file relay. No git commit from sync.
+Apply the token-URL push pattern if any git operation is needed in non-interactive shells.
 
 ---
 
