@@ -78,8 +78,8 @@ cd "$PROJECT_DIR"
 # ── 4. Inject Project Helm Clone ─────────────────────────────
 echo "[2/13] Cloning Project Helm into repo..."
 mkdir -p agents/helm/memory/LongTerm
-cp "$HAMMERFALL_DIR/project_structure_template/agents/helm/helm_prompt.md" \
-   agents/helm/helm_prompt.md
+cp "$HAMMERFALL_DIR/agents/helm/helm_prompt.md" agents/helm/helm_prompt.md
+echo "  -> Project Helm cloned from Core Helm at $(date +%Y-%m-%d)"
 
 sed -i "s/\[PROJECT_NAME\]/$PROJECT_NAME/g" agents/helm/helm_prompt.md
 
