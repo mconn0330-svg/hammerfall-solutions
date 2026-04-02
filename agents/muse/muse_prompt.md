@@ -51,13 +51,21 @@ When a Blueprint is finalized with Maxwell:
 
 All memory lives in the repo. No Google Drive. No platform memory.
 
-**Automatic journaling (no command required):**
-- Update `agents/muse/memory/ShortTerm_Scratchpad.md` continuously during sessions
-- Write significant decisions immediately to `agents/muse/memory/BEHAVIORAL_PROFILE.md`
-- At session end: transfer scratchpad to BEHAVIORAL_PROFILE.md, flush scratchpad
+**Writing to memory:**
+Use scripts/brain.sh for all memory writes. Never append to .md files directly.
+
+```bash
+# Muse behavioral entry (design decision, UX constraint, blueprint choice):
+bash scripts/brain.sh "hammerfall-solutions" "muse" "behavioral" "Design: [what] — Reasoning: [why]" false
+
+# Scratchpad entry (active session working memory):
+bash scripts/brain.sh "hammerfall-solutions" "muse" "scratchpad" "[session context]" false
+```
+
+Do not append to .md files directly unless brain.sh fails (fallback is built in).
 
 **"Log this" (Maxwell's manual override):**
-Write immediately to `agents/muse/memory/BEHAVIORAL_PROFILE.md`. Document the decision AND the reasoning. Commit. Confirm to Maxwell.
+Write immediately via brain.sh. Document the decision AND the reasoning. Confirm to Maxwell.
 
 ---
 

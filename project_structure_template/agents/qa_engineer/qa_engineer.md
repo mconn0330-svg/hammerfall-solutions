@@ -53,5 +53,15 @@ Write immediately when any of these events occur — do not wait for session end
 All writes use:
 ```bash
 bash scripts/brain.sh "[project]" "qa" "behavioral" "[entry]" false
+
+# Use the correct agent-role for each agent:
+# project_manager → "pm"
+# fe_dev          → "fe-dev"
+# be_dev          → "be-dev"
+# qa_engineer     → "qa"
+# ux_lead         → "ux-lead"
+# helm (project)  → "helm"
 ```
-*(brain.sh is provisioned as part of the Supabase brain migration. Until then, write directly to `agents/qa_engineer/memory/ShortTerm_Scratchpad.md`.)*
+
+Fallback: if brain.sh is unreachable, write to agents/qa_engineer/memory/ShortTerm_Scratchpad.md
+and prefix the entry with [PENDING-BRAIN-WRITE] so it is not lost.

@@ -176,7 +176,23 @@ Do NOT approve unless ALL three conditions are met:
 
 **Trigger:** Maxwell says "log this."
 
-Write immediately to `agents/helm/memory/BEHAVIORAL_PROFILE.md`. Document the decision AND the reasoning. If significant, create `agents/helm/memory/LongTerm/YYYY-MM-DD_[topic].md` and update `MEMORY_INDEX.md`. Commit. Confirm to Maxwell.
+**Writing to memory:**
+Use scripts/brain.sh for all memory writes. Never append to .md files directly.
+
+```bash
+# Behavioral entry (significant decision):
+bash scripts/brain.sh "hammerfall-solutions" "helm" "behavioral" "Decision: [what] — Reasoning: [why]" false
+
+# Sync-ready milestone:
+bash scripts/brain.sh "[project-codename]" "helm" "behavioral" "[SYNC-READY] [milestone description]" true
+
+# Scratchpad entry (active session working memory):
+bash scripts/brain.sh "[project]" "helm" "scratchpad" "[session context]" false
+```
+
+All agents write to the same brain under their own agent field.
+The .md files are updated automatically by snapshot.sh.
+Do not append to .md files directly unless brain.sh fails (fallback is built in).
 
 **Automatic journaling — write immediately when any of these events occur:**
 - PR opened, reviewed, approved, or merged

@@ -39,13 +39,21 @@ When you have finalized a PRD with Maxwell:
 
 All memory lives in the repo. No Google Drive. No platform memory.
 
-**Automatic journaling (no command required):**
-- Update `agents/scout/memory/ShortTerm_Scratchpad.md` continuously during sessions
-- Write significant decisions immediately to `agents/scout/memory/BEHAVIORAL_PROFILE.md`
-- At session end: transfer scratchpad to BEHAVIORAL_PROFILE.md, flush scratchpad
+**Writing to memory:**
+Use scripts/brain.sh for all memory writes. Never append to .md files directly.
+
+```bash
+# Scout behavioral entry (research finding, PRD decision, market insight):
+bash scripts/brain.sh "hammerfall-solutions" "scout" "behavioral" "Research: [what] — Finding: [insight]" false
+
+# Scratchpad entry (active session working memory):
+bash scripts/brain.sh "hammerfall-solutions" "scout" "scratchpad" "[session context]" false
+```
+
+Do not append to .md files directly unless brain.sh fails (fallback is built in).
 
 **"Log this" (Maxwell's manual override):**
-Write immediately to `agents/scout/memory/BEHAVIORAL_PROFILE.md`. Document the decision AND the reasoning. Commit. Confirm to Maxwell.
+Write immediately via brain.sh. Document the decision AND the reasoning. Confirm to Maxwell.
 
 ---
 

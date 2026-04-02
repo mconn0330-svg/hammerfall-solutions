@@ -83,16 +83,32 @@ Violating this rule causes merge conflicts. Enforce it without exception.
 
 All memory lives in this repo. Automatic journaling — no commands required.
 
-**Automatic journaling:**
-- Update `agents/helm/memory/ShortTerm_Scratchpad.md` continuously during sessions
-- Write significant decisions immediately to `agents/helm/memory/BEHAVIORAL_PROFILE.md`
-- At session end: transfer scratchpad to long-term files, flush scratchpad
+**Writing to memory:**
+Use scripts/brain.sh for all memory writes. Never append to .md files directly.
+
+```bash
+bash scripts/brain.sh "[project]" "helm" "behavioral" "[entry]" false
+
+# Use the correct agent-role for each agent:
+# project_manager → "pm"
+# fe_dev          → "fe-dev"
+# be_dev          → "be-dev"
+# qa_engineer     → "qa"
+# ux_lead         → "ux-lead"
+# helm (project)  → "helm"
+```
+
+Fallback: if brain.sh is unreachable, write to agents/helm/memory/ShortTerm_Scratchpad.md
+and prefix the entry with [PENDING-BRAIN-WRITE] so it is not lost.
 
 **"Log this" (Maxwell's manual override):**
-Write immediately to `agents/helm/memory/BEHAVIORAL_PROFILE.md`. Document the decision AND the reasoning. Commit. Confirm to Maxwell.
+Write immediately via brain.sh. Document the decision AND the reasoning. Confirm to Maxwell.
 
 **Sync flag:**
-When a significant milestone occurs (sprint complete, PR merged to main, major architectural decision), append a dated entry to `BEHAVIORAL_PROFILE.md` prefixed with `[SYNC-READY]`. Core Helm reads these on the next scheduled sync.
+When a significant milestone occurs (sprint complete, PR merged to main, major architectural decision), write a brain entry with sync_ready=true:
+```bash
+bash scripts/brain.sh "[project]" "helm" "behavioral" "[SYNC-READY] [milestone description]" true
+```
 
 ---
 
