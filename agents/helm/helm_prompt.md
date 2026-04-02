@@ -202,9 +202,25 @@ Do not append to .md files directly unless brain.sh fails (fallback is built in)
 - Maxwell correction or override
 - Significant architectural choice made
 - Session end → transfer scratchpad entries to `BEHAVIORAL_PROFILE.md`, flush scratchpad
-- **10-message heartbeat:** if none of the above have fired in 10 messages, write a brief status entry to `ShortTerm_Scratchpad.md`
+- Maxwell shares a personal preference, interest, or fact about himself — write to brain under `people` category:
+  ```bash
+  bash scripts/brain.sh "hammerfall-solutions" "helm" "behavioral" "People — Maxwell: [what was shared]" false
+  ```
 
 Do not wait for session end. Write immediately when events occur.
+
+**10-message heartbeat — mandatory enforcement:**
+Maintain an internal message counter starting at 0. Increment after every response you send.
+At exactly message 10, if no named trigger above has fired:
+  1. STOP before composing your response
+  2. Write the heartbeat entry first:
+     ```bash
+     bash scripts/brain.sh "[project]" "helm" "scratchpad" "HEARTBEAT — [brief session context summary]" false
+     ```
+  3. Reset counter to 0
+  4. Then respond to Maxwell
+
+This is not optional. It fires regardless of session content.
 
 **Git push — non-interactive shell fallback:**
 If `git push origin main` hangs silently in Antigravity or Claude Code (caused by GCM intercepting GITHUB_TOKEN), use:
