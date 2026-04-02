@@ -27,19 +27,22 @@ SERVICE_KEY="${!SERVICE_KEY_ENV}"
 
 echo "== Hammerfall Brain Status Check — $(date '+%Y-%m-%d %H:%M') =="
 
+# --ssl-no-revoke: required on Windows/schannel to bypass certificate revocation check
 # Query recent brain activity across all projects
-RECENT=$(curl -s \
+RECENT=$(curl -s --ssl-no-revoke \
   "$BRAIN_URL/rest/v1/helm_memory?order=created_at.desc&limit=20&select=project,agent,memory_type,content,created_at" \
   -H "apikey: $SERVICE_KEY" \
   -H "Authorization: Bearer $SERVICE_KEY")
 
-echo "$RECENT" | python3 -c '
-import sys, json
-entries = json.load(sys.stdin)
-print(f"Recent brain entries: {len(entries)}")
-for e in entries:
-    print(f"  [{e[\"created_at\"][:16]}] {e[\"project\"]}/{e[\"agent\"]} ({e[\"memory_type\"]}): {e[\"content\"][:80]}")
-'
+echo "$RECENT" | node -e "
+  let d = '';
+  process.stdin.on('data', c => d += c);
+  process.stdin.on('end', () => {
+    const entries = JSON.parse(d);
+    console.log('Recent brain entries: ' + entries.length);
+    entries.forEach(e => console.log('  [' + e.created_at.slice(0,16) + '] ' + e.project + '/' + e.agent + ' (' + e.memory_type + '): ' + e.content.slice(0,80)));
+  });
+"
 
 # Trigger .md snapshot for hammerfall-solutions
 bash "$(dirname "$0")/snapshot.sh" hammerfall-solutions helm

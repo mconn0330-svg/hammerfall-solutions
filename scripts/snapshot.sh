@@ -17,8 +17,9 @@ HAMMERFALL_DIR="$(dirname "$0")/.."
 
 echo "Writing .md snapshot for $PROJECT/$AGENT..."
 
+# --ssl-no-revoke: required on Windows/schannel to bypass certificate revocation check
 # Fetch behavioral entries
-BEHAVIORAL=$(curl -s \
+BEHAVIORAL=$(curl -s --ssl-no-revoke \
   "$BRAIN_URL/rest/v1/helm_memory?project=eq.$PROJECT&agent=eq.$AGENT&memory_type=eq.behavioral&order=created_at.asc" \
   -H "apikey: $SERVICE_KEY" \
   -H "Authorization: Bearer $SERVICE_KEY")
@@ -29,11 +30,13 @@ echo "# Helm — Behavioral Profile (Supabase Snapshot)" > "$PROFILE_PATH"
 echo "**Last snapshot:** $(date '+%Y-%m-%d %H:%M')" >> "$PROFILE_PATH"
 echo "" >> "$PROFILE_PATH"
 
-echo "$BEHAVIORAL" | python3 -c "
-import sys, json
-entries = json.load(sys.stdin)
-for e in entries:
-    print(f\"\n---\n**{e['session_date']}**\n{e['content']}\")
+echo "$BEHAVIORAL" | node -e "
+  let d = '';
+  process.stdin.on('data', c => d += c);
+  process.stdin.on('end', () => {
+    const entries = JSON.parse(d);
+    entries.forEach(e => process.stdout.write('\n---\n**' + e.session_date + '**\n' + e.content + '\n'));
+  });
 " >> "$PROFILE_PATH"
 
 echo "  -> Snapshot written to $PROFILE_PATH"

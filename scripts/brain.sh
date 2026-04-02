@@ -23,10 +23,15 @@ if [ -z "$BRAIN_URL" ] || [ -z "$SERVICE_KEY" ]; then
 fi
 
 # Escape content for JSON
-ESCAPED=$(echo "$CONTENT" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
+ESCAPED=$(node -e "
+  let d = '';
+  process.stdin.on('data', c => d += c);
+  process.stdin.on('end', () => process.stdout.write(JSON.stringify(d)));
+" <<< "$CONTENT")
 
+# --ssl-no-revoke: required on Windows/schannel to bypass certificate revocation check
 # Write to Supabase
-RESPONSE=$(curl -s -X POST \
+RESPONSE=$(curl -s --ssl-no-revoke -X POST \
   "$BRAIN_URL/rest/v1/helm_memory" \
   -H "apikey: $SERVICE_KEY" \
   -H "Authorization: Bearer $SERVICE_KEY" \
