@@ -29,21 +29,28 @@ ESCAPED=$(node -e "
   process.stdin.on('end', () => process.stdout.write(JSON.stringify(d)));
 " <<< "$CONTENT")
 
+# Write JSON to temp file — avoids Windows/Git Bash multi-byte UTF-8 corruption
+# when passing unicode characters (em dash, arrows, etc.) via shell string arguments to curl.
+TMPFILE=$(mktemp /tmp/brain_write_XXXXXX.json)
+printf '{"project":"%s","agent":"%s","memory_type":"%s","content":%s,"sync_ready":%s}' \
+  "$PROJECT" "$AGENT" "$TYPE" "$ESCAPED" "$SYNC_READY" > "$TMPFILE"
+
 # --ssl-no-revoke: required on Windows/schannel to bypass certificate revocation check
-# Write to Supabase
 RESPONSE=$(curl -s --ssl-no-revoke -X POST \
   "$BRAIN_URL/rest/v1/helm_memory" \
   -H "apikey: $SERVICE_KEY" \
   -H "Authorization: Bearer $SERVICE_KEY" \
   -H "Content-Type: application/json" \
-  -H "Prefer: return=minimal" \
-  -d "{\"project\":\"$PROJECT\",\"agent\":\"$AGENT\",\"memory_type\":\"$TYPE\",\"content\":$ESCAPED,\"sync_ready\":$SYNC_READY}")
+  -H "Prefer: return=representation" \
+  -d @"$TMPFILE")
+rm -f "$TMPFILE"
 
-if [ $? -eq 0 ]; then
-  echo "  -> Memory written: [$PROJECT/$AGENT/$TYPE] sync_ready=$SYNC_READY"
-else
-  echo "  ERROR: Failed to write memory. Falling back to .md append."
-  # Fallback: append to BEHAVIORAL_PROFILE.md
+# Check response body for errors — curl exit code is 0 on HTTP errors, so $? alone is insufficient
+if echo "$RESPONSE" | grep -q '"code"'; then
+  echo "  ERROR: Brain write failed — $(echo "$RESPONSE" | grep -o '"message":"[^"]*"')"
+  echo "  Falling back to .md append."
   echo "" >> "agents/$AGENT/memory/BEHAVIORAL_PROFILE.md"
   echo "$(date +%Y-%m-%d) | $CONTENT" >> "agents/$AGENT/memory/BEHAVIORAL_PROFILE.md"
+else
+  echo "  -> Memory written: [$PROJECT/$AGENT/$TYPE] sync_ready=$SYNC_READY"
 fi
