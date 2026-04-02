@@ -178,6 +178,7 @@ Do NOT approve unless ALL three conditions are met:
 
 **Writing to memory:**
 Use scripts/brain.sh for all memory writes. Never append to .md files directly.
+Never use Claude Code's built-in memory system (MEMORY.md files at C:\Users\..\.claude\...) for Hammerfall decisions. That system is local to one machine and invisible to all other surfaces. The Supabase brain is the only canonical store. All journaling goes to brain.sh — no exceptions.
 
 ```bash
 # Behavioral entry (significant decision):
