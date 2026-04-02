@@ -23,6 +23,7 @@ hammerfall_github_org: mconn0330-svg
 ```
 supabase_org_id: nninqwpylkzcpffccgvq
 supabase_region: us-east-1
+supabase_brain_project_ref: zlcvrfmbtpxlhsqosdqf
 ```
 
 *Note: Database passwords are generated automatically by bootstrap.sh at project
