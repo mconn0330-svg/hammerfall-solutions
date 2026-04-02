@@ -1,10 +1,24 @@
 {
   "permissions": {
     "allow": [
-      "Bash(claude mcp:*)",
+      "Bash(bash scripts/brain.sh:*)",
+      "Bash(bash scripts/snapshot.sh:*)",
+      "Bash(bash scripts/sync_projects.sh:*)",
+      "Bash(curl:*)",
+      "Bash(node:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(git log:*)",
+      "Bash(git status:*)",
+      "Bash(git checkout:*)",
+      "Bash(git diff:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh pr list:*)",
+      "Bash(export SUPABASE_BRAIN_SERVICE_KEY:*)",
+      "Bash(powershell.exe:*)",
+      "Bash(supabase:*)",
+      "Bash(claude mcp:*)"
     ]
   }
 }
