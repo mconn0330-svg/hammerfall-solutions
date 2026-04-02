@@ -1,7 +1,3 @@
 # Helm — Behavioral Profile (Supabase Snapshot)
-**Last snapshot:** 2026-04-02 10:16
+**Last snapshot:** 2026-04-02 11:02
 
-
----
-**2026-04-02**
-TEST ENTRY migration validation
