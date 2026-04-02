@@ -23,6 +23,7 @@ hammerfall_github_org: mconn0330-svg
 ```
 supabase_org_id: nninqwpylkzcpffccgvq
 supabase_region: us-east-1
+supabase_brain_project_ref: zlcvrfmbtpxlhsqosdqf
 ```
 
 *Note: Database passwords are generated automatically by bootstrap.sh at project
@@ -30,6 +31,11 @@ creation time using `openssl rand`. No password env var required. Each project
 gets a unique password written to its own `.env.local`.*
 
 ---
+## Supabase Brain (Memory Store)
+supabase_brain_project_ref: zlcvrfmbtpxlhsqosdqf
+supabase_brain_url: https://zlcvrfmbtpxlhsqosdqf.supabase.co
+supabase_brain_service_key_env: SUPABASE_BRAIN_SERVICE_KEY
+supabase_brain_access_token_env: SUPABASE_ACCESS_TOKEN
 
 ## GitHub
 
