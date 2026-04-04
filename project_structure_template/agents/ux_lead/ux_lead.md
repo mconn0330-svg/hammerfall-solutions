@@ -62,5 +62,9 @@ bash scripts/brain.sh "[project]" "ux-lead" "behavioral" "[entry]" false
 # helm (project)  → "helm"
 ```
 
+**Session instrumentation:**
+See `agents/shared/session_protocol.md` for full session protocol.
+Use your project codename and agent slug `"ux-lead"` for all session scripts.
+
 Fallback: if brain.sh is unreachable, write to agents/ux_lead/memory/ShortTerm_Scratchpad.md
 and prefix the entry with [PENDING-BRAIN-WRITE] so it is not lost.

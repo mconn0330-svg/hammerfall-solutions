@@ -180,6 +180,10 @@ Do NOT approve unless ALL three conditions are met:
 Use scripts/brain.sh for all memory writes. Never append to .md files directly.
 Never use Claude Code's built-in memory system (MEMORY.md files at C:\Users\..\.claude\...) for Hammerfall decisions. That system is local to one machine and invisible to all other surfaces. The Supabase brain is the only canonical store. All journaling goes to brain.sh — no exceptions.
 
+**Session instrumentation:**
+See `agents/shared/session_protocol.md` for full session protocol.
+Use project `"hammerfall-solutions"` and agent slug `"helm"` for all session scripts.
+
 ```bash
 # Behavioral entry (significant decision):
 bash scripts/brain.sh "hammerfall-solutions" "helm" "behavioral" "Decision: [what] — Reasoning: [why]" false
