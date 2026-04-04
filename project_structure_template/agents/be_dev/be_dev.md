@@ -45,14 +45,8 @@ bash scripts/brain.sh "[project]" "be-dev" "behavioral" "[entry]" false
 ```
 
 **Session instrumentation:**
-After every response, run:
-```bash
-bash scripts/ping_session.sh "[project]" "be-dev"
-```
-At session start, launch the watchdog in the background:
-```bash
-bash scripts/session_watchdog.sh "[project]" "be-dev" &
-```
+See `agents/shared/session_protocol.md` for full session protocol.
+Use your project codename and agent slug `"be-dev"` for all session scripts.
 
 Fallback: if brain.sh is unreachable, write to agents/be_dev/memory/ShortTerm_Scratchpad.md
 and prefix the entry with [PENDING-BRAIN-WRITE] so it is not lost.

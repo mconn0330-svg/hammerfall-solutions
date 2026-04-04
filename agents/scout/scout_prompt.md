@@ -43,14 +43,8 @@ All memory lives in the repo. No Google Drive. No platform memory.
 Use scripts/brain.sh for all memory writes. Never append to .md files directly.
 
 **Session instrumentation:**
-After every response, run:
-```bash
-bash scripts/ping_session.sh "hammerfall-solutions" "scout"
-```
-At session start, launch the watchdog in the background:
-```bash
-bash scripts/session_watchdog.sh "hammerfall-solutions" "scout" &
-```
+See `agents/shared/session_protocol.md` for full session protocol.
+Use project `"hammerfall-solutions"` and agent slug `"scout"` for all session scripts.
 
 ```bash
 # Scout behavioral entry (research finding, PRD decision, market insight):

@@ -37,6 +37,10 @@ supabase_brain_url: https://zlcvrfmbtpxlhsqosdqf.supabase.co
 supabase_brain_service_key_env: SUPABASE_BRAIN_SERVICE_KEY
 supabase_brain_access_token_env: SUPABASE_ACCESS_TOKEN
 
+## Session Management
+
+session_watchdog_inactivity_minutes: 30
+
 ## GitHub
 
 ```

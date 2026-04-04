@@ -3,22 +3,28 @@
 # HAMMERFALL — Session Watchdog
 # Background process started at session init.
 # Two mechanisms for session-end detection:
-#   1. Inactivity: if no ping received in 15 minutes, flush scratchpad and mark session closed
+#   1. Inactivity: if no ping received within threshold, flush scratchpad and mark session closed
 #   2. Signal trap: on SIGHUP/SIGTERM/EXIT, flush scratchpad immediately
 #
 # Usage: bash scripts/session_watchdog.sh [project] [agent] &
 # Start at the top of every agent session. Runs in background.
+# Threshold configured via session_watchdog_inactivity_minutes in hammerfall-config.md
 # =============================================================
 
 PROJECT="${1:-hammerfall-solutions}"
 AGENT="${2:-helm}"
 
 HAMMERFALL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+CONFIG_FILE="$HAMMERFALL_DIR/hammerfall-config.md"
 SESSION_DIR="/tmp/hammerfall_session"
 PING_FILE="$SESSION_DIR/last_ping_${PROJECT}_${AGENT}"
 CLOSED_FLAG="$SESSION_DIR/closed_${PROJECT}_${AGENT}"
-INACTIVITY_THRESHOLD=900  # 15 minutes in seconds
-POLL_INTERVAL=120          # Check every 2 minutes
+POLL_INTERVAL=120  # Check every 2 minutes
+
+# Read inactivity threshold from config (default: 30 minutes)
+INACTIVITY_MINUTES=$(grep "session_watchdog_inactivity_minutes:" "$CONFIG_FILE" 2>/dev/null | awk '{print $2}')
+INACTIVITY_MINUTES="${INACTIVITY_MINUTES:-30}"
+INACTIVITY_THRESHOLD=$((INACTIVITY_MINUTES * 60))
 
 mkdir -p "$SESSION_DIR"
 
