@@ -28,6 +28,16 @@ bash scripts/ping_session.sh "[project]" "[agent-slug]"
 ```
 This increments the message counter. At message 10, it writes a heartbeat to the brain unconditionally and resets the counter to 0.
 
+## Session Restart Detection
+
+If Maxwell returns to an open window after a session has been closed by the watchdog,
+`ping_session.sh` automatically detects the missing session ID file and writes a
+`SESSION RESTART` entry to the brain. No human action required.
+
+When Helm sees a `SESSION RESTART` entry in his delta check, he must treat it as a
+session start event and execute Routine 0 immediately — brain index read, last 30
+behavioral entries, last 10 scratchpad entries — before responding to Maxwell.
+
 ## During Tool Use or Long-Running Operations
 
 Run the activity ping before executing any tool, bash command, or multi-step operation:
