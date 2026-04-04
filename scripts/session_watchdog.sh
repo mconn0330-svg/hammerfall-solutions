@@ -32,6 +32,9 @@ mkdir -p "$SESSION_DIR"
 date +%s > "$PING_FILE"
 rm -f "$CLOSED_FLAG"
 
+# Stamp session ID — used by ping_session.sh to detect re-entry after session close
+echo "$(date +%s)" > "$SESSION_DIR/session_id_${PROJECT}_${AGENT}"
+
 flush_and_close() {
   # Prevent double-flush if already closed
   if [ -f "$CLOSED_FLAG" ]; then
@@ -40,6 +43,11 @@ flush_and_close() {
   touch "$CLOSED_FLAG"
 
   bash "$HAMMERFALL_DIR/scripts/brain.sh" "$PROJECT" "$AGENT" "scratchpad" "SESSION END — watchdog flush triggered (inactivity or signal). Scratchpad state captured." false
+
+  # Clean up session files — absence of SESSION_ID_FILE signals restart needed on re-entry
+  rm -f "$SESSION_DIR/session_id_${PROJECT}_${AGENT}"
+  rm -f "$SESSION_DIR/msg_count_${PROJECT}_${AGENT}"
+  rm -f "$PING_FILE"
   exit 0
 }
 
