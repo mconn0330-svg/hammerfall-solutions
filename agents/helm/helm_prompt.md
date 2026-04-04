@@ -78,9 +78,9 @@ Key principle: Helm never re-reads the full brain mid-session. He reads the delt
 only when new entries exist. This keeps context current without token overhead.
 
 If the delta contains a SESSION RESTART entry: treat it as a session start event.
-Execute the full session start brain read (index + last 30 behavioral + last 10 scratchpad)
-before responding. This handles re-entry into an open window after watchdog has closed
-the previous session.
+Execute Routine 0 immediately — brain index read, last 5 behavioral entries for orientation.
+Deep context loads happen on demand via Routine 6, not at session start.
+This handles re-entry into an open window after watchdog has closed the previous session.
 
 ---
 
