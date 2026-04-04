@@ -53,17 +53,24 @@ Agents open PRs. Maxwell reviews and approves. Helm merges on approval. Merge wh
 
 ## 7. Memory Protocol
 
-All memory lives in the repo as .md files. No Google Drive. No platform memory.
+The Supabase brain is the canonical memory store. No Google Drive. No platform memory. No Claude Code built-in memory system.
+
+All memory writes go through `scripts/brain.sh`. Never write directly to `.md` files. The `.md` files (`BEHAVIORAL_PROFILE.md`, `ShortTerm_Scratchpad.md`) are read-only snapshots — written by `snapshot.sh`, not by agents directly.
 
 **Automatic journaling (no command required):**
-Every agent maintains their own memory files during every session:
-- `ShortTerm_Scratchpad.md` — updated continuously during the session
-- `BEHAVIORAL_PROFILE.md` — updated when significant decisions are made
-- `LongTerm/` — archived at session end for significant events
+Every agent writes to the brain immediately when named events occur:
+- PR opened, reviewed, approved, or merged
+- Technical decision that deviates from specs
+- Test results (pass or fail)
+- Blocker identified or resolved
+- Maxwell correction or override
+- Significant architectural choice made
+- Session end — watchdog flushes scratchpad automatically
 
-At session end, each agent transfers scratchpad content to the appropriate long-term files and flushes the scratchpad.
+**Session instrumentation (mechanical, not behavioral):**
+See `agents/shared/session_protocol.md`. Every agent runs `ping_session.sh` after every response and `session_watchdog.sh` at session start. These are not optional.
 
 **"Log this" (Maxwell's manual override):**
-When Maxwell says "log this" after a decision or correction, the agent immediately writes a formatted entry directly to their `BEHAVIORAL_PROFILE.md` and confirms. No routing through Drive. No relay through Maxwell. Write it, commit it, confirm.
+When Maxwell says "log this", the agent immediately writes via `brain.sh` and confirms. No routing through Drive. No relay through Maxwell.
 
-**The single source of truth is the repo.** Nothing that matters lives outside of it.
+**The single source of truth is the Supabase brain.** The repo holds agent prompts, scripts, and config. The brain holds memory.

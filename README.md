@@ -71,17 +71,17 @@ Agents open PRs. Maxwell reviews and approves. Helm merges. No branch absorbs an
 
 ## Memory Architecture
 
-**Core Principle:** The repo is the memory. All agent state lives in .md files committed to Git.
+**Core Principle:** The Supabase brain is the canonical memory store. `.md` files are read-only snapshots, not the source of truth.
 
-Each agent maintains:
-- `memory/ShortTerm_Scratchpad.md` — active working memory, updated continuously, flushed at session end
-- `memory/BEHAVIORAL_PROFILE.md` — permanent record of decisions, preferences, and patterns learned
-- `memory/LongTerm/MEMORY_INDEX.md` — card catalog of all archived events
-- `memory/LongTerm/[Date]_[Topic].md` — dense permanent archives, written once, never edited
+All agents write memory via `scripts/brain.sh` to the shared `hammerfall-brain` Supabase database (`helm_memory` table). The brain is shared across all surfaces — IDE, Claude Code, and eventually Quartermaster. Any surface can read it; any agent can write to it.
 
-**Automatic journaling:** Agents update their memory files during every session without being told. Maxwell can say "log this" to trigger an immediate write to BEHAVIORAL_PROFILE.md for significant decisions.
+Each agent maintains local `.md` snapshots for reference:
+- `memory/BEHAVIORAL_PROFILE.md` — snapshot of behavioral entries from the brain, written by `snapshot.sh`
+- `memory/ShortTerm_Scratchpad.md` — fallback only, used when `brain.sh` is unreachable
 
-**Scheduled sync:** Core Helm reads `active-projects.md` and syncs Project Helm memories upward at 7 AM, 12 PM, and 6 PM daily. On-demand via "Helm, sync now."
+**Automatic journaling:** Agents write to the brain immediately when named events occur (PR merged, decision made, blocker resolved, etc.). Session ping fires a heartbeat at message 10. Session watchdog flushes scratchpad on inactivity or close.
+
+**Scheduled sync:** Core Helm queries the Supabase brain for recent activity across all projects and triggers a snapshot write to `BEHAVIORAL_PROFILE.md`. On-demand via "Helm, sync now."
 
 ---
 
@@ -109,7 +109,10 @@ Project Helm does not replace Core Helm on strategic decisions. Maxwell communic
 | `agents/muse/muse_prompt.md` | Muse persona and blueprint structure |
 | `active-projects.md` | Manifest of all live project repos |
 | `bootstrap.sh` | Project scaffolder — creates repo, clones Project Helm |
-| `scripts/sync_projects.sh` | Core Helm sync — reads project memories |
+| `scripts/sync_projects.sh` | Core Helm sync — brain status check + snapshot trigger |
+| `scripts/brain.sh` | Memory write helper — posts to Supabase brain, falls back to .md |
+| `scripts/snapshot.sh` | Reads brain entries, writes BEHAVIORAL_PROFILE.md snapshot |
+| `agents/shared/session_protocol.md` | Shared session instrumentation — ping, watchdog, activity ping |
 | `staging_area/` | Specs staged here before bootstrap |
 | `project_structure_template/` | Master template copied by bootstrap.sh |
 
