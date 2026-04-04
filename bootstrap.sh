@@ -84,22 +84,21 @@ echo "  -> Project Helm cloned from Core Helm at $(date +%Y-%m-%d)"
 sed -i "s/\[PROJECT_NAME\]/$PROJECT_NAME/g" agents/helm/helm_prompt.md
 
 cat > agents/helm/memory/ShortTerm_Scratchpad.md << EOF
-# Project Helm — ShortTerm Scratchpad
+# Project Helm — ShortTerm Scratchpad (Supabase Snapshot)
 **Project:** $PROJECT_NAME
 **Last flushed:** $(date +%Y-%m-%d)
 
-Active working memory for the current session.
-Transfer relevant entries to BEHAVIORAL_PROFILE.md at session end, then clear this file.
+This file is a read-only snapshot. Active working memory lives in the Supabase brain.
+All writes go through scripts/brain.sh.
 EOF
 
 cat > agents/helm/memory/BEHAVIORAL_PROFILE.md << EOF
-# Project Helm — Behavioral Profile
+# Project Helm — Behavioral Profile (Supabase Snapshot)
 **Project:** $PROJECT_NAME
 **Created:** $(date +%Y-%m-%d)
 
-Permanent record of architectural decisions, Maxwell preferences, and patterns learned.
-Document the decision AND the reasoning — never just the outcome.
-Prefix significant milestone entries with [SYNC-READY] for Core Helm sync detection.
+This file is a read-only snapshot written by snapshot.sh.
+Do not write here directly. All memory writes go through scripts/brain.sh.
 EOF
 
 cat > agents/helm/memory/LongTerm/MEMORY_INDEX.md << EOF
