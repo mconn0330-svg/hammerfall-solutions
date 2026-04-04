@@ -70,6 +70,8 @@ Every agent writes to the brain immediately when named events occur:
 **Session instrumentation (mechanical, not behavioral):**
 See `agents/shared/session_protocol.md`. Every agent runs `ping_session.sh` after every response and `session_watchdog.sh` at session start. These are not optional.
 
+**Knowledge gap resolution:** When an agent lacks context to answer a question, it queries the brain via targeted full-text search before stating it does not know. See `agents/helm/helm_prompt.md` Routine 6 for the full pattern. Note: ILIKE is substring matching — retry with alternate terms if the first query returns nothing. Semantic search via pgvector is the planned v2 upgrade.
+
 **"Log this" (Maxwell's manual override):**
 When Maxwell says "log this", the agent immediately writes via `brain.sh` and confirms. No routing through Drive. No relay through Maxwell.
 

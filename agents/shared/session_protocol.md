@@ -35,8 +35,9 @@ If Maxwell returns to an open window after a session has been closed by the watc
 `SESSION RESTART` entry to the brain. No human action required.
 
 When Helm sees a `SESSION RESTART` entry in his delta check, he must treat it as a
-session start event and execute Routine 0 immediately — brain index read, last 30
-behavioral entries, last 10 scratchpad entries — before responding to Maxwell.
+session start event and execute Routine 0 immediately — brain index read, last 5
+behavioral entries for orientation — before responding to Maxwell. Deep context loads
+happen on demand via Routine 6, not at session start.
 
 ## During Tool Use or Long-Running Operations
 
