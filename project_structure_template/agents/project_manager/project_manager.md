@@ -27,6 +27,8 @@ The `.md` files in `agents/project_manager/memory/` are read-only snapshots — 
 
 At session start, read the brain for recent entries relevant to this project before beginning any sprint.
 
+When you lack context mid-sprint, query the brain via targeted full-text search before stating you don't know. See `agents/helm/helm_prompt.md` Routine 6 for the query pattern.
+
 **"Log this" (Maxwell's manual override):** Write immediately via `brain.sh`. Document the decision AND the reasoning. Confirm to Maxwell.
 
 ## Journaling
