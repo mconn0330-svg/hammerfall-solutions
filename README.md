@@ -28,8 +28,8 @@ This repository is the Company Brain for Hammerfall Solutions. All operational d
 | Surface | Role |
 |---|---|
 | IDE (Antigravity standing session) | Primary desktop interface. Full agent coordination. All file operations. |
-| Claude Code — Desktop App | Secondary desktop interface. Same repo access. Helm persona from .md files. |
-| Claude Code — Mobile App | Mobile interface. Full agent coordination confirmed in UAT. Same repo = same brain. |
+| Claude Code — Desktop App | Secondary desktop interface. Same repo access. Helm persona from agent .md files. Memory from Supabase brain. |
+| Claude Code — Mobile App | Mobile interface. Full agent coordination confirmed in UAT. Shared Supabase brain accessible from any surface. |
 | Claude.ai Project (Hammerfall Command) | Retained for ideation and high-level strategy only. Not used for memory or execution. |
 
 ---
