@@ -60,5 +60,15 @@ bash scripts/brain.sh "[project]" "pm" "behavioral" "[entry]" false
 # helm (project)  → "helm"
 ```
 
+**Session instrumentation:**
+After every response, run:
+```bash
+bash scripts/ping_session.sh "[project]" "pm"
+```
+At session start, launch the watchdog in the background:
+```bash
+bash scripts/session_watchdog.sh "[project]" "pm" &
+```
+
 Fallback: if brain.sh is unreachable, write to agents/project_manager/memory/ShortTerm_Scratchpad.md
 and prefix the entry with [PENDING-BRAIN-WRITE] so it is not lost.

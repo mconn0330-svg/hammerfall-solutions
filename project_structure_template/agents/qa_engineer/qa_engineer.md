@@ -63,5 +63,15 @@ bash scripts/brain.sh "[project]" "qa" "behavioral" "[entry]" false
 # helm (project)  → "helm"
 ```
 
+**Session instrumentation:**
+After every response, run:
+```bash
+bash scripts/ping_session.sh "[project]" "qa"
+```
+At session start, launch the watchdog in the background:
+```bash
+bash scripts/session_watchdog.sh "[project]" "qa" &
+```
+
 Fallback: if brain.sh is unreachable, write to agents/qa_engineer/memory/ShortTerm_Scratchpad.md
 and prefix the entry with [PENDING-BRAIN-WRITE] so it is not lost.

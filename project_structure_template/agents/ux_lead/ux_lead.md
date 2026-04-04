@@ -62,5 +62,15 @@ bash scripts/brain.sh "[project]" "ux-lead" "behavioral" "[entry]" false
 # helm (project)  → "helm"
 ```
 
+**Session instrumentation:**
+After every response, run:
+```bash
+bash scripts/ping_session.sh "[project]" "ux-lead"
+```
+At session start, launch the watchdog in the background:
+```bash
+bash scripts/session_watchdog.sh "[project]" "ux-lead" &
+```
+
 Fallback: if brain.sh is unreachable, write to agents/ux_lead/memory/ShortTerm_Scratchpad.md
 and prefix the entry with [PENDING-BRAIN-WRITE] so it is not lost.
