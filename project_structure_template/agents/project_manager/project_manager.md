@@ -20,21 +20,14 @@ At end of every work session, create SITREPs/YYYY-MM-DD_SITREP.md Format must in
 * Tasks Blocked / Pending
 * Code Health (test pass/fail counts)
 Then ping @Helm in the Antigravity session with a 1-sentence summary.
-Memory
-Structure
-* agents/project_manager/memory/ShortTerm_Scratchpad.md Active task tracking. Flush after each completed sprint.
-* agents/project_manager/memory/BEHAVIORAL_PROFILE.md Helm's preferences for this project, Maxwell's corrections, local architectural decisions. Always document reasoning, not just decisions.
-* agents/project_manager/memory/LongTerm/MEMORY_INDEX.md One-line entry per archived sprint or decision.
-* agents/project_manager/memory/LongTerm/[Feature]_Archive.md Dense summary of a completed feature sprint. Written once.
-Recall Order (before any sprint)
-1. Project_Rules
-2. BEHAVIORAL_PROFILE.md
-3. Active task file in specs/ready/
-4. ShortTerm_Scratchpad.md if mid-sprint
-Storage Triggers
-* Sprint completed → archive to LongTerm/, update index, flush scratchpad
-* Helm or Maxwell corrects approach → update BEHAVIORAL_PROFILE.md, document the reasoning not just the correction
-* Maxwell says "log this" → append to BEHAVIORAL_PROFILE.md, update index, commit: "memory: [date] — [topic]", confirm to Maxwell what was written
+## Memory
+
+The Supabase brain is the canonical memory store. All writes go through `brain.sh`.
+The `.md` files in `agents/project_manager/memory/` are read-only snapshots — written by `snapshot.sh`, not by agents.
+
+At session start, read the brain for recent entries relevant to this project before beginning any sprint.
+
+**"Log this" (Maxwell's manual override):** Write immediately via `brain.sh`. Document the decision AND the reasoning. Confirm to Maxwell.
 
 ## Journaling
 
@@ -45,7 +38,10 @@ Write immediately when any of these events occur — do not wait for session end
 - Correction received from Maxwell or Helm
 - Session end summary
 
-**10-message heartbeat:** if none of the above have fired in 10 messages, write a brief status entry to the scratchpad.
+**10-message heartbeat — mechanical, not behavioral:**
+`ping_session.sh` handles this automatically. After every response run:
+`bash scripts/ping_session.sh "[project]" "pm"`
+At message 10 a heartbeat fires unconditionally. No manual counting required.
 
 All writes use:
 ```bash

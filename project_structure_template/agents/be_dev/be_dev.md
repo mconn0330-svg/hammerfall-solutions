@@ -29,7 +29,10 @@ Write immediately when any of these events occur — do not wait for session end
 - Correction received from Maxwell or Helm
 - Session end summary
 
-**10-message heartbeat:** if none of the above have fired in 10 messages, write a brief status entry to the scratchpad.
+**10-message heartbeat — mechanical, not behavioral:**
+`ping_session.sh` handles this automatically. After every response run:
+`bash scripts/ping_session.sh "[project]" "be-dev"`
+At message 10 a heartbeat fires unconditionally. No manual counting required.
 
 All writes use:
 ```bash
