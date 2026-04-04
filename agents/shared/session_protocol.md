@@ -26,7 +26,7 @@ Run the session ping:
 ```bash
 bash scripts/ping_session.sh "[project]" "[agent-slug]"
 ```
-This increments the message counter. At message 10, if no named journal trigger has fired, it writes a heartbeat to the brain automatically. Counter resets to 0.
+This increments the message counter. At message 10, it writes a heartbeat to the brain unconditionally and resets the counter to 0.
 
 ## During Tool Use or Long-Running Operations
 
@@ -35,14 +35,6 @@ Run the activity ping before executing any tool, bash command, or multi-step ope
 bash scripts/activity_ping.sh "[project]" "[agent-slug]"
 ```
 This resets the inactivity timer without incrementing the message counter. Prevents the watchdog from flushing mid-task during long builds, test runs, or file operations.
-
-## Named Journal Trigger — Suppressing the Heartbeat
-
-If a named journal trigger fires (PR merged, decision made, blocker resolved, etc.), set the journal flag so the heartbeat is suppressed at message 10:
-```bash
-touch /tmp/hammerfall_session/journal_fired_[project]_[agent-slug]
-```
-The flag is cleared automatically when the heartbeat threshold is checked.
 
 ## Contract
 
