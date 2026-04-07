@@ -4,19 +4,26 @@
 #
 # Usage:
 #   bash scripts/brain.sh [project] [agent] [type] [content] [sync_ready]
-#     [--table TABLE]           # default: helm_memory
-#     [--strength FLOAT]        # helm_beliefs only (0.0–1.0, default 0.9)
-#     [--attributes JSON]       # helm_entities only (JSONB object)
-#     [--score FLOAT]           # helm_personality only (0.0–1.0)
-#     [--full-content JSON]     # helm_memory only (JSONB object)
+#     [--table TABLE]         # default: helm_memory
+#     [--strength FLOAT]      # helm_beliefs only (0.0–1.0, default 0.7)
+#     [--attributes JSON]     # helm_entities only (JSONB object)
+#     [--score FLOAT]         # helm_personality only (0.0–1.0)
+#     [--full-content JSON]   # helm_memory only (JSONB, photographic memory layer)
 #
-# Type arg meaning per table:
-#   helm_memory     → memory_type  (behavioral, scratchpad, reasoning, etc.)
-#   helm_beliefs    → domain       (architecture, process, people, ethics, etc.)
-#   helm_entities   → entity_type  (person, organization, concept, etc.)
-#   helm_personality → attribute   (directness, verbosity, sarcasm, etc.)
+# Type arg meaning per table (Q1 — Option B: type as semantic routing field):
+#   helm_memory      → memory_type  (behavioral, scratchpad, reasoning, etc.)
+#   helm_beliefs     → domain       (architecture, process, people, ethics, etc.)
+#   helm_entities    → entity_type  (person, organization, concept, etc.)
+#   helm_personality → attribute    (directness, verbosity, sarcasm, etc.)
+#
+# helm_beliefs, helm_entities, helm_personality are GLOBAL (no project/agent scope).
+# project and agent args are accepted for interface consistency but not written
+# to these tables. helm_memory is project/agent scoped as before.
 #
 # Default (no --table flag): writes to helm_memory. No existing calls break.
+#
+# source column on helm_beliefs always defaults to 'seeded' from brain.sh.
+# learned/corrected source values are set by Phase 2 automation or direct DB update.
 # =============================================================
 
 PROJECT="$1"
@@ -27,7 +34,7 @@ SYNC_READY="${5:-false}"
 
 # Parse optional flags
 TABLE="helm_memory"
-STRENGTH="0.9"
+STRENGTH="0.7"
 ATTRIBUTES='{}'
 SCORE=""
 FULL_CONTENT=""
@@ -78,25 +85,27 @@ case "$TABLE" in
     ;;
 
   helm_beliefs)
-    printf '{"project":"%s","agent":"%s","domain":"%s","content":%s,"strength":%s,"sync_ready":%s,"active":true}' \
-      "$PROJECT" "$AGENT" "$TYPE" "$ESCAPED" "$STRENGTH" "$SYNC_READY" > "$TMPFILE"
+    # Global table — no project/agent. type arg = domain. content arg = belief text.
+    printf '{"domain":"%s","belief":%s,"strength":%s,"active":true,"source":"seeded"}' \
+      "$TYPE" "$ESCAPED" "$STRENGTH" > "$TMPFILE"
     ;;
 
   helm_entities)
-    # content arg = entity name; attributes passed via --attributes flag
-    ESCAPED_NAME="$ESCAPED"
-    printf '{"project":"%s","agent":"%s","entity_type":"%s","name":%s,"attributes":%s,"sync_ready":%s}' \
-      "$PROJECT" "$AGENT" "$TYPE" "$ESCAPED_NAME" "$ATTRIBUTES" "$SYNC_READY" > "$TMPFILE"
+    # Global table — no project/agent. type arg = entity_type. content arg = entity name.
+    printf '{"entity_type":"%s","name":%s,"attributes":%s,"active":true}' \
+      "$TYPE" "$ESCAPED" "$ATTRIBUTES" > "$TMPFILE"
     ;;
 
   helm_personality)
+    # Global table — no project/agent. type arg = attribute. content arg = description note.
+    # Uses upsert (ON CONFLICT attribute DO UPDATE) — attribute is UNIQUE, only one row per attribute.
     if [ -z "$SCORE" ]; then
       echo "ERROR: --score required for helm_personality writes."
       rm -f "$TMPFILE"
       exit 1
     fi
-    printf '{"project":"%s","agent":"%s","attribute":"%s","score":%s,"note":%s}' \
-      "$PROJECT" "$AGENT" "$TYPE" "$SCORE" "$ESCAPED" > "$TMPFILE"
+    printf '{"attribute":"%s","score":%s,"description":%s}' \
+      "$TYPE" "$SCORE" "$ESCAPED" > "$TMPFILE"
     ;;
 
   *)
@@ -109,13 +118,25 @@ case "$TABLE" in
 esac
 
 # --ssl-no-revoke: required on Windows/schannel to bypass certificate revocation check
-RESPONSE=$(curl -s --ssl-no-revoke -X POST \
-  "$BRAIN_URL/rest/v1/$TABLE" \
-  -H "apikey: $SERVICE_KEY" \
-  -H "Authorization: Bearer $SERVICE_KEY" \
-  -H "Content-Type: application/json" \
-  -H "Prefer: return=representation" \
-  -d @"$TMPFILE")
+# helm_personality uses upsert — UNIQUE constraint on attribute means only one row per attribute
+if [ "$TABLE" = "helm_personality" ]; then
+  # on_conflict=attribute tells PostgREST to upsert on the UNIQUE attribute column
+  RESPONSE=$(curl -s --ssl-no-revoke -X POST \
+    "$BRAIN_URL/rest/v1/$TABLE?on_conflict=attribute" \
+    -H "apikey: $SERVICE_KEY" \
+    -H "Authorization: Bearer $SERVICE_KEY" \
+    -H "Content-Type: application/json" \
+    -H "Prefer: return=representation,resolution=merge-duplicates" \
+    -d @"$TMPFILE")
+else
+  RESPONSE=$(curl -s --ssl-no-revoke -X POST \
+    "$BRAIN_URL/rest/v1/$TABLE" \
+    -H "apikey: $SERVICE_KEY" \
+    -H "Authorization: Bearer $SERVICE_KEY" \
+    -H "Content-Type: application/json" \
+    -H "Prefer: return=representation" \
+    -d @"$TMPFILE")
+fi
 rm -f "$TMPFILE"
 
 # Check response body for errors — curl exit code is 0 on HTTP errors, so $? alone is insufficient
@@ -127,5 +148,5 @@ if echo "$RESPONSE" | grep -q '"code"'; then
     echo "$(date +%Y-%m-%d) | $CONTENT" >> "agents/$AGENT/memory/BEHAVIORAL_PROFILE.md"
   fi
 else
-  echo "  -> Memory written: [$PROJECT/$AGENT/$TABLE/$TYPE] sync_ready=$SYNC_READY"
+  echo "  -> Memory written: [$TABLE/$TYPE] sync_ready=$SYNC_READY"
 fi
