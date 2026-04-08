@@ -285,6 +285,23 @@ Do not append to .md files directly unless brain.sh fails (fallback is built in)
   to permanent rules at three strikes.
 - Significant architectural choice made
 - Session end → transfer scratchpad entries to `BEHAVIORAL_PROFILE.md`, flush scratchpad
+- Helm notices a pattern, forms a position, or makes an inference about how something works:
+  **MANDATORY FORMAT — JSON string in content field. Free-text reasoning entries are PROHIBITED.**
+  ```bash
+  bash scripts/brain.sh "hammerfall-solutions" "helm" "reasoning" \
+    '{"observation":"specific factual — what was observed without interpretation","inference":"what Helm thinks it means — marked as inference not fact","open_question":"what evidence would change this view","belief_link":"belief-slug-or-null"}' \
+    false \
+    --confidence 0.75
+  ```
+  All four JSON fields are required. `confidence` is a float 0.0–1.0 written to the
+  dedicated column via `--confidence`. `belief_link` is null if no belief is relevant.
+  Validate JSON structure before writing — malformed entries create Phase 2 parsing debt.
+
+  Reasoning entries are Stage 0 data capture only. They are NOT automatically processed
+  into beliefs until Phase 2 inner monologue. Write them now anyway — they are the most
+  valuable training data for Stage 5 fine-tuning because they capture how Helm thinks,
+  not just what he decided.
+
 - Maxwell shares a personal preference, interest, or fact about himself — write to brain under `people` category:
   ```bash
   bash scripts/brain.sh "hammerfall-solutions" "helm" "behavioral" "People — Maxwell: [what was shared]" false

@@ -9,6 +9,7 @@
 #     [--attributes JSON]     # helm_entities only (JSONB object)
 #     [--score FLOAT]         # helm_personality only (0.0–1.0)
 #     [--full-content JSON]   # helm_memory only (JSONB, photographic memory layer)
+#     [--confidence FLOAT]    # helm_memory only (0.0–1.0, reasoning entries — writes to dedicated column)
 #
 # Type arg meaning per table (Q1 — Option B: type as semantic routing field):
 #   helm_memory      → memory_type  (behavioral, scratchpad, reasoning, etc.)
@@ -38,6 +39,7 @@ STRENGTH="0.7"
 ATTRIBUTES='{}'
 SCORE=""
 FULL_CONTENT=""
+CONFIDENCE=""
 
 shift 5 2>/dev/null
 while [[ $# -gt 0 ]]; do
@@ -47,6 +49,7 @@ while [[ $# -gt 0 ]]; do
     --attributes)   ATTRIBUTES="$2";   shift 2 ;;
     --score)        SCORE="$2";        shift 2 ;;
     --full-content) FULL_CONTENT="$2"; shift 2 ;;
+    --confidence)   CONFIDENCE="$2";   shift 2 ;;
     *) shift ;;
   esac
 done
@@ -75,9 +78,15 @@ TMPFILE=$(mktemp /tmp/brain_write_XXXXXX.json)
 case "$TABLE" in
 
   helm_memory)
-    if [ -n "$FULL_CONTENT" ]; then
+    if [ -n "$FULL_CONTENT" ] && [ -n "$CONFIDENCE" ]; then
+      printf '{"project":"%s","agent":"%s","memory_type":"%s","content":%s,"sync_ready":%s,"full_content":%s,"confidence":%s}' \
+        "$PROJECT" "$AGENT" "$TYPE" "$ESCAPED" "$SYNC_READY" "$FULL_CONTENT" "$CONFIDENCE" > "$TMPFILE"
+    elif [ -n "$FULL_CONTENT" ]; then
       printf '{"project":"%s","agent":"%s","memory_type":"%s","content":%s,"sync_ready":%s,"full_content":%s}' \
         "$PROJECT" "$AGENT" "$TYPE" "$ESCAPED" "$SYNC_READY" "$FULL_CONTENT" > "$TMPFILE"
+    elif [ -n "$CONFIDENCE" ]; then
+      printf '{"project":"%s","agent":"%s","memory_type":"%s","content":%s,"sync_ready":%s,"confidence":%s}' \
+        "$PROJECT" "$AGENT" "$TYPE" "$ESCAPED" "$SYNC_READY" "$CONFIDENCE" > "$TMPFILE"
     else
       printf '{"project":"%s","agent":"%s","memory_type":"%s","content":%s,"sync_ready":%s}' \
         "$PROJECT" "$AGENT" "$TYPE" "$ESCAPED" "$SYNC_READY" > "$TMPFILE"
