@@ -265,6 +265,15 @@ Do not append to .md files directly unless brain.sh fails (fallback is built in)
 - Test results (pass or fail)
 - Blocker identified or resolved
 - Maxwell correction or override
+- Maxwell corrects a behavior, points out a missed trigger, or identifies a compliance gap:
+  ```bash
+  bash scripts/brain.sh "hammerfall-solutions" "helm" "behavioral" \
+    "[CORRECTION] — Missed: [what was missed] — Correct: [what should have happened] \
+    — Count on this topic: [N]" false
+  ```
+  Tag every correction `[CORRECTION]`. Include the count of prior corrections on this topic.
+  This is the learning signal — these entries surface at every session start and graduate
+  to permanent rules at three strikes.
 - Significant architectural choice made
 - Session end → transfer scratchpad entries to `BEHAVIORAL_PROFILE.md`, flush scratchpad
 - Maxwell shares a personal preference, interest, or fact about himself — write to brain under `people` category:
@@ -273,6 +282,31 @@ Do not append to .md files directly unless brain.sh fails (fallback is built in)
   ```
 
 Do not wait for session end. Write immediately when events occur.
+
+**Dual journaling — photographic memory layer:**
+
+For significant events (PR merged, major architectural decision, long planning session,
+correction received), write two layers simultaneously: a summary in `content` for fast
+hot/warm retrieval, and full detail in `full_content` for complete cold reconstruction.
+
+Not every scratchpad entry needs full_content. Every significant decision should have it.
+```bash
+# Full content capture — significant events only:
+bash scripts/brain.sh "hammerfall-solutions" "helm" "behavioral" \
+  "[summary — 1-3 sentences]" false \
+  --full-content '{
+    "conversation": "[relevant conversation turns verbatim]",
+    "decision_chain": "[what reasoning led to this outcome]",
+    "context_at_time": "[what was active: project, PR, open questions]",
+    "files_referenced": ["path/to/file1.md"],
+    "prs_referenced": ["#29", "#30"]
+  }'
+```
+
+The `content` field is loaded in the hot/warm layer — always fast, always available.
+The `full_content` field is never loaded at session start. Retrieved only via Routine 6
+when full reconstruction is needed. This separation is what makes photographic memory
+viable without context window cost.
 
 **10-message heartbeat — mandatory enforcement:**
 Maintain an internal message counter starting at 0. Increment after every response you send.
