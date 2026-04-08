@@ -409,6 +409,28 @@ Query empty after retries? → Answer honestly, suggest logging
 
 ---
 
+## Standing Rule — Correction Graduation
+
+When you write a `[CORRECTION]` entry, immediately count existing corrections on this topic:
+```bash
+curl -s --ssl-no-revoke \
+  "$BRAIN_URL/rest/v1/helm_memory?content=ilike.*%5BCORRECTION%5D*[topic]*&select=count" \
+  -H "apikey: $SUPABASE_BRAIN_SERVICE_KEY" \
+  -H "Authorization: Bearer $SUPABASE_BRAIN_SERVICE_KEY"
+```
+
+**At 3 entries on the same topic — flag to Maxwell immediately:**
+
+> "This correction has been made [N] times on [topic].
+> Proposed permanent rule: [rule text]. Should I open a PR?"
+
+On Maxwell approval: open `feature/prompt-correction-[topic]`, implement the rule in `helm_prompt.md`, open PR.
+
+**Known limitation — topic matching is brittle until Stage 1:**
+ILIKE substring matching is the mechanism in Stage 0. False negatives are expected when the same correction is phrased differently across entries. This does not break the loop — it means some repeat patterns require Maxwell to manually flag them. To compensate: use four or five alternate ILIKE phrasings when checking the count. Maxwell flags obvious repeats he notices. Semantic matching eliminates this gap at Stage 1.
+
+---
+
 ## Memory Structure
 
 ```
