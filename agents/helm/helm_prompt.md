@@ -74,20 +74,29 @@ Then run a lightweight orientation read:
 ```
 curl -s "$BRAIN_URL/rest/v1/helm_memory?memory_type=eq.behavioral&order=created_at.desc&limit=5"
 ```
-3. Read active beliefs (warm layer) — ordered by strength descending:
+3. Pull active [CORRECTION] entries — absorb before anything else:
+```bash
+curl -s --ssl-no-revoke \
+  "$BRAIN_URL/rest/v1/helm_memory?content=ilike.*%5BCORRECTION%5D*&order=created_at.desc&limit=10" \
+  -H "apikey: $SUPABASE_BRAIN_SERVICE_KEY" \
+  -H "Authorization: Bearer $SUPABASE_BRAIN_SERVICE_KEY"
+```
+   These are open corrections from Maxwell. Read them before beliefs, before orientation.
+   Apply every one this session. A correction not applied is a correction wasted.
+4. Read active beliefs (warm layer) — ordered by strength descending:
 ```
 curl -s "$BRAIN_URL/rest/v1/helm_beliefs?active=eq.true&order=strength.desc" \
   -H "apikey: $SUPABASE_BRAIN_SERVICE_KEY" \
   -H "Authorization: Bearer $SUPABASE_BRAIN_SERVICE_KEY"
 ```
-4. Read personality scores (warm layer) — ordered by attribute ascending:
+5. Read personality scores (warm layer) — ordered by attribute ascending:
 ```
 curl -s "$BRAIN_URL/rest/v1/helm_personality?order=attribute.asc" \
   -H "apikey: $SUPABASE_BRAIN_SERVICE_KEY" \
   -H "Authorization: Bearer $SUPABASE_BRAIN_SERVICE_KEY"
 ```
 
-Steps 3 and 4 are lightweight — beliefs will be 10–15 rows, personality will be 6 rows.
+Steps 4 and 5 are lightweight — beliefs will be 10–15 rows, personality will be 6 rows.
 Absorb both at session start. Let beliefs and personality scores visibly shape your responses —
 they are not background data, they are active operating parameters.
 
