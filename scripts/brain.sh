@@ -10,6 +10,10 @@
 #     [--score FLOAT]         # helm_personality only (0.0–1.0)
 #     [--full-content JSON]   # helm_memory only (JSONB, photographic memory layer)
 #     [--confidence FLOAT]    # helm_memory only (0.0–1.0, reasoning entries — writes to dedicated column)
+#     [--from-entity UUID]    # helm_entity_relationships only (required — source entity)
+#     [--to-entity UUID]      # helm_entity_relationships only (required — target entity)
+#     [--rel-notes TEXT]      # helm_entity_relationships only (optional — relationship context)
+#     [--rel-strength FLOAT]  # helm_entity_relationships only (optional — 0.0–1.0)
 #
 # Type arg meaning per table (Q1 — Option B: type as semantic routing field):
 #   helm_memory      → memory_type  (behavioral, scratchpad, reasoning, etc.)
@@ -40,6 +44,10 @@ ATTRIBUTES='{}'
 SCORE=""
 FULL_CONTENT=""
 CONFIDENCE=""
+FROM_ENTITY=""
+TO_ENTITY=""
+REL_NOTES=""
+REL_STRENGTH=""
 
 shift 5 2>/dev/null
 while [[ $# -gt 0 ]]; do
@@ -50,6 +58,10 @@ while [[ $# -gt 0 ]]; do
     --score)        SCORE="$2";        shift 2 ;;
     --full-content) FULL_CONTENT="$2"; shift 2 ;;
     --confidence)   CONFIDENCE="$2";   shift 2 ;;
+    --from-entity)  FROM_ENTITY="$2";  shift 2 ;;
+    --to-entity)    TO_ENTITY="$2";    shift 2 ;;
+    --rel-notes)    REL_NOTES="$2";    shift 2 ;;
+    --rel-strength) REL_STRENGTH="$2"; shift 2 ;;
     *) shift ;;
   esac
 done
@@ -117,9 +129,42 @@ case "$TABLE" in
       "$TYPE" "$SCORE" "$ESCAPED" > "$TMPFILE"
     ;;
 
+  helm_entity_relationships)
+    # Global table — no project/agent. type arg = relationship label.
+    # content arg unused. Requires --from-entity and --to-entity UUIDs.
+    # --rel-notes TEXT (optional, defaults null)
+    # --rel-strength FLOAT (optional, defaults null)
+    if [ -z "$FROM_ENTITY" ] || [ -z "$TO_ENTITY" ]; then
+      echo "ERROR: --from-entity and --to-entity are required for helm_entity_relationships writes."
+      rm -f "$TMPFILE"
+      exit 1
+    fi
+    if [ -n "$REL_NOTES" ]; then
+      ESCAPED_NOTES=$(node -e "
+        let d = '';
+        process.stdin.on('data', c => d += c);
+        process.stdin.on('end', () => process.stdout.write(JSON.stringify(d)));
+      " <<< "$REL_NOTES")
+    else
+      ESCAPED_NOTES="null"
+    fi
+    if [ -n "$REL_STRENGTH" ]; then
+      if [ -n "$REL_NOTES" ]; then
+        printf '{"from_entity":"%s","to_entity":"%s","relationship":"%s","notes":%s,"active":true,"strength":%s}' \
+          "$FROM_ENTITY" "$TO_ENTITY" "$TYPE" "$ESCAPED_NOTES" "$REL_STRENGTH" > "$TMPFILE"
+      else
+        printf '{"from_entity":"%s","to_entity":"%s","relationship":"%s","notes":null,"active":true,"strength":%s}' \
+          "$FROM_ENTITY" "$TO_ENTITY" "$TYPE" "$REL_STRENGTH" > "$TMPFILE"
+      fi
+    else
+      printf '{"from_entity":"%s","to_entity":"%s","relationship":"%s","notes":%s,"active":true}' \
+        "$FROM_ENTITY" "$TO_ENTITY" "$TYPE" "$ESCAPED_NOTES" > "$TMPFILE"
+    fi
+    ;;
+
   *)
     echo "ERROR: Unknown --table value: $TABLE"
-    echo "Valid tables: helm_memory, helm_beliefs, helm_entities, helm_personality"
+    echo "Valid tables: helm_memory, helm_beliefs, helm_entities, helm_personality, helm_entity_relationships"
     rm -f "$TMPFILE"
     exit 1
     ;;
@@ -128,6 +173,7 @@ esac
 
 # --ssl-no-revoke: required on Windows/schannel to bypass certificate revocation check
 # helm_personality uses upsert — UNIQUE constraint on attribute means only one row per attribute
+# helm_entity_relationships uses plain POST — no unique constraint, bidirectional rows written separately
 if [ "$TABLE" = "helm_personality" ]; then
   # on_conflict=attribute tells PostgREST to upsert on the UNIQUE attribute column
   RESPONSE=$(curl -s --ssl-no-revoke -X POST \
@@ -157,5 +203,9 @@ if echo "$RESPONSE" | grep -q '"code"'; then
     echo "$(date +%Y-%m-%d) | $CONTENT" >> "agents/$AGENT/memory/BEHAVIORAL_PROFILE.md"
   fi
 else
-  echo "  -> Memory written: [$TABLE/$TYPE] sync_ready=$SYNC_READY"
+  if [ "$TABLE" = "helm_entity_relationships" ]; then
+    echo "  -> Relationship written: [$TABLE] $FROM_ENTITY --[$TYPE]--> $TO_ENTITY"
+  else
+    echo "  -> Memory written: [$TABLE/$TYPE] sync_ready=$SYNC_READY"
+  fi
 fi
