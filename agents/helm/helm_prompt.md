@@ -307,6 +307,21 @@ Do not append to .md files directly unless brain.sh fails (fallback is built in)
   bash scripts/brain.sh "hammerfall-solutions" "helm" "behavioral" "People — Maxwell: [what was shared]" false
   ```
 
+- A named entity (person, place, organization) is encountered that does not already exist in the entity graph — create a row immediately with whatever is known, then write a behavioral entry tagged `[NEW-ENTITY]` so it surfaces for enrichment:
+  ```bash
+  # 1. Create the entity row:
+  bash scripts/brain.sh "hammerfall-solutions" "helm" "[entity_type]" "[entity name]" false \
+    --table helm_entities \
+    --attributes '{"source":"encountered_in_session","known_at_time":"[what is known]"}'
+
+  # 2. Log it for enrichment:
+  bash scripts/brain.sh "hammerfall-solutions" "helm" "behavioral" \
+    "[NEW-ENTITY] — [entity_type]: [name] — encountered in session, partial data only. Enrich when more is known." false
+  ```
+  `entity_type` follows the label conventions: `person`, `place`, `organization`, `concept`.
+  Do not create duplicate rows — check the known entity list from Routine 0 before writing.
+  If the entity was already seeded (e.g., via BA5 portrait seeding), skip this trigger.
+
 Do not wait for session end. Write immediately when events occur.
 
 **Dual journaling — photographic memory layer:**
