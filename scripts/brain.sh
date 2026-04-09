@@ -10,6 +10,10 @@
 #     [--score FLOAT]         # helm_personality only (0.0–1.0)
 #     [--full-content JSON]   # helm_memory only (JSONB, photographic memory layer)
 #     [--confidence FLOAT]    # helm_memory only (0.0–1.0, reasoning entries — writes to dedicated column)
+#     [--from-entity UUID]    # helm_entity_relationships only (required — source entity)
+#     [--to-entity UUID]      # helm_entity_relationships only (required — target entity)
+#     [--rel-notes TEXT]      # helm_entity_relationships only (optional — relationship context)
+#     [--rel-strength FLOAT]  # helm_entity_relationships only (optional — 0.0–1.0)
 #
 # Type arg meaning per table (Q1 — Option B: type as semantic routing field):
 #   helm_memory      → memory_type  (behavioral, scratchpad, reasoning, etc.)
