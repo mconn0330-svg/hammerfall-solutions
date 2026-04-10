@@ -26,18 +26,32 @@ if [ -z "$BRAIN_URL" ] || [ -z "$SERVICE_KEY" ]; then
   exit 1
 fi
 
-# Resolve UUID by exact name (including trailing newline variant)
-# Queries both clean name and newline-suffixed name to handle either state
+# Resolve UUID by exact name — tries clean name first, then trailing-newline variant
+# Handles both post-patch (clean name) and pre-patch (name has \n) states
 get_uuid() {
   local name="$1"
-  local ENCODED
-  ENCODED=$(node -e "process.stdout.write(encodeURIComponent('${name}\n'))")
   local UUID
+
+  # Try clean name first
+  local ENCODED_CLEAN
+  ENCODED_CLEAN=$(node -e "process.stdout.write(encodeURIComponent('$name'))")
   UUID=$(curl -s --ssl-no-revoke \
-    "$BRAIN_URL/rest/v1/helm_entities?name=eq.$ENCODED&select=id" \
+    "$BRAIN_URL/rest/v1/helm_entities?name=eq.$ENCODED_CLEAN&select=id" \
     -H "apikey: $SERVICE_KEY" \
     -H "Authorization: Bearer $SERVICE_KEY" | \
     node -e "let d=''; process.stdin.on('data',c=>d+=c); process.stdin.on('end',()=>{ const r=JSON.parse(d); process.stdout.write(r[0]?.id || ''); });")
+
+  # Fallback: try name with trailing newline (pre-patch state)
+  if [ -z "$UUID" ]; then
+    local ENCODED_NL
+    ENCODED_NL=$(node -e "process.stdout.write(encodeURIComponent('${name}\n'))")
+    UUID=$(curl -s --ssl-no-revoke \
+      "$BRAIN_URL/rest/v1/helm_entities?name=eq.$ENCODED_NL&select=id" \
+      -H "apikey: $SERVICE_KEY" \
+      -H "Authorization: Bearer $SERVICE_KEY" | \
+      node -e "let d=''; process.stdin.on('data',c=>d+=c); process.stdin.on('end',()=>{ const r=JSON.parse(d); process.stdout.write(r[0]?.id || ''); });")
+  fi
+
   if [ -z "$UUID" ]; then
     echo "ERROR: UUID not found for entity: $name" >&2
     exit 1
