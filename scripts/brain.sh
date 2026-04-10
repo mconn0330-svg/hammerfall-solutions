@@ -11,7 +11,10 @@
 #     [--full-content JSON]   # helm_memory only (JSONB, photographic memory layer)
 #     [--confidence FLOAT]    # helm_memory only (0.0–1.0, reasoning entries — writes to dedicated column)
 #     [--aliases JSON]        # helm_entities only (JSON array of alternate names e.g. '["Max","Maxie"]')
+#     [--summary TEXT]        # helm_entities only (one-sentence plain-text description)
 #     [--patch-id UUID]       # helm_entities only (switches POST to PATCH for updating existing row)
+#                               PATCH payload is dynamic — includes only explicitly provided fields
+#                               (--aliases, --summary, --attributes). At least one required.
 #     [--from-entity UUID]    # helm_entity_relationships only (required — source entity)
 #     [--to-entity UUID]      # helm_entity_relationships only (required — target entity)
 #     [--rel-notes TEXT]      # helm_entity_relationships only (optional — relationship context)
@@ -46,7 +49,10 @@ ATTRIBUTES='{}'
 SCORE=""
 FULL_CONTENT=""
 CONFIDENCE=""
-ALIASES="[]"
+ALIASES=""
+ALIASES_SET=false
+SUMMARY=""
+ATTRIBUTES_SET=false
 PATCH_ID=""
 FROM_ENTITY=""
 TO_ENTITY=""
@@ -58,12 +64,13 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --table)        TABLE="$2";        shift 2 ;;
     --strength)     STRENGTH="$2";     shift 2 ;;
-    --attributes)   ATTRIBUTES="$2";   shift 2 ;;
     --score)        SCORE="$2";        shift 2 ;;
     --full-content) FULL_CONTENT="$2"; shift 2 ;;
     --confidence)   CONFIDENCE="$2";   shift 2 ;;
-    --aliases)      ALIASES="$2";      shift 2 ;;
-    --patch-id)     PATCH_ID="$2";     shift 2 ;;
+    --aliases)      ALIASES="$2"; ALIASES_SET=true;     shift 2 ;;
+    --summary)      SUMMARY="$2";                     shift 2 ;;
+    --patch-id)     PATCH_ID="$2";                    shift 2 ;;
+    --attributes)   ATTRIBUTES="$2"; ATTRIBUTES_SET=true; shift 2 ;;
     --from-entity)  FROM_ENTITY="$2";  shift 2 ;;
     --to-entity)    TO_ENTITY="$2";    shift 2 ;;
     --rel-notes)    REL_NOTES="$2";    shift 2 ;;
@@ -90,11 +97,23 @@ if [ -n "$PATCH_ID" ] && [ "$TABLE" != "helm_entities" ]; then
 fi
 
 # Escape content string for JSON
+# node trims trailing newline added by <<< heredoc on Windows/Git Bash
 ESCAPED=$(node -e "
   let d = '';
   process.stdin.on('data', c => d += c);
-  process.stdin.on('end', () => process.stdout.write(JSON.stringify(d)));
+  process.stdin.on('end', () => process.stdout.write(JSON.stringify(d.replace(/[\r\n]+\$/, ''))));
 " <<< "$CONTENT")
+
+# Escape summary string for JSON (only if provided)
+if [ -n "$SUMMARY" ]; then
+  SUMMARY_ESCAPED=$(node -e "
+    let d = '';
+    process.stdin.on('data', c => d += c);
+    process.stdin.on('end', () => process.stdout.write(JSON.stringify(d.replace(/[\r\n]+\$/, ''))));
+  " <<< "$SUMMARY")
+else
+  SUMMARY_ESCAPED=""
+fi
 
 # Write JSON to temp file — avoids Windows/Git Bash multi-byte UTF-8 corruption
 TMPFILE=$(mktemp /tmp/brain_write_XXXXXX.json)
@@ -125,14 +144,35 @@ case "$TABLE" in
 
   helm_entities)
     # Global table — no project/agent. type arg = entity_type. content arg = entity name.
-    # --patch-id: switches to PATCH for updating an existing row (e.g. appending aliases).
+    # --patch-id: switches to PATCH for updating an existing row.
+    # PATCH payload is dynamic — only fields explicitly provided are included.
+    # At least one of --aliases, --summary, --attributes required with --patch-id.
     # --patch-id is only valid for helm_entities — guard enforced below before curl.
     if [ -n "$PATCH_ID" ]; then
-      # PATCH payload: only include fields being updated (aliases array replacement)
-      printf '{"aliases":%s}' "$ALIASES" > "$TMPFILE"
+      PATCH_PAYLOAD=$(ALIASES_SET_V="$ALIASES_SET" ALIASES_V="$ALIASES" \
+        SUMMARY_V="$SUMMARY_ESCAPED" \
+        ATTRS_SET_V="$ATTRIBUTES_SET" ATTRS_V="$ATTRIBUTES" \
+        node -e "
+          const obj = {};
+          if (process.env.ALIASES_SET_V === 'true')
+            obj.aliases = JSON.parse(process.env.ALIASES_V || '[]');
+          if (process.env.SUMMARY_V)
+            obj.summary = JSON.parse(process.env.SUMMARY_V);
+          if (process.env.ATTRS_SET_V === 'true')
+            obj.attributes = JSON.parse(process.env.ATTRS_V || '{}');
+          if (Object.keys(obj).length === 0) {
+            process.stderr.write('ERROR: --patch-id requires at least one of: --aliases, --summary, --attributes\n');
+            process.exit(1);
+          }
+          process.stdout.write(JSON.stringify(obj));
+        ")
+      printf '%s' "$PATCH_PAYLOAD" > "$TMPFILE"
+    elif [ -n "$SUMMARY_ESCAPED" ]; then
+      printf '{"entity_type":"%s","name":%s,"attributes":%s,"aliases":%s,"summary":%s,"active":true}' \
+        "$TYPE" "$ESCAPED" "$ATTRIBUTES" "${ALIASES:-[]}" "$SUMMARY_ESCAPED" > "$TMPFILE"
     else
       printf '{"entity_type":"%s","name":%s,"attributes":%s,"aliases":%s,"active":true}' \
-        "$TYPE" "$ESCAPED" "$ATTRIBUTES" "$ALIASES" > "$TMPFILE"
+        "$TYPE" "$ESCAPED" "$ATTRIBUTES" "${ALIASES:-[]}" > "$TMPFILE"
     fi
     ;;
 
