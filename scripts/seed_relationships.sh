@@ -5,7 +5,7 @@
 # Seeds bidirectional relationship rows into helm_entity_relationships.
 # Run from repo root: bash scripts/seed_relationships.sh
 #
-# WARNING: ~351 sequential brain.sh calls.
+# WARNING: ~349 sequential brain.sh calls.
 # Expected runtime: 10-20 minutes. Do not interrupt.
 # Progress timestamp printed every 50 rows.
 #
