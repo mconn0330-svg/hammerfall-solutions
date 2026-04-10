@@ -32,7 +32,7 @@
 set -e
 
 COUNT=0
-EXPECTED_TOTAL=351
+EXPECTED_TOTAL=349
 
 CONFIG_FILE="$(dirname "$0")/../hammerfall-config.md"
 BRAIN_URL=$(grep "supabase_brain_url:" "$CONFIG_FILE" | awk '{print $2}')
@@ -455,8 +455,8 @@ rel "$JACK" "$MAPLEWOOD" "resident" "Family home at 118 Maplewood Road"
 pair "$IAN" "$MICHELLE" "spouse" "spouse" "Wife" "Husband"
 pair "$IAN" "$MIA" "parent" "child" "Daughter, born May 2025" "Father"
 pair "$MICHELLE" "$MIA" "parent" "child" "Daughter" "Mother"
-pair "$MIA" "$EMMA" "niece" "aunt" "Cousin" "Cousin"
-pair "$MIA" "$LILY" "niece" "aunt" "Cousin" "Cousin"
+pair "$MIA" "$EMMA" "pseudo_family" "pseudo_family" "Cousin — Ian's daughter / Maxwell's daughter" "Cousin — Maxwell's daughter / Ian's daughter"
+pair "$MIA" "$LILY" "pseudo_family" "pseudo_family" "Cousin — Ian's daughter / Maxwell's daughter" "Cousin — Maxwell's daughter / Ian's daughter"
 
 # Amy's family
 pair "$AMY" "$IAN" "parent" "child" "Son" "Mother"
@@ -551,8 +551,6 @@ pair "$ISAAC" "$LILY" "pseudo_family" "pseudo_family" "Pseudo-uncle" "Pseudo-nie
 pair "$BRODY" "$EMMA" "pseudo_family" "pseudo_family" "Friend" "Friend"
 pair "$BRODY" "$LILY" "pseudo_family" "pseudo_family" "Friend" "Friend"
 
-# Nicole's history with Maxwell
-pair "$NICOLE" "$WES" "spouse" "spouse" "" ""
 
 # =============================================================
 # SECTION 6 — Emma's school and sibling relationships
