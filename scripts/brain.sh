@@ -83,6 +83,12 @@ if [ -z "$BRAIN_URL" ] || [ -z "$SERVICE_KEY" ]; then
   exit 1
 fi
 
+# --patch-id guard: only supported for helm_entities — check before payload construction
+if [ -n "$PATCH_ID" ] && [ "$TABLE" != "helm_entities" ]; then
+  echo "ERROR: --patch-id is only supported for --table helm_entities."
+  exit 1
+fi
+
 # Escape content string for JSON
 ESCAPED=$(node -e "
   let d = '';
@@ -183,12 +189,6 @@ case "$TABLE" in
     ;;
 
 esac
-
-# --patch-id guard: only supported for helm_entities
-if [ -n "$PATCH_ID" ] && [ "$TABLE" != "helm_entities" ]; then
-  echo "ERROR: --patch-id is only supported for --table helm_entities."
-  rm -f "$TMPFILE"; exit 1
-fi
 
 # --ssl-no-revoke: required on Windows/schannel to bypass certificate revocation check
 # helm_personality uses upsert — UNIQUE constraint on attribute means only one row per attribute
