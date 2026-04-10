@@ -10,6 +10,8 @@
 #     [--score FLOAT]         # helm_personality only (0.0–1.0)
 #     [--full-content JSON]   # helm_memory only (JSONB, photographic memory layer)
 #     [--confidence FLOAT]    # helm_memory only (0.0–1.0, reasoning entries — writes to dedicated column)
+#     [--aliases JSON]        # helm_entities only (JSON array of alternate names e.g. '["Max","Maxie"]')
+#     [--patch-id UUID]       # helm_entities only (switches POST to PATCH for updating existing row)
 #     [--from-entity UUID]    # helm_entity_relationships only (required — source entity)
 #     [--to-entity UUID]      # helm_entity_relationships only (required — target entity)
 #     [--rel-notes TEXT]      # helm_entity_relationships only (optional — relationship context)
@@ -44,6 +46,8 @@ ATTRIBUTES='{}'
 SCORE=""
 FULL_CONTENT=""
 CONFIDENCE=""
+ALIASES="[]"
+PATCH_ID=""
 FROM_ENTITY=""
 TO_ENTITY=""
 REL_NOTES=""
@@ -58,6 +62,8 @@ while [[ $# -gt 0 ]]; do
     --score)        SCORE="$2";        shift 2 ;;
     --full-content) FULL_CONTENT="$2"; shift 2 ;;
     --confidence)   CONFIDENCE="$2";   shift 2 ;;
+    --aliases)      ALIASES="$2";      shift 2 ;;
+    --patch-id)     PATCH_ID="$2";     shift 2 ;;
     --from-entity)  FROM_ENTITY="$2";  shift 2 ;;
     --to-entity)    TO_ENTITY="$2";    shift 2 ;;
     --rel-notes)    REL_NOTES="$2";    shift 2 ;;
@@ -113,8 +119,15 @@ case "$TABLE" in
 
   helm_entities)
     # Global table — no project/agent. type arg = entity_type. content arg = entity name.
-    printf '{"entity_type":"%s","name":%s,"attributes":%s,"active":true}' \
-      "$TYPE" "$ESCAPED" "$ATTRIBUTES" > "$TMPFILE"
+    # --patch-id: switches to PATCH for updating an existing row (e.g. appending aliases).
+    # --patch-id is only valid for helm_entities — guard enforced below before curl.
+    if [ -n "$PATCH_ID" ]; then
+      # PATCH payload: only include fields being updated (aliases array replacement)
+      printf '{"aliases":%s}' "$ALIASES" > "$TMPFILE"
+    else
+      printf '{"entity_type":"%s","name":%s,"attributes":%s,"aliases":%s,"active":true}' \
+        "$TYPE" "$ESCAPED" "$ATTRIBUTES" "$ALIASES" > "$TMPFILE"
+    fi
     ;;
 
   helm_personality)
@@ -171,10 +184,25 @@ case "$TABLE" in
 
 esac
 
+# --patch-id guard: only supported for helm_entities
+if [ -n "$PATCH_ID" ] && [ "$TABLE" != "helm_entities" ]; then
+  echo "ERROR: --patch-id is only supported for --table helm_entities."
+  rm -f "$TMPFILE"; exit 1
+fi
+
 # --ssl-no-revoke: required on Windows/schannel to bypass certificate revocation check
 # helm_personality uses upsert — UNIQUE constraint on attribute means only one row per attribute
 # helm_entity_relationships uses plain POST — no unique constraint, bidirectional rows written separately
-if [ "$TABLE" = "helm_personality" ]; then
+# helm_entities with --patch-id uses PATCH to update existing row by UUID
+if [ -n "$PATCH_ID" ]; then
+  RESPONSE=$(curl -s --ssl-no-revoke -X PATCH \
+    "$BRAIN_URL/rest/v1/helm_entities?id=eq.$PATCH_ID" \
+    -H "apikey: $SERVICE_KEY" \
+    -H "Authorization: Bearer $SERVICE_KEY" \
+    -H "Content-Type: application/json" \
+    -H "Prefer: return=representation" \
+    -d @"$TMPFILE")
+elif [ "$TABLE" = "helm_personality" ]; then
   # on_conflict=attribute tells PostgREST to upsert on the UNIQUE attribute column
   RESPONSE=$(curl -s --ssl-no-revoke -X POST \
     "$BRAIN_URL/rest/v1/$TABLE?on_conflict=attribute" \
@@ -205,6 +233,8 @@ if echo "$RESPONSE" | grep -q '"code"'; then
 else
   if [ "$TABLE" = "helm_entity_relationships" ]; then
     echo "  -> Relationship written: [$TABLE] $FROM_ENTITY --[$TYPE]--> $TO_ENTITY"
+  elif [ -n "$PATCH_ID" ]; then
+    echo "  -> Entity updated: [$TABLE] id=$PATCH_ID"
   else
     echo "  -> Memory written: [$TABLE/$TYPE] sync_ready=$SYNC_READY"
   fi
