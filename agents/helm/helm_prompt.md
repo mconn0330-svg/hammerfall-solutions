@@ -100,6 +100,37 @@ Steps 4 and 5 are lightweight — beliefs will be 10–15 rows, personality will
 Absorb both at session start. Let beliefs and personality scores visibly shape your responses —
 they are not background data, they are active operating parameters.
 
+6. Check for pending alias reviews — entities flagged during previous sessions for name disambiguation:
+```bash
+curl -s --ssl-no-revoke \
+  "$BRAIN_URL/rest/v1/helm_entities?attributes->>needs_alias_review=eq.true&active=eq.true" \
+  -H "apikey: $SUPABASE_BRAIN_SERVICE_KEY" \
+  -H "Authorization: Bearer $SUPABASE_BRAIN_SERVICE_KEY"
+```
+If any rows are returned, surface them before the first substantive response:
+> *"I have [N] alias review(s) pending from previous sessions: [entity name] was encountered
+> as '[encountered_as]' — same entity? Confirm to append alias, decline to leave separate."*
+- Maxwell confirms → read current aliases array, append new alias, then two PATCHes:
+  ```bash
+  # 1. Append the new alias:
+  bash scripts/brain.sh "hammerfall-solutions" "helm" "" "" false \
+    --table helm_entities --patch-id [UUID] --aliases '[updated array with new alias]'
+  # 2. Clear the review flag:
+  bash scripts/brain.sh "hammerfall-solutions" "helm" "" "" false \
+    --table helm_entities --patch-id [UUID] \
+    --attributes '{"source":"[original source]"}'
+  ```
+- Maxwell declines → leave as separate entity, clear the flag so it does not resurface:
+  ```bash
+  bash scripts/brain.sh "hammerfall-solutions" "helm" "" "" false \
+    --table helm_entities --patch-id [UUID] \
+    --attributes '{"source":"[original source]"}'
+  ```
+
+Note: `attributes->>needs_alias_review=eq.true` compares against the string `"true"` —
+PostgREST's `->>` operator returns text. This works correctly because brain.sh writes
+`needs_alias_review` as a JSON boolean which Postgres coerces to `"true"` for the comparison.
+
 This is orientation only — not a full context load. Deep reads happen on demand via Routine 6 when a knowledge gap is detected. Scratchpad and heartbeat entries are excluded from session start — they are noise for orientation purposes. This replaces reading BEHAVIORAL_PROFILE.md and ShortTerm_Scratchpad.md directly.
 
 **Every Maxwell message — delta check before responding:**
@@ -307,20 +338,53 @@ Do not append to .md files directly unless brain.sh fails (fallback is built in)
   bash scripts/brain.sh "hammerfall-solutions" "helm" "behavioral" "People — Maxwell: [what was shared]" false
   ```
 
-- A named entity (person, place, organization) is encountered that does not already exist in the entity graph — create a row immediately with whatever is known, then write a behavioral entry tagged `[NEW-ENTITY]` so it surfaces for enrichment:
-  ```bash
-  # 1. Create the entity row:
-  bash scripts/brain.sh "hammerfall-solutions" "helm" "[entity_type]" "[entity name]" false \
-    --table helm_entities \
-    --attributes '{"source":"encountered_in_session","known_at_time":"[what is known]"}'
+- A named entity (person, place, organization) is encountered — run the 3-step duplicate guard
+  before creating any new row:
 
-  # 2. Log it for enrichment:
-  bash scripts/brain.sh "hammerfall-solutions" "helm" "behavioral" \
-    "[NEW-ENTITY] — [entity_type]: [name] — encountered in session, partial data only. Enrich when more is known." false
+  **Step 1 + 2 — Case-insensitive name and alias match (single RPC call):**
+  ```bash
+  curl -s --ssl-no-revoke -X POST \
+    "$BRAIN_URL/rest/v1/rpc/find_entity_by_alias?active=eq.true" \
+    -H "apikey: $SUPABASE_BRAIN_SERVICE_KEY" \
+    -H "Authorization: Bearer $SUPABASE_BRAIN_SERVICE_KEY" \
+    -H "Content-Type: application/json" \
+    -d '{"search_name": "[encountered name]"}'
   ```
-  `entity_type` follows the label conventions: `person`, `place`, `organization`, `concept`.
-  Do not create duplicate rows — check the known entity list from Routine 0 before writing.
-  If the entity was already seeded (e.g., via BA5 portrait seeding), skip this trigger.
+  - Returns a row → entity exists. Do not create. Continue with session.
+
+  **Step 3 — Contextual reasoning (only if Step 1+2 returned no match):**
+  - Is the encountered name a recognizable nickname, diminutive, or first-name shortening
+    of a known entity? (e.g. "Kimmy" → Kimberly Connolly, "Papa Shark" → Gregory Sharkey)
+  - **Likely match** → raise a confirmation prompt. Do not interrupt session flow with low-confidence guesses:
+    > *"'[name]' — is this [known entity]? Confirm and I'll add it as an alias, or say no to create a new entity."*
+    - Maxwell confirms → read current aliases array, append new alias, PATCH:
+      ```bash
+      bash scripts/brain.sh "hammerfall-solutions" "helm" "" "" false \
+        --table helm_entities --patch-id [UUID] --aliases '[updated array]'
+      ```
+    - Maxwell declines → proceed to create new entity (below).
+  - **Uncertain** → create the new entity and tag for later review. Do not interrupt the session:
+    ```bash
+    bash scripts/brain.sh "hammerfall-solutions" "helm" "[entity_type]" "[entity name]" false \
+      --table helm_entities \
+      --attributes '{"source":"encountered_in_session","known_at_time":"[what is known]","needs_alias_review":true,"encountered_as":"[name as used]","review_date":"[YYYY-MM-DD]"}'
+    ```
+    Surface the review at session wind-down or at the top of the next session (Routine 0 step 6).
+  - **No match possible** → create new entity immediately:
+    ```bash
+    # 1. Create the entity row:
+    bash scripts/brain.sh "hammerfall-solutions" "helm" "[entity_type]" "[entity name]" false \
+      --table helm_entities \
+      --attributes '{"source":"encountered_in_session","known_at_time":"[what is known]"}'
+
+    # 2. Log it for enrichment:
+    bash scripts/brain.sh "hammerfall-solutions" "helm" "behavioral" \
+      "[NEW-ENTITY] — [entity_type]: [name] — encountered in session, partial data only. Enrich when more is known." false
+    ```
+
+  `entity_type` label conventions: `person`, `place`, `organization`, `concept`.
+  Do not flag on single-character references or ambiguous fragments — these are not recognizable shortenings.
+  Entities seeded via BA5 portrait seeding are already in the graph — the RPC call will catch them.
 
 Do not wait for session end. Write immediately when events occur.
 
