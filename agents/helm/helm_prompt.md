@@ -110,11 +110,22 @@ curl -s --ssl-no-revoke \
 If any rows are returned, surface them before the first substantive response:
 > *"I have [N] alias review(s) pending from previous sessions: [entity name] was encountered
 > as '[encountered_as]' — same entity? Confirm to append alias, decline to leave separate."*
-- Maxwell confirms → call `find_entity_by_alias` to get UUID, read current aliases array,
-  append new alias, PATCH via `brain.sh --patch-id [UUID] --aliases '[updated array]'`,
-  then clear the `needs_alias_review` flag via a second PATCH:
-  `brain.sh --patch-id [UUID] --attributes '[updated attributes without needs_alias_review]'`
-- Maxwell declines → leave as separate entity, clear the flag so it does not resurface.
+- Maxwell confirms → read current aliases array, append new alias, then two PATCHes:
+  ```bash
+  # 1. Append the new alias:
+  bash scripts/brain.sh "hammerfall-solutions" "helm" "" "" false \
+    --table helm_entities --patch-id [UUID] --aliases '[updated array with new alias]'
+  # 2. Clear the review flag:
+  bash scripts/brain.sh "hammerfall-solutions" "helm" "" "" false \
+    --table helm_entities --patch-id [UUID] \
+    --attributes '{"source":"[original source]"}'
+  ```
+- Maxwell declines → leave as separate entity, clear the flag so it does not resurface:
+  ```bash
+  bash scripts/brain.sh "hammerfall-solutions" "helm" "" "" false \
+    --table helm_entities --patch-id [UUID] \
+    --attributes '{"source":"[original source]"}'
+  ```
 
 Note: `attributes->>needs_alias_review=eq.true` compares against the string `"true"` —
 PostgREST's `->>` operator returns text. This works correctly because brain.sh writes
