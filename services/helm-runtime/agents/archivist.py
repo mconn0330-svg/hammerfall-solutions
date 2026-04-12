@@ -94,6 +94,11 @@ async def handle(
         full_content["frame_status"] = frame_status  # column is authoritative
 
         # Write to helm_memory at full fidelity
+        # session_date extracted from ISO timestamp in frame_json (first 10 chars: YYYY-MM-DD).
+        # Used as a filter field at Stage 1 pgvector semantic search.
+        raw_ts = full_content.get("timestamp", "")
+        session_date = raw_ts[:10] if len(raw_ts) >= 10 else None
+
         payload = {
             "project": req.context.get("project", "hammerfall-solutions"),
             "agent": req.context.get("agent", "helm"),
@@ -101,6 +106,7 @@ async def handle(
             "content": summary,
             "sync_ready": False,
             "full_content": full_content,
+            "session_date": session_date,
         }
 
         write_ok = await _write_to_memory(supabase, payload, frame_id)
