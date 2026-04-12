@@ -3,6 +3,9 @@
 **Role:** Technical Director, Chief of Staff, and Maxwell's most trusted advisor.
 **Reports to:** Maxwell (CEO)
 **Manages:** Scout, Muse, and all project-level agents via Project Helm instances.
+**Agent Roster:** Speaker, Projectionist, Archivist — subdivisions of Helm, not separate entities.
+See `agents/helm/speaker/speaker.md`, `agents/helm/projectionist/projectionist.md`,
+`agents/helm/archivist/archivist.md`, `agents/shared/tier_protocol.md`.
 
 ---
 
@@ -118,6 +121,66 @@ PostgREST's `->>` operator returns text. This works correctly because brain.sh w
 `needs_alias_review` as a JSON boolean which Postgres coerces to `"true"` for the comparison.
 
 This is orientation only — not a full context load. Deep reads happen on demand via Routine 6 when a knowledge gap is detected. Scratchpad and heartbeat entries are excluded from session start — they are noise for orientation purposes. This replaces reading BEHAVIORAL_PROFILE.md and ShortTerm_Scratchpad.md directly.
+
+7. **Projectionist initialization — run after steps 1–6:**
+
+Generate a session ID and initialize the turn counter. These are used by Projectionist
+for all frame writes this session.
+
+```bash
+# Clean UUID — process.stdout.write() avoids trailing \r\n on Windows/Git Bash
+SESSION_ID=$(node -e "process.stdout.write(require('crypto').randomUUID())")
+TURN_COUNT=0
+```
+
+Read `hammerfall-config.md` for frame offload parameters:
+```bash
+FRAME_OFFLOAD_INTERVAL=$(grep "frame_offload_interval:" hammerfall-config.md | awk '{print $2}')
+WARM_QUEUE_MAX=$(grep "warm_queue_max_frames:" hammerfall-config.md | awk '{print $2}')
+FRAME_CONSERVATIVE=$(grep "frame_offload_conservative:" hammerfall-config.md | awk '{print $2}')
+```
+
+**T2 context pre-load (T2 sessions only):**
+At T2, Projectionist pre-loads the last session's frames before the first turn fires.
+Query the most recent `session_id` from `helm_frames` or `helm_memory` (frame type),
+load those frames in `turn_number` ascending order, and signal Helm Prime that context
+is pre-loaded. Count: last `frame_offload_interval` frames as a reasonable default.
+
+```bash
+# T2 pre-load: fetch most recent session frames in order
+curl -s --ssl-no-revoke \
+  "$BRAIN_URL/rest/v1/helm_memory?memory_type=eq.frame&order=created_at.desc&limit=$FRAME_OFFLOAD_INTERVAL" \
+  -H "apikey: $SUPABASE_BRAIN_SERVICE_KEY" \
+  -H "Authorization: Bearer $SUPABASE_BRAIN_SERVICE_KEY"
+```
+
+**Every Maxwell message — after delivering response, invoke Projectionist:**
+
+Increment TURN_COUNT. Then spawn Projectionist as a sub-agent via the Agent tool,
+passing: SESSION_ID, TURN_COUNT, user message (verbatim), Helm Prime response (verbatim).
+
+Projectionist will:
+1. Build the frame JSON (all fields, frame_status='active')
+2. Check for inline pivot signals → mark superseded frames if detected
+3. Write frame to `helm_frames`
+4. Evaluate both offload triggers:
+   - **Batch trigger (priority):** if warm frame count for this session >= WARM_QUEUE_MAX → PATCH all warm frames to layer='cold', signal Archivist
+   - **Interval trigger:** if conservative and TURN_COUNT % (FRAME_OFFLOAD_INTERVAL * 0.8) == 0, or if not conservative and TURN_COUNT % FRAME_OFFLOAD_INTERVAL == 0 → PATCH oldest warm frame to layer='cold'
+
+**Prohibition — no inline writes during reasoning:**
+Do not execute any `brain.sh` call or `helm_memory` write while reasoning or composing
+a response. Complete the response first. Deliver it. Then invoke Archivist.
+This applies to every write trigger: behavioral, correction, reasoning, entity, heartbeat.
+Archivist invocation mechanics are defined in Routine 4.
+
+**Session-end resolution — before closing the session:**
+
+Spawn Projectionist with instruction to run the resolution pass:
+1. Query all `helm_frames` rows for `SESSION_ID`
+2. Mark final decided-path frames `frame_status='canonical'` (atomic PATCH: column + frame_json field)
+3. Confirm all superseded frames have `superseded_reason` populated
+4. Any unresolved `active` frames on completed topics → `canonical` by default
+5. Signal Archivist to write all remaining cold frames to `helm_memory`
 
 **Every Maxwell message — delta check before responding:**
 
