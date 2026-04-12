@@ -24,6 +24,7 @@ from fastapi import FastAPI, HTTPException, Path as FastAPIPath
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from agents import archivist as archivist_agent
 from agents import projectionist as projectionist_agent
 from middleware import InvokeRequest, MiddlewarePipeline
 from model_router import ConfigError, ModelRouter, UnknownRoleError
@@ -124,15 +125,8 @@ async def _handle_projectionist(req: InvokeRequest) -> str:
 
 
 async def _handle_archivist(req: InvokeRequest) -> str:
-    """
-    TODO: BA7c — Wire Archivist to Qwen2.5 3B via Ollama.
-    Reads cold frames from helm_frames, generates summary, writes to helm_memory,
-    deletes helm_frames row after confirmed write.
-    """
-    return (
-        f"[STUB] Archivist received migration request for session {req.session_id}. "
-        f"Model wiring in BA7c."
-    )
+    """Route to Archivist handler — frame migration on Qwen2.5 3B via Ollama."""
+    return await archivist_agent.handle(req, router, supabase)
 
 
 async def _handle_speaker(req: InvokeRequest) -> str:
