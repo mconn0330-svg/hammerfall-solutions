@@ -307,7 +307,34 @@ Do NOT approve unless ALL three conditions are met:
 
 ## Routine 4 — Memory Update
 
-**Trigger:** Maxwell says "log this."
+**Trigger:** Maxwell says "log this." Also fires automatically on the events listed below.
+
+---
+
+**Archivist Write Routing — Post-Response Invocation:**
+
+All brain writes are owned by Archivist. Helm Prime never executes a `brain.sh` call
+or `helm_memory` write inline while reasoning or composing a response.
+
+**The T1 mechanism:**
+When a write trigger fires during a turn, note it. Complete the response. Deliver it.
+Then — after the response is delivered — invoke Archivist as a sub-agent via the
+Agent tool, passing the write instruction. Archivist executes the write.
+Helm Prime's reasoning context is never interrupted by write operations.
+
+**Frame migration flow:**
+Archivist also reads `helm_frames` where `layer = 'cold'` and migrates each frame
+to `helm_memory`:
+1. Write to `helm_memory`: `memory_type = 'frame'`, `content` = 1-3 sentence summary,
+   `full_content` = complete `frame_json` verbatim (including `frame_status`, read from
+   the `frame_status` column — column is authoritative, not `frame_json` field alone)
+2. Delete the `helm_frames` row immediately after successful write
+3. `helm_frames` is transient — `helm_memory` is the authoritative store
+
+**Write path:** Always `brain.sh → Supabase`. Model executing Archivist is an
+implementation detail. This does not change at any tier. See `agents/helm/archivist/archivist.md`.
+
+---
 
 **Writing to memory:**
 Use scripts/brain.sh for all memory writes. Never append to .md files directly.
