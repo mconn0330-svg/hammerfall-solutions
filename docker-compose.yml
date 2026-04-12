@@ -1,0 +1,57 @@
+version: "3.9"
+
+# Helm Runtime Service + Ollama sidecar
+# One command stands up the full local stack:
+#
+#   docker-compose up
+#   # Helm Runtime Service: http://localhost:8000
+#   # Ollama:               http://localhost:11434
+#
+# Required env vars (set in shell or .env file — never hardcode values here):
+#   ANTHROPIC_API_KEY          — Helm Prime model calls
+#   SUPABASE_BRAIN_URL         — Supabase REST endpoint
+#   SUPABASE_BRAIN_SERVICE_KEY — Archivist writes to helm_memory
+#
+# Optional:
+#   HELM_RUNTIME_PORT          — Override service port (default: 8000)
+
+services:
+  helm-runtime:
+    build:
+      context: ./services/helm-runtime
+      dockerfile: Dockerfile
+    ports:
+      - "${HELM_RUNTIME_PORT:-8000}:8000"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - SUPABASE_BRAIN_URL=${SUPABASE_BRAIN_URL}
+      - SUPABASE_BRAIN_SERVICE_KEY=${SUPABASE_BRAIN_SERVICE_KEY}
+      # Ollama runs as a sidecar — use Docker service name, not localhost
+      - OLLAMA_BASE_URL=http://ollama:11434
+    depends_on:
+      ollama:
+        condition: service_healthy
+    volumes:
+      # Mount config read-only — swap models by editing config.yaml + restart
+      - ./services/helm-runtime/config.yaml:/app/config.yaml:ro
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      # Persist pulled models — qwen2.5:3b does not re-download on every up
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+volumes:
+  ollama_data:
+    # Named volume — survives docker-compose down, removed only with:
+    #   docker-compose down -v
