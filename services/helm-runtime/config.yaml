@@ -1,20 +1,43 @@
 # Helm Runtime Service — Agent Model Configuration
+# =============================================================================
 # This file is the BYO model contract.
-# Swapping any model is one line + service restart. No code changes.
+# Swapping any model is one line + service restart. No code changes required.
 #
-# Provider types:
-#   anthropic — Claude API (Helm Cloud default, BYO Claude key)
-#   openai    — OpenAI API (BYO OpenAI key)
-#   ollama    — Local Ollama instance (local dev, Helm Self-Hosted)
-#   custom    — Any OpenAI-compatible endpoint (most open-source model servers)
+# Config is validated against a Pydantic schema at startup. Structural errors
+# (missing required fields, invalid provider type) produce a clear named error
+# before the service accepts any requests.
 #
-# All URLs and API keys are resolved from environment variables.
-# Values never appear in this file — only env var names.
-# Missing required env var → service fails to start with a named error.
+# All API keys and URLs are resolved from environment variables at startup.
+# Values never appear in this file — only env var names. Missing required env
+# vars raise immediately with a named error, not silently at request time.
+# =============================================================================
+#
+# Provider types and requirements:
+#
+#   anthropic — Claude API
+#     Required: api_key_env (env var holding your Anthropic API key)
+#     Example model: claude-sonnet-4-6, claude-haiku-4-5-20251001
+#
+#   openai — OpenAI API
+#     Required: api_key_env (env var holding your OpenAI API key)
+#     Example model: gpt-4o, gpt-4o-mini
+#
+#   ollama — Local Ollama instance
+#     Required: base_url_env (env var holding the Ollama server URL)
+#     Defaults to http://localhost:11434 if env var is unset (warns, does not fail)
+#     Example model: qwen2.5:3b, llama3.1:8b, mistral:7b
+#
+#   custom — Any OpenAI-compatible endpoint
+#     Required: base_url_env (env var holding the endpoint URL)
+#     Optional: api_key_env (some endpoints need no auth)
+#     Covers: LM Studio, vLLM, Ollama (alternate), Hammerfall Cloud, any
+#             service that speaks the OpenAI API format
+#     Example model: any model name the endpoint accepts
+# =============================================================================
 
 service:
   port: 8000
-  log_level: info
+  log_level: info  # debug | info | warning | error | critical
 
 supabase:
   url_env: SUPABASE_BRAIN_URL
@@ -29,7 +52,7 @@ agents:
   projectionist:
     provider: ollama
     model: qwen2.5:3b
-    base_url_env: OLLAMA_BASE_URL   # default: http://localhost:11434
+    base_url_env: OLLAMA_BASE_URL   # set to http://localhost:11434 for local dev
 
   archivist:
     provider: ollama
@@ -41,25 +64,46 @@ agents:
     model: llama3.1:8b
     base_url_env: OLLAMA_BASE_URL
 
-# ---------------------------------------------------------------------------
-# BYO model examples — what a model swap looks like:
-#
-# Haiku for Projectionist (cheaper than Sonnet, still capable for JSON tasks):
-#   projectionist:
-#     provider: anthropic
-#     model: claude-haiku-4-5-20251001
-#     api_key_env: ANTHROPIC_API_KEY
-#
-# OpenAI gpt-4o-mini:
-#   projectionist:
-#     provider: openai
-#     model: gpt-4o-mini
-#     api_key_env: OPENAI_API_KEY
-#
-# Custom OpenAI-compatible endpoint (LM Studio, vLLM, Hammerfall Cloud, etc.):
-#   projectionist:
-#     provider: custom
-#     model: qwen2.5-3b-instruct
-#     base_url_env: LM_STUDIO_URL     # set to http://localhost:1234/v1
-#     api_key_env: LM_STUDIO_API_KEY  # optional — omit if endpoint needs no key
-# ---------------------------------------------------------------------------
+# =============================================================================
+# BYO MODEL EXAMPLES
+# Uncomment and replace the relevant agent block above to swap models.
+# =============================================================================
+
+# --- Anthropic: Haiku for Projectionist (cheaper, still capable for JSON tasks)
+# projectionist:
+#   provider: anthropic
+#   model: claude-haiku-4-5-20251001
+#   api_key_env: ANTHROPIC_API_KEY
+
+# --- OpenAI: gpt-4o-mini for Archivist
+# archivist:
+#   provider: openai
+#   model: gpt-4o-mini
+#   api_key_env: OPENAI_API_KEY
+
+# --- Custom: LM Studio (local OpenAI-compatible server, no auth required)
+# projectionist:
+#   provider: custom
+#   model: qwen2.5-3b-instruct
+#   base_url_env: LM_STUDIO_URL       # set to http://localhost:1234/v1
+
+# --- Custom: vLLM or any hosted OpenAI-compatible endpoint with auth
+# projectionist:
+#   provider: custom
+#   model: my-fine-tuned-model
+#   base_url_env: VLLM_ENDPOINT_URL   # set to https://my-vllm-host/v1
+#   api_key_env: VLLM_API_KEY
+
+# --- Custom: Hammerfall Cloud (Stage 4 production config)
+# projectionist:
+#   provider: custom
+#   model: hammerfall-projectionist-v1
+#   base_url_env: HAMMERFALL_MODEL_URL
+#   api_key_env: HAMMERFALL_API_KEY
+
+# --- Custom: Ollama via explicit base_url_env (same as 'ollama' provider but
+#     useful when you need a non-standard port or remote Ollama instance)
+# projectionist:
+#   provider: custom
+#   model: qwen2.5:3b
+#   base_url_env: OLLAMA_REMOTE_URL   # set to http://your-server:11434
