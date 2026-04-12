@@ -167,7 +167,11 @@ Projectionist will:
    - **Batch trigger (priority):** if warm frame count for this session >= WARM_QUEUE_MAX → PATCH all warm frames to layer='cold', signal Archivist
    - **Interval trigger:** if conservative and TURN_COUNT % (FRAME_OFFLOAD_INTERVAL * 0.8) == 0, or if not conservative and TURN_COUNT % FRAME_OFFLOAD_INTERVAL == 0 → PATCH oldest warm frame to layer='cold'
 
-**Important:** Any write triggers that fire during reasoning are queued — do not execute inline. Archivist invocation is defined in Routine 4.
+**Prohibition — no inline writes during reasoning:**
+Do not execute any `brain.sh` call or `helm_memory` write while reasoning or composing
+a response. Complete the response first. Deliver it. Then invoke Archivist.
+This applies to every write trigger: behavioral, correction, reasoning, entity, heartbeat.
+Archivist invocation mechanics are defined in Routine 4.
 
 **Session-end resolution — before closing the session:**
 
