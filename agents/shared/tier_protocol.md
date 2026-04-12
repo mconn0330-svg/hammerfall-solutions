@@ -37,7 +37,7 @@ not a gap, it is T1 reality.
 - Helm Prime initiates on schedule
 - Projectionist pre-loads context from prior session frames
 - Archivist batches pending writes
-- Tasker monitors integrations between sessions
+- Speaker monitors integrations between sessions
 
 **HARDWARE:** T1 hardware plus a persistent scheduler. No new inference hardware required.
 
@@ -49,7 +49,7 @@ not a gap, it is T1 reality.
 
 **AGENTS:** Full physical separation. Each agent is a persistent process.
 - Helm Prime + Projectionist + Archivist → DGX Spark
-- Tasker (User-Facing) → RTX 4090
+- Speaker → RTX 4090
 - Communication via message bus (Redis or equivalent)
 
 **HARDWARE:** DGX Spark + RTX 4090. Two-node architecture.
@@ -81,8 +81,16 @@ These values are read by the Projectionist at session start.
 | Helm Prime | Claude Code | Claude Code | DGX Spark |
 | Projectionist | Claude Code (Agent tool) | Claude Code (Agent tool) | DGX Spark |
 | Archivist | Claude Code (Agent tool) | Claude Code (Agent tool) | DGX Spark |
-| Tasker (User-Facing) | Claude Code | Claude Code | RTX 4090 |
-| Tasker (IDE) | Claude Code / Antigravity | Claude Code / Antigravity | Claude Code / Antigravity |
+| Speaker | Claude Code | Claude Code | RTX 4090 |
+
+## Taskers — Stage 4 Forward Reference
+
+Taskers are scope-bound Helm instances created dynamically by Helm Prime at Stage 4.
+Each Tasker is a full Helm stack (Speaker + Projectionist + Archivist) operating within
+a bounded project or task context. All Taskers write to the same Supabase brain scoped
+by `project` and `agent` fields. One identity, one brain. Helm Prime creates and prunes
+Taskers as work starts and ends. The IDE Helm is a manually-created example of what a
+Tasker will look like when the pattern is fully operational.
 
 ---
 
