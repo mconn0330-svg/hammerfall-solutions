@@ -16,7 +16,6 @@ BA7a: Service skeleton with stubbed agent handlers.
 """
 
 import logging
-import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -25,6 +24,7 @@ from fastapi import FastAPI, HTTPException, Path as FastAPIPath
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from agents import projectionist as projectionist_agent
 from middleware import InvokeRequest, MiddlewarePipeline
 from model_router import ConfigError, ModelRouter, UnknownRoleError
 from supabase_client import SupabaseClient
@@ -119,14 +119,8 @@ class InvokeResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 async def _handle_projectionist(req: InvokeRequest) -> str:
-    """
-    TODO: BA7b — Wire Projectionist to Qwen2.5 3B via Ollama.
-    Builds frame JSON from turn data, validates, writes to helm_frames.
-    """
-    return (
-        f"[STUB] Projectionist received turn {req.turn_number} "
-        f"for session {req.session_id}. Model wiring in BA7b."
-    )
+    """Route to Projectionist handler — frame creation on Qwen2.5 3B via Ollama."""
+    return await projectionist_agent.handle(req, router, supabase)
 
 
 async def _handle_archivist(req: InvokeRequest) -> str:
