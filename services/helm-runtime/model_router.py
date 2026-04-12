@@ -1,32 +1,113 @@
 """
 model_router.py — Config loading, provider resolution, LiteLLM dispatch.
 
-Loads config.yaml at service startup. Resolves all env var values at startup
-time — missing required env vars raise immediately, not silently at request time.
+Loads config.yaml at service startup. Config structure is validated against a
+Pydantic schema — malformed config produces a clear named error at startup, not
+a mysterious failure at request time. All env var values are resolved at startup
+too; missing required env vars raise immediately.
 
 LiteLLM handles all provider normalization. This router never calls Anthropic,
 OpenAI, or Ollama directly. It builds the correct kwargs and delegates.
 
 Provider types:
-  anthropic — requires api_key_env
-  openai    — requires api_key_env
-  ollama    — requires base_url_env (resolves to Ollama server URL)
-  custom    — requires base_url_env; api_key_env optional
+  anthropic — Claude API. Requires api_key_env.
+  openai    — OpenAI API. Requires api_key_env.
+  ollama    — Local Ollama instance. Requires base_url_env.
+  custom    — Any OpenAI-compatible endpoint. Requires base_url_env.
+              api_key_env is optional (some endpoints need no auth).
+
+BYO model contract:
+  Swapping any agent's model is one line in config.yaml + service restart.
+  No code changes required for any supported provider type.
+  See config.yaml for annotated examples of each provider type.
 """
 
 import logging
 import os
 import time
-from typing import Any
+from enum import Enum
+from typing import Any, Optional
 
 import litellm
 import yaml
+from pydantic import BaseModel, field_validator, model_validator
 
 logger = logging.getLogger(__name__)
 
 # Suppress LiteLLM's verbose startup output
 litellm.suppress_debug_info = True
 
+
+# ---------------------------------------------------------------------------
+# Config schema — Pydantic models
+# ---------------------------------------------------------------------------
+
+class Provider(str, Enum):
+    anthropic = "anthropic"
+    openai = "openai"
+    ollama = "ollama"
+    custom = "custom"
+
+
+class AgentConfigSchema(BaseModel):
+    """Schema for a single agent entry in config.yaml."""
+    provider: Provider
+    model: str
+    api_key_env: Optional[str] = None
+    base_url_env: Optional[str] = None
+
+    @model_validator(mode="after")
+    def validate_provider_requirements(self) -> "AgentConfigSchema":
+        if self.provider in (Provider.anthropic, Provider.openai):
+            if not self.api_key_env:
+                raise ValueError(
+                    f"Provider '{self.provider}' requires api_key_env to be set in config.yaml."
+                )
+        if self.provider in (Provider.ollama, Provider.custom):
+            if not self.base_url_env:
+                raise ValueError(
+                    f"Provider '{self.provider}' requires base_url_env to be set in config.yaml."
+                )
+        return self
+
+
+class SupabaseConfigSchema(BaseModel):
+    """Schema for the supabase block in config.yaml."""
+    url_env: str = "SUPABASE_BRAIN_URL"
+    service_key_env: str = "SUPABASE_BRAIN_SERVICE_KEY"
+
+
+class ServiceConfigSchema(BaseModel):
+    """Schema for the service block in config.yaml."""
+    port: int = 8000
+    log_level: str = "info"
+
+    @field_validator("log_level")
+    @classmethod
+    def validate_log_level(cls, v: str) -> str:
+        valid = {"debug", "info", "warning", "error", "critical"}
+        if v.lower() not in valid:
+            raise ValueError(f"log_level must be one of {valid}, got: '{v}'")
+        return v.lower()
+
+
+class HelmRuntimeConfig(BaseModel):
+    """Root config schema. Validated at service startup."""
+    service: ServiceConfigSchema = ServiceConfigSchema()
+    supabase: SupabaseConfigSchema = SupabaseConfigSchema()
+    agents: dict[str, AgentConfigSchema]
+
+    @field_validator("agents")
+    @classmethod
+    def agents_not_empty(cls, v: dict) -> dict:
+        if not v:
+            raise ValueError("agents block must define at least one agent role.")
+        return v
+
+
+# ---------------------------------------------------------------------------
+# Exceptions
+# ---------------------------------------------------------------------------
 
 class UnknownRoleError(Exception):
     pass
@@ -36,78 +117,91 @@ class ConfigError(Exception):
     pass
 
 
+# ---------------------------------------------------------------------------
+# ModelRouter
+# ---------------------------------------------------------------------------
+
 class ModelRouter:
     def __init__(self, config_path: str):
         with open(config_path) as f:
-            self._raw_config = yaml.safe_load(f)
+            raw = yaml.safe_load(f)
 
-        self._agent_configs = self._resolve_configs()
+        # Pydantic schema validation — raises ValidationError with field-level
+        # detail on any structural or type error in config.yaml
+        try:
+            self._config = HelmRuntimeConfig(**raw)
+        except Exception as e:
+            raise ConfigError(f"config.yaml validation failed:\n{e}") from e
+
+        self._agent_configs = self._resolve_env_vars()
         self._supabase_config = self._resolve_supabase()
 
         logger.info("ModelRouter initialized. Agents: %s", list(self._agent_configs.keys()))
 
-    def _resolve_configs(self) -> dict:
+    def _resolve_env_vars(self) -> dict:
         """
-        Resolve env var values for each agent. Fails at startup if a required
-        env var is missing — never silently at request time.
+        Resolve all env var values from the validated config schema.
+        Raises ConfigError immediately if a required env var is missing.
+        Returns a dict of role → resolved runtime config (provider, model, api_key, base_url).
         """
-        agents_raw = self._raw_config.get("agents", {})
         resolved = {}
 
-        for role, cfg in agents_raw.items():
-            provider = cfg.get("provider")
-            model = cfg.get("model")
-
-            if not provider:
-                raise ConfigError(f"Agent '{role}' missing required field: provider")
-            if not model:
-                raise ConfigError(f"Agent '{role}' missing required field: model")
-
-            entry = {"provider": provider, "model": model}
+        for role, cfg in self._config.agents.items():
+            entry: dict[str, Any] = {
+                "provider": cfg.provider.value,
+                "model": cfg.model,
+            }
 
             # Resolve API key
-            api_key_env = cfg.get("api_key_env")
-            if api_key_env:
-                api_key = os.environ.get(api_key_env)
-                if not api_key and provider in ("anthropic", "openai"):
+            if cfg.api_key_env:
+                api_key = os.environ.get(cfg.api_key_env)
+                if not api_key and cfg.provider in (Provider.anthropic, Provider.openai):
                     raise ConfigError(
-                        f"Agent '{role}' (provider: {provider}) requires env var "
-                        f"'{api_key_env}' but it is not set."
+                        f"Agent '{role}' (provider: {cfg.provider.value}) requires env var "
+                        f"'{cfg.api_key_env}' but it is not set. "
+                        f"Add it to your environment before starting the service."
                     )
-                entry["api_key"] = api_key
+                if api_key:
+                    entry["api_key"] = api_key
 
             # Resolve base URL
-            base_url_env = cfg.get("base_url_env")
-            if base_url_env:
-                base_url = os.environ.get(base_url_env, "http://localhost:11434")
+            if cfg.base_url_env:
+                base_url = os.environ.get(cfg.base_url_env)
+                if not base_url:
+                    if cfg.provider == Provider.ollama:
+                        # Ollama: well-known default, warn but don't fail
+                        base_url = "http://localhost:11434"
+                        logger.warning(
+                            "Agent '%s': env var '%s' not set — defaulting to %s. "
+                            "Set %s explicitly for non-local deployments.",
+                            role, cfg.base_url_env, base_url, cfg.base_url_env,
+                        )
+                    else:
+                        # custom provider: no safe default exists
+                        raise ConfigError(
+                            f"Agent '{role}' (provider: {cfg.provider.value}) requires env var "
+                            f"'{cfg.base_url_env}' but it is not set."
+                        )
                 entry["base_url"] = base_url
-            elif provider in ("ollama", "custom"):
-                raise ConfigError(
-                    f"Agent '{role}' (provider: {provider}) requires base_url_env "
-                    f"to be set in config.yaml."
-                )
 
             resolved[role] = entry
 
         return resolved
 
     def _resolve_supabase(self) -> dict:
-        """Resolve Supabase connection details from config env vars."""
-        sb = self._raw_config.get("supabase", {})
-        url_env = sb.get("url_env", "SUPABASE_BRAIN_URL")
-        key_env = sb.get("service_key_env", "SUPABASE_BRAIN_SERVICE_KEY")
-
-        url = os.environ.get(url_env)
-        key = os.environ.get(key_env)
+        """Resolve Supabase connection details from validated config schema."""
+        sb = self._config.supabase
+        url = os.environ.get(sb.url_env)
+        key = os.environ.get(sb.service_key_env)
 
         if not url:
             raise ConfigError(
-                f"Supabase URL env var '{url_env}' is not set. "
+                f"Supabase URL env var '{sb.url_env}' is not set. "
                 "Set it before starting the service."
             )
         if not key:
             raise ConfigError(
-                f"Supabase service key env var '{key_env}' is not set. "
+                f"Supabase service key env var '{sb.service_key_env}' is not set. "
                 "Set it before starting the service."
             )
 
@@ -141,7 +235,7 @@ class ModelRouter:
             entry = {"provider": cfg["provider"], "model": cfg["model"]}
             if cfg.get("base_url"):
                 entry["base_url"] = cfg["base_url"]
-            # api_key is intentionally omitted
+            # api_key intentionally omitted
             summary[role] = entry
         return summary
 
@@ -158,8 +252,10 @@ class ModelRouter:
         LiteLLM model string format: "provider/model"
         e.g. "anthropic/claude-sonnet-4-6", "ollama/qwen2.5:3b"
 
-        For custom provider: use "openai/model-name" so LiteLLM treats it as
-        an OpenAI-compatible endpoint and routes to the custom base_url.
+        custom provider uses "openai/model" — LiteLLM treats it as an
+        OpenAI-compatible endpoint and routes to the configured base_url.
+        Any service that speaks the OpenAI API format works with zero
+        additional code.
         """
         cfg = self.get_agent_config(role)
         provider = cfg["provider"]
@@ -167,7 +263,6 @@ class ModelRouter:
 
         # LiteLLM model string
         if provider == "custom":
-            # Custom endpoints speak OpenAI API format
             model_string = f"openai/{model}"
         else:
             model_string = f"{provider}/{model}"
@@ -192,31 +287,24 @@ class ModelRouter:
     # Health check cache: role → {"result": dict, "checked_at": float}
     # TTL of 60s prevents repeated API calls to paid providers (Anthropic, OpenAI)
     # on every /health invocation (monitoring loops, smoke tests, Quartermaster polling).
-    # Ollama/custom endpoints are cheap to ping but benefit from the same TTL for
-    # consistency. Cache is per-instance — resets on service restart.
     _health_cache: dict = {}
     _health_cache_ttl: int = 60  # seconds
 
     async def check_model_health(self, role: str) -> dict:
         """
         Check if a model endpoint is reachable for a given role.
-        Returns a dict with status, provider, model, and optional error.
-
-        Results are cached for _health_cache_ttl seconds. Paid provider endpoints
-        (Anthropic, OpenAI) are only pinged when the cache is stale — not on
-        every /health call.
+        Results cached for _health_cache_ttl seconds — paid provider endpoints
+        are not pinged on every /health call.
         """
         cfg = self._agent_configs.get(role)
         if not cfg:
             return {"status": "unconfigured", "error": f"No config for role: {role}"}
 
-        # Return cached result if still fresh
         cached = self._health_cache.get(role)
         if cached and (time.monotonic() - cached["checked_at"]) < self._health_cache_ttl:
             return cached["result"]
 
         try:
-            # Minimal ping — one token, no actual work
             await self.invoke(
                 role,
                 messages=[{"role": "user", "content": "ping"}],
