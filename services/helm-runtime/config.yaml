@@ -1,0 +1,65 @@
+# Helm Runtime Service — Agent Model Configuration
+# This file is the BYO model contract.
+# Swapping any model is one line + service restart. No code changes.
+#
+# Provider types:
+#   anthropic — Claude API (Helm Cloud default, BYO Claude key)
+#   openai    — OpenAI API (BYO OpenAI key)
+#   ollama    — Local Ollama instance (local dev, Helm Self-Hosted)
+#   custom    — Any OpenAI-compatible endpoint (most open-source model servers)
+#
+# All URLs and API keys are resolved from environment variables.
+# Values never appear in this file — only env var names.
+# Missing required env var → service fails to start with a named error.
+
+service:
+  port: 8000
+  log_level: info
+
+supabase:
+  url_env: SUPABASE_BRAIN_URL
+  service_key_env: SUPABASE_BRAIN_SERVICE_KEY
+
+agents:
+  helm_prime:
+    provider: anthropic
+    model: claude-sonnet-4-6
+    api_key_env: ANTHROPIC_API_KEY
+
+  projectionist:
+    provider: ollama
+    model: qwen2.5:3b
+    base_url_env: OLLAMA_BASE_URL   # default: http://localhost:11434
+
+  archivist:
+    provider: ollama
+    model: qwen2.5:3b
+    base_url_env: OLLAMA_BASE_URL
+
+  speaker:
+    provider: ollama
+    model: llama3.1:8b
+    base_url_env: OLLAMA_BASE_URL
+
+# ---------------------------------------------------------------------------
+# BYO model examples — what a model swap looks like:
+#
+# Haiku for Projectionist (cheaper than Sonnet, still capable for JSON tasks):
+#   projectionist:
+#     provider: anthropic
+#     model: claude-haiku-4-5-20251001
+#     api_key_env: ANTHROPIC_API_KEY
+#
+# OpenAI gpt-4o-mini:
+#   projectionist:
+#     provider: openai
+#     model: gpt-4o-mini
+#     api_key_env: OPENAI_API_KEY
+#
+# Custom OpenAI-compatible endpoint (LM Studio, vLLM, Hammerfall Cloud, etc.):
+#   projectionist:
+#     provider: custom
+#     model: qwen2.5-3b-instruct
+#     base_url_env: LM_STUDIO_URL     # set to http://localhost:1234/v1
+#     api_key_env: LM_STUDIO_API_KEY  # optional — omit if endpoint needs no key
+# ---------------------------------------------------------------------------
