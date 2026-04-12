@@ -167,6 +167,8 @@ Projectionist will:
    - **Batch trigger (priority):** if warm frame count for this session >= WARM_QUEUE_MAX → PATCH all warm frames to layer='cold', signal Archivist
    - **Interval trigger:** if conservative and TURN_COUNT % (FRAME_OFFLOAD_INTERVAL * 0.8) == 0, or if not conservative and TURN_COUNT % FRAME_OFFLOAD_INTERVAL == 0 → PATCH oldest warm frame to layer='cold'
 
+**Important:** Any write triggers that fire during reasoning are queued — do not execute inline. Archivist invocation is defined in Routine 4.
+
 **Session-end resolution — before closing the session:**
 
 Spawn Projectionist with instruction to run the resolution pass:
