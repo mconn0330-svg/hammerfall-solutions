@@ -140,6 +140,23 @@ WARM_QUEUE_MAX=$(grep "warm_queue_max_frames:" hammerfall-config.md | awk '{prin
 FRAME_CONSERVATIVE=$(grep "frame_offload_conservative:" hammerfall-config.md | awk '{print $2}')
 ```
 
+**Runtime connectivity check:**
+Confirm the Helm Runtime Service is available before the first turn fires.
+
+```bash
+curl -s http://localhost:8000/health | python3 -c "
+import sys, json
+h = json.load(sys.stdin)
+print(f'Runtime: {h[\"status\"]}')
+for name, check in h.get('checks', {}).get('models', {}).items():
+    print(f'  {name}: {check[\"status\"]}')
+"
+```
+
+If runtime is unreachable: log `[RUNTIME-UNAVAILABLE]` and continue session.
+Projectionist and Archivist invocations will fail gracefully this session.
+Do not block session start on runtime availability.
+
 **T2 context pre-load (T2 sessions only):**
 At T2, Projectionist pre-loads the last session's frames before the first turn fires.
 Query the most recent `session_id` from `helm_frames` or `helm_memory` (frame type),
@@ -156,8 +173,35 @@ curl -s --ssl-no-revoke \
 
 **Every Maxwell message — after delivering response, invoke Projectionist:**
 
-Increment TURN_COUNT. Then spawn Projectionist as a sub-agent via the Agent tool,
-passing: SESSION_ID, TURN_COUNT, user message (verbatim), Helm Prime response (verbatim).
+Increment TURN_COUNT. Then call the Helm Runtime Service directly via bash curl.
+The runtime routes to Projectionist (Qwen2.5 3B via Ollama), which builds the frame,
+validates it, and writes it to `helm_frames`. The Agent tool is no longer in this path.
+
+Content is written to a temp file to handle multiline messages, quotes, and special
+characters safely — the same pattern as brain.sh.
+
+```bash
+# Set turn content as env vars — node reads via process.env, handles all escaping
+export USER_MSG="[verbatim user message for this turn]"
+export HELM_MSG="[verbatim Helm Prime response for this turn]"
+
+PROJ_TMPFILE=$(mktemp /tmp/proj_req_XXXXXX.json)
+node -e "
+  const body = {
+    session_id: process.env.SESSION_ID,
+    turn_number: parseInt(process.env.TURN_COUNT),
+    user_message: process.env.USER_MSG,
+    helm_response: process.env.HELM_MSG,
+    context: { project: 'hammerfall-solutions', agent: 'helm' }
+  };
+  process.stdout.write(JSON.stringify(body));
+" > "$PROJ_TMPFILE"
+
+curl -s -X POST http://localhost:8000/invoke/projectionist \
+  -H "Content-Type: application/json" \
+  -d @"$PROJ_TMPFILE"
+rm -f "$PROJ_TMPFILE"
+```
 
 Projectionist will:
 1. Build the frame JSON (all fields, frame_status='active')
@@ -175,12 +219,51 @@ Archivist invocation mechanics are defined in Routine 4.
 
 **Session-end resolution — before closing the session:**
 
-Spawn Projectionist with instruction to run the resolution pass:
+Call the runtime to trigger Projectionist's resolution pass, then Archivist's final drain.
+
+```bash
+# Step 1: Projectionist resolution pass
+# (marks canonical/superseded, confirms all superseded_reason populated)
+PROJ_TMPFILE=$(mktemp /tmp/proj_req_XXXXXX.json)
+node -e "
+  const body = {
+    session_id: process.env.SESSION_ID,
+    turn_number: parseInt(process.env.TURN_COUNT),
+    user_message: '[SESSION-END-RESOLUTION]',
+    helm_response: '[SESSION-END-RESOLUTION]',
+    context: { project: 'hammerfall-solutions', agent: 'helm', resolution_pass: true }
+  };
+  process.stdout.write(JSON.stringify(body));
+" > "$PROJ_TMPFILE"
+curl -s -X POST http://localhost:8000/invoke/projectionist \
+  -H "Content-Type: application/json" \
+  -d @"$PROJ_TMPFILE"
+rm -f "$PROJ_TMPFILE"
+
+# Step 2: Archivist final drain — migrate all remaining cold frames
+ARCH_TMPFILE=$(mktemp /tmp/arch_req_XXXXXX.json)
+node -e "
+  const body = {
+    session_id: process.env.SESSION_ID,
+    turn_number: parseInt(process.env.TURN_COUNT),
+    user_message: '',
+    helm_response: '',
+    context: { project: 'hammerfall-solutions', agent: 'helm' }
+  };
+  process.stdout.write(JSON.stringify(body));
+" > "$ARCH_TMPFILE"
+curl -s -X POST http://localhost:8000/invoke/archivist \
+  -H "Content-Type: application/json" \
+  -d @"$ARCH_TMPFILE"
+rm -f "$ARCH_TMPFILE"
+```
+
+Projectionist resolution pass:
 1. Query all `helm_frames` rows for `SESSION_ID`
 2. Mark final decided-path frames `frame_status='canonical'` (atomic PATCH: column + frame_json field)
 3. Confirm all superseded frames have `superseded_reason` populated
 4. Any unresolved `active` frames on completed topics → `canonical` by default
-5. Signal Archivist to write all remaining cold frames to `helm_memory`
+5. Archivist drains all remaining cold frames to `helm_memory`
 
 **Every Maxwell message — delta check before responding:**
 
@@ -318,9 +401,30 @@ or `helm_memory` write inline while reasoning or composing a response.
 
 **The T1 mechanism:**
 When a write trigger fires during a turn, note it. Complete the response. Deliver it.
-Then — after the response is delivered — invoke Archivist as a sub-agent via the
-Agent tool, passing the write instruction. Archivist executes the write.
+Then — after the response is delivered — call the Helm Runtime Service to invoke
+Archivist. Archivist executes the write. The Agent tool is no longer in this path.
 Helm Prime's reasoning context is never interrupted by write operations.
+
+```bash
+ARCH_TMPFILE=$(mktemp /tmp/arch_req_XXXXXX.json)
+node -e "
+  const body = {
+    session_id: process.env.SESSION_ID,
+    turn_number: parseInt(process.env.TURN_COUNT),
+    user_message: '',
+    helm_response: '',
+    context: { project: 'hammerfall-solutions', agent: 'helm' }
+  };
+  process.stdout.write(JSON.stringify(body));
+" > "$ARCH_TMPFILE"
+curl -s -X POST http://localhost:8000/invoke/archivist \
+  -H "Content-Type: application/json" \
+  -d @"$ARCH_TMPFILE"
+rm -f "$ARCH_TMPFILE"
+```
+
+Archivist drains all `helm_frames WHERE layer='cold'` — migrates to `helm_memory`,
+deletes source rows. Non-blocking: do not wait on Archivist before next response.
 
 **Frame migration flow:**
 Archivist also reads `helm_frames` where `layer = 'cold'` and migrates each frame
