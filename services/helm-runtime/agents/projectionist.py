@@ -8,6 +8,7 @@ Frame schema: agents/helm/projectionist/projectionist.md
 Write path: supabase_client.py → Supabase REST → helm_frames table
 """
 
+import asyncio
 import json
 import logging
 from datetime import datetime, timezone
@@ -85,18 +86,43 @@ Helm response:
 Produce the frame JSON now."""
 
     messages = [
-        {"role": "system", "content": req.system_prompt + "\n" + SYSTEM_PROMPT},
+        {"role": "system", "content": SYSTEM_PROMPT + "\n" + req.system_prompt},
         {"role": "user", "content": user_prompt},
     ]
 
     # Ollama JSON mode — forces valid JSON output at the model level.
     # Combined with output_validator middleware for schema compliance.
-    response = await router.invoke(
-        role="projectionist",
-        messages=messages,
-        stream=False,
-        extra_kwargs={"format": "json"},
-    )
+    # Retry up to 2 times on transient model failure (cold start, brief unavailability).
+    # Only the model call is retried — Supabase write is not retried here.
+    _max_attempts = 3
+    _retry_delay = 0.5  # seconds between attempts
+    last_exc: Exception = None
+
+    for attempt in range(_max_attempts):
+        try:
+            response = await router.invoke(
+                role="projectionist",
+                messages=messages,
+                stream=False,
+                extra_kwargs={"format": "json"},
+            )
+            break
+        except Exception as e:
+            last_exc = e
+            if attempt < _max_attempts - 1:
+                logger.warning(
+                    "Projectionist model call failed (attempt %d/%d): %s — retrying in %.1fs",
+                    attempt + 1, _max_attempts, e, _retry_delay,
+                )
+                await asyncio.sleep(_retry_delay)
+            else:
+                logger.error(
+                    "Projectionist model call failed after %d attempts: session=%s turn=%d error=%s",
+                    _max_attempts, req.session_id, req.turn_number, e,
+                )
+                raise
+    else:
+        raise RuntimeError("Projectionist retry loop exited without response") from last_exc
 
     raw_output = response.choices[0].message.content.strip()
 
