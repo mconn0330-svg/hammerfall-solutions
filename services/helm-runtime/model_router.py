@@ -16,6 +16,7 @@ Provider types:
 
 import logging
 import os
+import time
 from typing import Any
 
 import litellm
@@ -188,14 +189,31 @@ class ModelRouter:
         logger.debug("Invoking %s → %s", role, model_string)
         return await litellm.acompletion(**kwargs)
 
+    # Health check cache: role → {"result": dict, "checked_at": float}
+    # TTL of 60s prevents repeated API calls to paid providers (Anthropic, OpenAI)
+    # on every /health invocation (monitoring loops, smoke tests, Quartermaster polling).
+    # Ollama/custom endpoints are cheap to ping but benefit from the same TTL for
+    # consistency. Cache is per-instance — resets on service restart.
+    _health_cache: dict = {}
+    _health_cache_ttl: int = 60  # seconds
+
     async def check_model_health(self, role: str) -> dict:
         """
         Check if a model endpoint is reachable for a given role.
         Returns a dict with status, provider, model, and optional error.
+
+        Results are cached for _health_cache_ttl seconds. Paid provider endpoints
+        (Anthropic, OpenAI) are only pinged when the cache is stale — not on
+        every /health call.
         """
         cfg = self._agent_configs.get(role)
         if not cfg:
             return {"status": "unconfigured", "error": f"No config for role: {role}"}
+
+        # Return cached result if still fresh
+        cached = self._health_cache.get(role)
+        if cached and (time.monotonic() - cached["checked_at"]) < self._health_cache_ttl:
+            return cached["result"]
 
         try:
             # Minimal ping — one token, no actual work
@@ -205,15 +223,18 @@ class ModelRouter:
                 stream=False,
                 extra_kwargs={"max_tokens": 1},
             )
-            return {
+            result = {
                 "status": "ok",
                 "provider": cfg["provider"],
                 "model": cfg["model"],
             }
         except Exception as e:
-            return {
+            result = {
                 "status": "unreachable",
                 "provider": cfg["provider"],
                 "model": cfg["model"],
                 "error": str(e),
             }
+
+        self._health_cache[role] = {"result": result, "checked_at": time.monotonic()}
+        return result
