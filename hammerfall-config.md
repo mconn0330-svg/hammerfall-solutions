@@ -37,6 +37,25 @@ supabase_brain_url: https://zlcvrfmbtpxlhsqosdqf.supabase.co
 supabase_brain_service_key_env: SUPABASE_BRAIN_SERVICE_KEY
 supabase_brain_access_token_env: SUPABASE_ACCESS_TOKEN
 
+## Memory Architecture
+
+active_tier: T1
+frame_offload_interval: 10        # Interval trigger: Projectionist offloads oldest warm frame every N turns
+warm_queue_max_frames: 20         # Batch trigger: fires at exactly this count, takes priority over interval
+frame_offload_conservative: true  # When true, interval trigger fires at 80% of interval
+
+# Tier capability requirements:
+# T1 — Any capable LLM with tool-use. Claude Code current implementation.
+# T2 — T1 + persistent scheduler (cron or equivalent)
+# T3 — DGX Spark (Helm Prime, Projectionist, Archivist) + RTX 4090 (Speaker)
+#
+# active_tier is a config stub at T1. Maxwell is sole user.
+# Quartermaster manages this as an app permission when productized.
+# BA7 will wire Projectionist and Archivist to local Ollama models —
+# active_tier remains T1, model substitution is transparent to this config.
+
+---
+
 ## Session Management
 
 session_watchdog_inactivity_minutes: 30
