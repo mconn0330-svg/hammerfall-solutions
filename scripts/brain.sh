@@ -32,8 +32,8 @@
 #
 # Default (no --table flag): writes to helm_memory. No existing calls break.
 #
-# source column on helm_beliefs always defaults to 'seeded' from brain.sh.
-# learned/corrected source values are set by Phase 2 automation or direct DB update.
+# source column on helm_beliefs defaults to 'seeded'. Override with --source learned
+# for beliefs earned through pattern graduation. All existing calls are unaffected.
 # =============================================================
 
 PROJECT="$1"
@@ -45,6 +45,7 @@ SYNC_READY="${5:-false}"
 # Parse optional flags
 TABLE="helm_memory"
 STRENGTH="0.7"
+SOURCE="seeded"
 ATTRIBUTES='{}'
 SCORE=""
 FULL_CONTENT=""
@@ -75,6 +76,7 @@ while [[ $# -gt 0 ]]; do
     --to-entity)    TO_ENTITY="$2";    shift 2 ;;
     --rel-notes)    REL_NOTES="$2";    shift 2 ;;
     --rel-strength) REL_STRENGTH="$2"; shift 2 ;;
+    --source)       SOURCE="$2";       shift 2 ;;
     *) shift ;;
   esac
 done
@@ -138,8 +140,9 @@ case "$TABLE" in
 
   helm_beliefs)
     # Global table — no project/agent. type arg = domain. content arg = belief text.
-    printf '{"domain":"%s","belief":%s,"strength":%s,"active":true,"source":"seeded"}' \
-      "$TYPE" "$ESCAPED" "$STRENGTH" > "$TMPFILE"
+    # --source defaults to 'seeded'. Pass --source learned for pattern graduation writes.
+    printf '{"domain":"%s","belief":%s,"strength":%s,"active":true,"source":"%s"}' \
+      "$TYPE" "$ESCAPED" "$STRENGTH" "$SOURCE" > "$TMPFILE"
     ;;
 
   helm_entities)
