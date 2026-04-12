@@ -224,7 +224,7 @@ Call the runtime to trigger Projectionist's resolution pass, then Archivist's fi
 ```bash
 # Step 1: Projectionist resolution pass
 # (marks canonical/superseded, confirms all superseded_reason populated)
-PROJ_TMPFILE=$(mktemp /tmp/proj_req_XXXXXX.json)
+PROJ_RES_TMPFILE=$(mktemp /tmp/proj_res_XXXXXX.json)
 node -e "
   const body = {
     session_id: process.env.SESSION_ID,
@@ -234,11 +234,11 @@ node -e "
     context: { project: 'hammerfall-solutions', agent: 'helm', resolution_pass: true }
   };
   process.stdout.write(JSON.stringify(body));
-" > "$PROJ_TMPFILE"
+" > "$PROJ_RES_TMPFILE"
 curl -s -X POST http://localhost:8000/invoke/projectionist \
   -H "Content-Type: application/json" \
-  -d @"$PROJ_TMPFILE"
-rm -f "$PROJ_TMPFILE"
+  -d @"$PROJ_RES_TMPFILE"
+rm -f "$PROJ_RES_TMPFILE"
 
 # Step 2: Archivist final drain — migrate all remaining cold frames
 ARCH_TMPFILE=$(mktemp /tmp/arch_req_XXXXXX.json)
@@ -435,8 +435,10 @@ to `helm_memory`:
 2. Delete the `helm_frames` row immediately after successful write
 3. `helm_frames` is transient — `helm_memory` is the authoritative store
 
-**Write path:** Always `brain.sh → Supabase`. Model executing Archivist is an
-implementation detail. This does not change at any tier. See `agents/helm/archivist/archivist.md`.
+**Write path:** For behavioral, correction, reasoning, and entity writes: `brain.sh → Supabase`.
+For frame migration (helm_frames → helm_memory): Archivist uses `supabase_client.py`
+directly via the runtime — not brain.sh. Both paths write to the same Supabase instance.
+Model executing Archivist is an implementation detail in both cases. See `agents/helm/archivist/archivist.md`.
 
 ---
 
