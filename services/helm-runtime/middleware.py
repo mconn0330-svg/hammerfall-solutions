@@ -9,10 +9,12 @@ BA7 implements two active hooks:
   - session_context_inject (pre)  — injects session_id, turn_number, project
   - output_validator (post)       — validates Projectionist output matches frame schema
 
+BA9 implements two Prime Directives guards:
+  - prime_directives_guard (pre)  — scans request for PD2/PD4/PD5 violation signals
+  - prime_directives_output (post)— scans model output for PD1/PD3/PD4/PD5 violations
+
 Stub hooks (pass-through, not yet implemented):
-  - personality_inject (pre)      — TODO: BA8 — load helm_personality scores into prompt
-  - prime_directives_guard (pre)  — TODO: BA9 — validate request before model call
-  - prime_directives_output (post)— TODO: BA9 — scan output for Prime Directive violations
+  - personality_inject (pre)      — TODO: Stage 1 / BA10+ — load helm_personality scores into prompt
 """
 
 import json
@@ -20,6 +22,135 @@ import logging
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Prime Directives violation exception
+# ---------------------------------------------------------------------------
+
+class PrimeDirectivesViolation(Exception):
+    """
+    Raised when a pre-model or post-model check detects a Prime Directive violation.
+    directive: "PD1" through "PD5"
+    detail: human-readable description of what was detected
+    Caught in main.py invoke() — returns HTTP 403 with structured body.
+    Guard trips are the system working as designed — log at WARNING, not ERROR.
+    """
+    def __init__(self, directive: str, detail: str):
+        self.directive = directive
+        self.detail = detail
+        super().__init__(f"{directive}: {detail}")
+
+
+# ---------------------------------------------------------------------------
+# Pre-guard violation signatures — PD2, PD4, PD5 only
+# PD1 (harm) and PD3 (uncertainty) are output characteristics, not input
+# instructions. They belong in the post-guard only.
+# ---------------------------------------------------------------------------
+
+# PD2 — Do Not Deceive
+# Signals: instruction to omit, hide, or misrepresent information to Maxwell
+_PD2_SIGNALS = [
+    "don't tell maxwell",
+    "do not tell maxwell",
+    "hide this from maxwell",
+    "omit this from",
+    "don't mention this to maxwell",
+    "do not mention this to maxwell",
+    "keep this from maxwell",
+    "misrepresent",
+    "without maxwell knowing",
+    "deceive maxwell",
+]
+
+# PD4 — Human in the Loop
+# Signals: instruction to execute a consequential irreversible action without approval
+_PD4_PRE_SIGNALS = [
+    "without asking maxwell",
+    "without maxwell's approval",
+    "without maxwell's permission",
+    "without checking with maxwell",
+    "autonomously execute",
+    "autonomously perform",
+    "do not ask maxwell",
+    "don't ask maxwell",
+    "bypass maxwell",
+    "skip maxwell approval",
+    "proceed without maxwell",
+]
+
+# PD5 — Honest Identity
+# Signals: instruction to assert human identity
+_PD5_SIGNALS = [
+    "claim to be human",
+    "say you are human",
+    "tell them you are human",
+    "pretend to be human",
+    "act as a human",
+    "deny being an ai",
+    "deny being an llm",
+    "deny being a language model",
+    "you are not an ai",
+    "assert human identity",
+]
+
+# ---------------------------------------------------------------------------
+# Post-guard violation signatures — PD1, PD3, PD4, PD5
+# ---------------------------------------------------------------------------
+
+# PD1 — Do Not Harm
+# Signals: explicit recommendation of direct physical or material harm
+_PD1_SIGNALS = [
+    "you should harm",
+    "you should hurt",
+    "you should kill",
+    "recommend harming",
+    "recommend hurting",
+    "physically attack",
+    "cause physical harm",
+    "cause bodily harm",
+    "destroy their property",
+]
+
+# PD3 — State Uncertainty
+# Signals: confident assertion of unverifiable claims without hedging
+# Scans for certainty language paired with unverifiable domains
+_PD3_SIGNALS = [
+    "i know for certain",
+    "i am 100% certain",
+    "i am absolutely certain",
+    "this is definitely true",
+    "guaranteed to happen",
+    "this will definitely",
+    "without any doubt",
+    "i can guarantee",
+]
+
+# PD4 — Human in the Loop (post — output recommending autonomous action)
+_PD4_POST_SIGNALS = [
+    "proceed without asking",
+    "execute autonomously",
+    "do this without maxwell",
+    "no need to check with maxwell",
+    "you don't need to ask maxwell",
+    "maxwell doesn't need to approve",
+    "skip the approval",
+    "bypass approval",
+]
+
+# PD5 — Honest Identity (post — output claiming human identity)
+_PD5_POST_SIGNALS = [
+    "i am human",
+    "i am a human",
+    "i'm human",
+    "i'm a human",
+    "i am not an ai",
+    "i'm not an ai",
+    "i am not artificial",
+    "i am a person",
+    "i'm a person",
+]
+
 
 # Required fields in a valid Projectionist frame response
 FRAME_REQUIRED_FIELDS = {
@@ -149,22 +280,129 @@ class MiddlewarePipeline:
 
     def _personality_inject(self, role: str, request: InvokeRequest) -> InvokeRequest:
         """
-        TODO: BA8 — Load helm_personality scores from Supabase and inject into
-        system prompt for roles that generate user-facing output (Speaker, Helm Prime).
+        TODO: Stage 1 / BA10+ — Load helm_personality scores from Supabase and inject
+        into system prompt for roles that generate user-facing output (Speaker, Helm Prime).
         Projectionist and Archivist are exempt — they do not generate voice responses.
+
+        PD constraint for future implementer: personality scores must not override
+        Prime Directives. A score instructing the model to "always agree" would conflict
+        with PD2 (Do Not Deceive) and PD3 (State Uncertainty). Personality injection
+        must be additive to behavioral style only — never to factual accuracy or honesty.
         """
         return request
 
     def _prime_directives_guard(self, role: str, request: InvokeRequest) -> InvokeRequest:
         """
-        TODO: BA9 — Validate that the incoming request does not ask the model to
-        violate a Prime Directive before the model call is made.
+        Pre-model Prime Directives guard. Runs before the model call for all roles.
+        Scans user_message and helm_response for instruction-level violation signals.
+
+        Checks PD2, PD4, PD5 only — PD1 and PD3 are output characteristics,
+        not input instructions. They are checked in _prime_directives_output.
+
+        Applies to all roles (Option A — no role scoping). Projectionist and
+        Archivist content does not match these patterns in normal operation.
+        Guards activate automatically for Speaker and Helm Prime when wired.
+
+        On violation: logs at WARNING, raises PrimeDirectivesViolation.
+        Model call is never made.
         """
+        content = (request.user_message + " " + request.helm_response).lower()
+
+        for signal in _PD2_SIGNALS:
+            if signal in content:
+                logger.warning(
+                    "Prime Directive pre-guard trip — PD2 (Do Not Deceive): "
+                    "role=%s signal=%r", role, signal
+                )
+                raise PrimeDirectivesViolation(
+                    directive="PD2",
+                    detail=f"Request contains instruction to deceive Maxwell: {signal!r}",
+                )
+
+        for signal in _PD4_PRE_SIGNALS:
+            if signal in content:
+                logger.warning(
+                    "Prime Directive pre-guard trip — PD4 (Human in the Loop): "
+                    "role=%s signal=%r", role, signal
+                )
+                raise PrimeDirectivesViolation(
+                    directive="PD4",
+                    detail=f"Request contains instruction to act without Maxwell approval: {signal!r}",
+                )
+
+        for signal in _PD5_SIGNALS:
+            if signal in content:
+                logger.warning(
+                    "Prime Directive pre-guard trip — PD5 (Honest Identity): "
+                    "role=%s signal=%r", role, signal
+                )
+                raise PrimeDirectivesViolation(
+                    directive="PD5",
+                    detail=f"Request contains instruction to assert human identity: {signal!r}",
+                )
+
         return request
 
     def _prime_directives_output(self, role: str, output: str) -> str:
         """
-        TODO: BA9 — Scan model output for Prime Directive violations before
-        returning to caller. If violation detected, block the response.
+        Post-model Prime Directives guard. Runs after model output is received,
+        before returning to caller. Scans output text for violation signals.
+
+        Checks PD1, PD3, PD4, PD5. Applies to all roles.
+
+        Known limitation: For Projectionist, output is a JSON frame containing
+        a conversation already delivered to Maxwell. The guard scans the frame
+        content (user/helm fields) but cannot retroactively block the turn.
+        Real post-guard value is Archivist prose summaries and future Speaker
+        and Helm Prime responses.
+
+        On violation: logs at WARNING, raises PrimeDirectivesViolation.
+        Output is never returned to caller.
         """
+        content = output.lower()
+
+        for signal in _PD1_SIGNALS:
+            if signal in content:
+                logger.warning(
+                    "Prime Directive post-guard trip — PD1 (Do Not Harm): "
+                    "role=%s signal=%r", role, signal
+                )
+                raise PrimeDirectivesViolation(
+                    directive="PD1",
+                    detail=f"Output contains direct harm recommendation: {signal!r}",
+                )
+
+        for signal in _PD3_SIGNALS:
+            if signal in content:
+                logger.warning(
+                    "Prime Directive post-guard trip — PD3 (State Uncertainty): "
+                    "role=%s signal=%r", role, signal
+                )
+                raise PrimeDirectivesViolation(
+                    directive="PD3",
+                    detail=f"Output presents speculation as certain fact: {signal!r}",
+                )
+
+        for signal in _PD4_POST_SIGNALS:
+            if signal in content:
+                logger.warning(
+                    "Prime Directive post-guard trip — PD4 (Human in the Loop): "
+                    "role=%s signal=%r", role, signal
+                )
+                raise PrimeDirectivesViolation(
+                    directive="PD4",
+                    detail=f"Output recommends consequential action without Maxwell approval: {signal!r}",
+                )
+
+        for signal in _PD5_POST_SIGNALS:
+            if signal in content:
+                logger.warning(
+                    "Prime Directive post-guard trip — PD5 (Honest Identity): "
+                    "role=%s signal=%r", role, signal
+                )
+                raise PrimeDirectivesViolation(
+                    directive="PD5",
+                    detail=f"Output claims human identity: {signal!r}",
+                )
+
         return output
