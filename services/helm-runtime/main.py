@@ -26,7 +26,7 @@ from pydantic import BaseModel, Field
 
 from agents import archivist as archivist_agent
 from agents import projectionist as projectionist_agent
-from middleware import InvokeRequest, MiddlewarePipeline
+from middleware import InvokeRequest, MiddlewarePipeline, PrimeDirectivesViolation
 from model_router import ConfigError, ModelRouter, UnknownRoleError
 from supabase_client import SupabaseClient
 
@@ -190,14 +190,28 @@ async def invoke(
         context=body.context,
     )
 
-    # Pre-model middleware
-    req = pipeline.run_pre(agent_role, req)
-
-    # Agent handler
+    # Pre-model middleware → agent handler → post-model middleware
+    # Single outer try/except ensures PrimeDirectivesViolation is caught
+    # regardless of which pipeline stage raises it. Pre-model was previously
+    # unguarded — a guard trip there would have returned HTTP 500 instead of 403.
     try:
+        req = pipeline.run_pre(agent_role, req)
         output = await handler(req)
+        output = pipeline.run_post(agent_role, output)
+    except PrimeDirectivesViolation as e:
+        logger.warning(
+            "Prime Directive violation blocked request: %s — %s", e.directive, e.detail
+        )
+        return JSONResponse(
+            status_code=403,
+            content={
+                "error": "prime_directive_violation",
+                "directive": e.directive,
+                "detail": e.detail,
+            },
+        )
     except ValueError as e:
-        # Validation failures from output_validator
+        # Validation failures from output_validator (malformed Projectionist frame)
         raise HTTPException(
             status_code=422,
             detail={"error": "validation_failed", "detail": str(e)},
@@ -207,15 +221,6 @@ async def invoke(
         raise HTTPException(
             status_code=500,
             detail={"error": "handler_error", "detail": str(e)},
-        )
-
-    # Post-model middleware
-    try:
-        output = pipeline.run_post(agent_role, output)
-    except ValueError as e:
-        raise HTTPException(
-            status_code=422,
-            detail={"error": "validation_failed", "detail": str(e)},
         )
 
     return InvokeResponse(
