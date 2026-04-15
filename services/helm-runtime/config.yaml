@@ -55,18 +55,18 @@ agents:
 
   projectionist:
     provider: ollama
-    model: qwen2.5:3b
-    base_url_env: OLLAMA_BASE_URL   # set to http://localhost:11434 for local dev
+    model: qwen3:4b           # Upgraded from qwen2.5:3b — 100% schema compliance vs 80%, 40% faster.
+    base_url_env: OLLAMA_BASE_URL   # No-think mode. Cross-gen stress test: scripts/agent_stress_test_qwen3.js
 
   archivist:
     provider: ollama
-    model: qwen2.5:3b
-    base_url_env: OLLAMA_BASE_URL
+    model: qwen3:14b          # Upgraded from qwen2.5:3b — only model at 100% summary quality.
+    base_url_env: OLLAMA_BASE_URL   # No-think mode. Partition cost acceptable given summary quality risk.
 
   speaker:
     provider: ollama
-    model: qwen2.5:3b        # T1: shared Ollama instance, Qwen2.5 3B for classification
-    base_url_env: OLLAMA_BASE_URL
+    model: qwen3:8b           # Upgraded from qwen2.5:3b — 90% routing accuracy, 0 high-risk misroutes.
+    base_url_env: OLLAMA_BASE_URL   # No-think mode. Prompt adjustment for ambiguous status check pending.
 
   contemplator:
     provider: ollama

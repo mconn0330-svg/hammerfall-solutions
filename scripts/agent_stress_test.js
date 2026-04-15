@@ -23,7 +23,7 @@ import { fileURLToPath } from "url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const OLLAMA_BASE = "http://localhost:11434";
-const MODELS = ["qwen2.5:3b", "qwen2.5:8b", "qwen2.5:14b"];
+const MODELS = ["qwen2.5:3b", "qwen2.5:7b", "qwen2.5:14b"];
 const TIMEOUT_MS = 90_000;
 
 const TARGET_AGENT = (() => {
