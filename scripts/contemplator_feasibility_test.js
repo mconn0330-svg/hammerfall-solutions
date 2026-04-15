@@ -31,7 +31,7 @@ import { fileURLToPath } from "url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const OLLAMA_BASE = "http://localhost:11434";
-const CONTEMPLATOR_MODEL = "qwen2.5:3b";
+const CONTEMPLATOR_MODEL = "qwen2.5:14b";
 const OLLAMA_TIMEOUT_MS = 90_000;
 
 // ---------------------------------------------------------------------------
@@ -218,13 +218,22 @@ function tryParseJSON(raw) {
   }
 }
 
+function entryText(entry) {
+  // Accept plain strings or objects with a "pattern"/"description"/"text"/"summary" field
+  if (typeof entry === "string") return entry;
+  if (entry && typeof entry === "object") {
+    return entry.pattern || entry.description || entry.text || entry.summary || JSON.stringify(entry);
+  }
+  return String(entry);
+}
+
 function assessPass1(data) {
   const issues = [];
   if (!Array.isArray(data.patterns) || data.patterns.length === 0) issues.push("patterns: empty or missing");
   if (!Array.isArray(data.gaps) || data.gaps.length === 0) issues.push("gaps: empty or missing");
   if (!["high", "medium", "low"].includes(data.signal_strength)) issues.push("signal_strength: invalid value");
-  if (data.patterns?.length > 0 && data.patterns.some((p) => typeof p !== "string" || p.length < 10))
-    issues.push("patterns: entries too short or non-string");
+  if (data.patterns?.length > 0 && data.patterns.some((p) => entryText(p).length < 10))
+    issues.push("patterns: entries too short");
   return issues;
 }
 
@@ -296,7 +305,7 @@ async function main() {
     console.log("  Contradictions:", pass1Parsed.data.contradictions?.length ?? 0);
     console.log("  Gaps:", pass1Parsed.data.gaps?.length ?? 0);
     console.log("  Signal strength:", pass1Parsed.data.signal_strength);
-    console.log("\n  Sample pattern:", pass1Parsed.data.patterns?.[0]?.slice(0, 120));
+    console.log("\n  Sample pattern:", entryText(pass1Parsed.data.patterns?.[0]).slice(0, 120));
   }
   console.log("\n  Full Pass 1 output:");
   console.log(pass1Raw);
@@ -372,13 +381,13 @@ async function main() {
   console.log(`  Pass 3 (Stress Test):        ${pass3Ok ? "PASS" : "FAIL"}`);
 
   if (pass1Ok && pass2Ok && pass3Ok) {
-    console.log("\n  OVERALL: PASS — Qwen2.5 3B is viable for Contemplator at 3B scale.");
-    console.log("  Recommendation: write Contemplator contract against Qwen2.5 3B.");
+    console.log(`\n  OVERALL: PASS — ${CONTEMPLATOR_MODEL} is viable for Contemplator.`);
+    console.log(`  Recommendation: write Contemplator contract against ${CONTEMPLATOR_MODEL}.`);
   } else if (pass1Ok && pass2Ok && !pass3Ok) {
-    console.log("\n  OVERALL: MARGINAL — Qwen2.5 3B passes standard context, fails stress.");
+    console.log(`\n  OVERALL: MARGINAL — ${CONTEMPLATOR_MODEL} passes standard context, fails stress.`);
     console.log("  Recommendation: scope Contemplator to bounded context window; monitor stress.");
   } else {
-    console.log("\n  OVERALL: FAIL — Qwen2.5 3B insufficient for Contemplator role.");
+    console.log(`\n  OVERALL: FAIL — ${CONTEMPLATOR_MODEL} insufficient for Contemplator role.`);
     console.log("  Recommendation: promote Contemplator to Llama 3.1 8B partition.");
   }
 }
