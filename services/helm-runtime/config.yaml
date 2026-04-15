@@ -67,8 +67,11 @@ agents:
     provider: ollama
     model: qwen2.5:3b        # T1: shared Ollama instance, Qwen2.5 3B for classification
     base_url_env: OLLAMA_BASE_URL
-    # T3 (BA7): update model to llama3.1:8b-instruct, base_url_env to OLLAMA_SPEAKER_URL
-    # (partition 2 dedicated instance). Classification prompt is identical — transparent upgrade.
+
+  contemplator:
+    provider: ollama
+    model: qwen2.5:14b       # Two-pass inner-life agent. 14B selected via feasibility test.
+    base_url_env: OLLAMA_BASE_URL   # T3 (BA9): promoted to MIG partition 5 as continuous daemon.
 
 # =============================================================================
 # BYO MODEL EXAMPLES
