@@ -26,6 +26,7 @@ from pydantic import BaseModel, Field
 
 from agents import archivist as archivist_agent
 from agents import projectionist as projectionist_agent
+from agents import speaker as speaker_agent
 from middleware import InvokeRequest, MiddlewarePipeline, PrimeDirectivesViolation
 from model_router import ConfigError, ModelRouter, UnknownRoleError
 from supabase_client import SupabaseClient
@@ -131,11 +132,12 @@ async def _handle_archivist(req: InvokeRequest) -> str:
 
 async def _handle_speaker(req: InvokeRequest) -> str:
     """
-    TODO: Stage 1 / BA10+ — Wire Speaker to runtime.
-    Speaker session initialization (helm_personality + helm_beliefs brain reads)
-    to be defined at Speaker wiring build area.
+    Speaker routing — S1-BA1.
+    Classifies request as simple (resolve locally via Qwen2.5 3B) or complex
+    (escalate to Helm Prime). Classification failure defaults to Helm Prime.
+    See agents/speaker.py for full implementation.
     """
-    return f"[STUB] Speaker not yet wired to runtime. Stage 1 / BA10+."
+    return await speaker_agent.handle(req, router, supabase)
 
 
 async def _handle_helm_prime(req: InvokeRequest) -> str:

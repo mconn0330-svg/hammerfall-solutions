@@ -61,8 +61,10 @@ agents:
 
   speaker:
     provider: ollama
-    model: llama3.1:8b
+    model: qwen2.5:3b        # T1: shared Ollama instance, Qwen2.5 3B for classification
     base_url_env: OLLAMA_BASE_URL
+    # T3 (BA7): update model to llama3.1:8b-instruct, base_url_env to OLLAMA_SPEAKER_URL
+    # (partition 2 dedicated instance). Classification prompt is identical — transparent upgrade.
 
 # =============================================================================
 # BYO MODEL EXAMPLES
