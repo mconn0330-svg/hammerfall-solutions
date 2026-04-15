@@ -104,8 +104,8 @@ class SupabaseClient:
     async def match_memories(
         self,
         query_embedding: list,
-        project: str,
-        agent: str,
+        project: str = "hammerfall-solutions",
+        agent: str = "helm",
         threshold: float = 0.7,
         count: int = 10,
     ) -> list:
@@ -113,7 +113,7 @@ class SupabaseClient:
         Semantic similarity search via match_memories() Supabase RPC.
 
         Returns rows ordered by cosine similarity descending.
-        Each row: id, project, agent, memory_type, content, session_date,
+        Each row: id, content, memory_type, confidence, session_date,
                   created_at, similarity.
         Returns [] if no matches exceed the threshold.
         """
@@ -121,10 +121,10 @@ class SupabaseClient:
             "match_memories",
             {
                 "query_embedding": query_embedding,
-                "match_project": project,
-                "match_agent": agent,
                 "match_threshold": threshold,
                 "match_count": count,
+                "filter_project": project,
+                "filter_agent": agent,
             },
         )
 
