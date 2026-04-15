@@ -163,6 +163,13 @@ async def handle(
     # -----------------------------------------------------------------------
     # Helm Prime escalation — complex or fallback
     # -----------------------------------------------------------------------
+    if routing == "local" and not local_response:
+        logger.info(
+            "Speaker classification returned routing=local but no response field — "
+            "falling through to Helm Prime. session=%s turn=%d",
+            req.session_id, req.turn_number,
+        )
+
     logger.info(
         "Speaker escalating to Helm Prime. session=%s turn=%d",
         req.session_id, req.turn_number,
