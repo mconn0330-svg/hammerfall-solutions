@@ -27,6 +27,7 @@ from pydantic import BaseModel, Field
 from agents import archivist as archivist_agent
 from agents import projectionist as projectionist_agent
 from agents import speaker as speaker_agent
+from embedding_client import EmbeddingClient
 from middleware import InvokeRequest, MiddlewarePipeline, PrimeDirectivesViolation
 from model_router import ConfigError, ModelRouter, UnknownRoleError
 from supabase_client import SupabaseClient
@@ -50,12 +51,13 @@ CONFIG_PATH = Path(__file__).parent / "config.yaml"
 router: ModelRouter = None
 supabase: SupabaseClient = None
 pipeline: MiddlewarePipeline = None
+embedding_client: EmbeddingClient = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize service globals at startup. Fail fast on config errors."""
-    global router, supabase, pipeline
+    global router, supabase, pipeline, embedding_client
 
     logger.info("Helm Runtime Service starting...")
 
@@ -69,6 +71,18 @@ async def lifespan(app: FastAPI):
         url=router.supabase_url,
         service_key=router.supabase_service_key,
     )
+
+    if router.embedding_api_key:
+        embedding_client = EmbeddingClient(
+            api_key=router.embedding_api_key,
+            model=router.embedding_model,
+        )
+        logger.info("EmbeddingClient initialized. model=%s", router.embedding_model)
+    else:
+        logger.warning(
+            "Embeddings not configured — Archivist writes will not include embeddings. "
+            "Add embeddings block to config.yaml to enable semantic search."
+        )
 
     pipeline = MiddlewarePipeline()
 
@@ -126,8 +140,8 @@ async def _handle_projectionist(req: InvokeRequest) -> str:
 
 
 async def _handle_archivist(req: InvokeRequest) -> str:
-    """Route to Archivist handler — frame migration on Qwen2.5 3B via Ollama."""
-    return await archivist_agent.handle(req, router, supabase)
+    """Route to Archivist handler — frame migration with embedding on Qwen2.5 3B via Ollama."""
+    return await archivist_agent.handle(req, router, supabase, embedding_client)
 
 
 async def _handle_speaker(req: InvokeRequest) -> str:

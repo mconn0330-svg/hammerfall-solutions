@@ -43,6 +43,10 @@ supabase:
   url_env: SUPABASE_BRAIN_URL
   service_key_env: SUPABASE_BRAIN_SERVICE_KEY
 
+embeddings:
+  model: text-embedding-3-small   # 1536 dimensions — matches vector(1536) in helm_memory
+  api_key_env: OPENAI_API_KEY
+
 agents:
   helm_prime:
     provider: anthropic

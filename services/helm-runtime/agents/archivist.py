@@ -18,10 +18,14 @@ Projectionist contract). The column value is written into full_content JSONB.
 
 import asyncio
 import logging
+from typing import Optional
 
+from embedding_client import EmbeddingClient
 from middleware import InvokeRequest
 from model_router import ModelRouter
 from supabase_client import SupabaseClient, SupabaseError
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +45,7 @@ async def handle(
     req: InvokeRequest,
     router: ModelRouter,
     supabase: SupabaseClient,
+    embedding_client: Optional[EmbeddingClient] = None,
 ) -> str:
     """
     Migrate all cold frames for the current session from helm_frames to helm_memory.
@@ -99,6 +104,12 @@ async def handle(
         raw_ts = full_content.get("timestamp", "")
         session_date = raw_ts[:10] if len(raw_ts) >= 10 else None
 
+        # Generate embedding for semantic search. Non-fatal — write proceeds without
+        # embedding if client is unavailable or generation fails.
+        embedding = None
+        if embedding_client is not None:
+            embedding = await embedding_client.generate(summary)
+
         payload = {
             "project": req.context.get("project", "hammerfall-solutions"),
             "agent": req.context.get("agent", "helm"),
@@ -108,6 +119,8 @@ async def handle(
             "full_content": full_content,
             "session_date": session_date,
         }
+        if embedding is not None:
+            payload["embedding"] = embedding
 
         write_ok = await _write_to_memory(supabase, payload, frame_id)
         if not write_ok:
