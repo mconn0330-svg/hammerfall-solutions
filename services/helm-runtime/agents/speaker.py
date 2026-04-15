@@ -123,10 +123,10 @@ async def handle(
     """
     Speaker routing logic.
 
-    1. Call Qwen2.5 3B with the classification prompt.
+    1. Call Qwen3 8B with the classification prompt.
     2. Parse the JSON result.
     3a. routing=local  → return the response directly.
-    3b. routing=helm_prime → call Helm Prime, return its response.
+    3b. routing=helm_prime → load personality, call Helm Prime, return its response.
     4. On any JSON parse failure → default to Helm Prime (safe fallback).
     """
     classification_messages = [
@@ -190,8 +190,12 @@ async def handle(
         req.session_id, req.turn_number,
     )
 
-    # Inject personality modifier if present from middleware
+    # Load personality scores and inject into Helm Prime system prompt.
+    # Non-fatal — if Supabase is unreachable the base prompt still produces valid output.
+    personality_block = await _load_personality_block(supabase)
     system_prompt = HELM_PRIME_RUNTIME_PROMPT
+    if personality_block:
+        system_prompt = system_prompt + "\n\n" + personality_block
     if req.system_prompt:
         system_prompt = system_prompt + "\n\n" + req.system_prompt
 
@@ -212,3 +216,39 @@ async def handle(
         req.session_id, req.turn_number, len(response),
     )
     return response
+
+
+# ---------------------------------------------------------------------------
+# Personality injection helper
+# ---------------------------------------------------------------------------
+
+async def _load_personality_block(supabase: SupabaseClient) -> str:
+    """
+    Load helm_personality scores from Supabase and format as a concise
+    personality calibration block for injection into the Helm Prime system prompt.
+
+    Keeps Speaker invisible — personality ensures Helm Prime's voice is consistent
+    whether invoked via the runtime or directly in Claude Code.
+
+    Non-fatal: returns empty string on any failure so Helm Prime still responds
+    with its base identity if personality scores are unavailable.
+    """
+    try:
+        rows = await supabase.select(
+            "helm_personality",
+            {"order": "attribute.asc", "select": "attribute,score,description"},
+        )
+        if not rows:
+            return ""
+        lines = ["[PERSONALITY CALIBRATION — active operating parameters for this session]"]
+        for r in rows:
+            attr = r.get("attribute", "?")
+            score = r.get("score", "?")
+            desc = r.get("description", "")
+            lines.append(f"{attr}: {score}/10 — {desc}")
+        block = "\n".join(lines)
+        logger.debug("Speaker: personality block loaded (%d attributes)", len(rows))
+        return block
+    except Exception as e:
+        logger.warning("Speaker: failed to load personality scores — %s", e)
+        return ""

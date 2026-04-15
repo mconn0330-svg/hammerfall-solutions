@@ -8,7 +8,7 @@ what was learned, and surfaces what should be examined next.
 
 Contemplator does not respond to Maxwell. It does not direct other agents. It thinks.
 
-Model: Qwen2.5 14B (two-pass execution on the shared Ollama instance)
+Model: qwen3:14b — dual-mode (think=false for session_start lightweight pass, think=true for session_end deep pass)
 
 ---
 

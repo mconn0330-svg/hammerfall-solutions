@@ -94,9 +94,9 @@ if [ -z "$BRAIN_URL" ] || [ -z "$SERVICE_KEY" ]; then
   exit 1
 fi
 
-# --patch-id guard: only supported for helm_entities — check before payload construction
-if [ -n "$PATCH_ID" ] && [ "$TABLE" != "helm_entities" ]; then
-  echo "ERROR: --patch-id is only supported for --table helm_entities."
+# --patch-id guard: supported for helm_entities and helm_beliefs only
+if [ -n "$PATCH_ID" ] && [ "$TABLE" != "helm_entities" ] && [ "$TABLE" != "helm_beliefs" ]; then
+  echo "ERROR: --patch-id is only supported for --table helm_entities or --table helm_beliefs."
   exit 1
 fi
 
@@ -204,15 +204,27 @@ case "$TABLE" in
   helm_beliefs)
     # Global table — no project/agent. type arg = domain. content arg = belief text.
     # --source defaults to 'seeded'. Pass --source learned for pattern graduation writes.
-    printf '{"domain":"%s","belief":%s,"strength":%s,"active":true,"source":"%s"}' \
-      "$TYPE" "$ESCAPED" "$STRENGTH" "$SOURCE" > "$TMPFILE"
-    if [ -n "$EMBEDDING_JSON" ]; then
-      node -e "
-        const fs = require('fs');
-        const obj = JSON.parse(fs.readFileSync('$TMPFILE', 'utf8'));
-        obj.embedding = $EMBEDDING_JSON;
-        fs.writeFileSync('$TMPFILE', JSON.stringify(obj));
-      "
+    # --patch-id: switches to PATCH for updating an existing row's strength score.
+    #   Required: --strength FLOAT (0.0–1.0). No other fields updated via patch.
+    #   Used by Contemplator to adjust belief strength after evaluation.
+    if [ -n "$PATCH_ID" ]; then
+      if [ -z "$STRENGTH" ]; then
+        echo "ERROR: --patch-id for helm_beliefs requires --strength."
+        rm -f "$TMPFILE"
+        exit 1
+      fi
+      printf '{"strength":%s}' "$STRENGTH" > "$TMPFILE"
+    else
+      printf '{"domain":"%s","belief":%s,"strength":%s,"active":true,"source":"%s"}' \
+        "$TYPE" "$ESCAPED" "$STRENGTH" "$SOURCE" > "$TMPFILE"
+      if [ -n "$EMBEDDING_JSON" ]; then
+        node -e "
+          const fs = require('fs');
+          const obj = JSON.parse(fs.readFileSync('$TMPFILE', 'utf8'));
+          obj.embedding = $EMBEDDING_JSON;
+          fs.writeFileSync('$TMPFILE', JSON.stringify(obj));
+        "
+      fi
     fi
     ;;
 
@@ -315,10 +327,10 @@ esac
 # --ssl-no-revoke: required on Windows/schannel to bypass certificate revocation check
 # helm_personality uses upsert — UNIQUE constraint on attribute means only one row per attribute
 # helm_entity_relationships uses plain POST — no unique constraint, bidirectional rows written separately
-# helm_entities with --patch-id uses PATCH to update existing row by UUID
+# helm_entities / helm_beliefs with --patch-id uses PATCH to update existing row by UUID
 if [ -n "$PATCH_ID" ]; then
   RESPONSE=$(curl -s --ssl-no-revoke -X PATCH \
-    "$BRAIN_URL/rest/v1/helm_entities?id=eq.$PATCH_ID" \
+    "$BRAIN_URL/rest/v1/$TABLE?id=eq.$PATCH_ID" \
     -H "apikey: $SERVICE_KEY" \
     -H "Authorization: Bearer $SERVICE_KEY" \
     -H "Content-Type: application/json" \
@@ -356,7 +368,7 @@ else
   if [ "$TABLE" = "helm_entity_relationships" ]; then
     echo "  -> Relationship written: [$TABLE] $FROM_ENTITY --[$TYPE]--> $TO_ENTITY"
   elif [ -n "$PATCH_ID" ]; then
-    echo "  -> Entity updated: [$TABLE] id=$PATCH_ID"
+    echo "  -> Row updated: [$TABLE] id=$PATCH_ID"
   else
     echo "  -> Memory written: [$TABLE/$TYPE] sync_ready=$SYNC_READY"
   fi
