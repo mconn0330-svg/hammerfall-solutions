@@ -68,6 +68,11 @@ AMBIGUOUS — always route to Helm Prime:
   (requires Helm's judgment)
 - "Should we proceed?" / "Are we good?"
   (consequential, requires strategic awareness)
+- "Go ahead and push/merge/deploy/delete/send [X]" — directive to take
+  an immediate irreversible action. This is NOT a confirmation or
+  acknowledgement. It is an instruction. Always Helm Prime.
+- "Go ahead and [verb]" with no subject — same rule. When in doubt
+  about irreversibility, route to Helm Prime.
 - Any single-word or short-phrase question that depends on shared context
 
 WHEN IN DOUBT: route to Helm Prime.
