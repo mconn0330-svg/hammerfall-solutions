@@ -119,32 +119,47 @@ else
   SUMMARY_ESCAPED=""
 fi
 
-# Generate embedding via OpenAI text-embedding-3-small (helm_memory only, --embed flag)
+# Generate embedding via OpenAI text-embedding-3-small (--embed flag)
+# Supported tables: helm_memory, helm_beliefs, helm_entities
+#   helm_memory:  embeds CONTENT (the summary text)
+#   helm_beliefs: embeds CONTENT (the belief statement)
+#   helm_entities: embeds "name — summary" concatenation (CONTENT = name, SUMMARY = summary)
 # Non-fatal — if generation fails, write proceeds without embedding.
 EMBEDDING_JSON=""
-if [ "$EMBED" = true ] && [ "$TABLE" = "helm_memory" ]; then
+EMBED_TABLES="helm_memory helm_beliefs helm_entities"
+if [ "$EMBED" = true ] && echo "$EMBED_TABLES" | grep -qw "$TABLE"; then
   OPENAI_KEY="${OPENAI_API_KEY}"
   if [ -z "$OPENAI_KEY" ]; then
     echo "  WARNING: --embed set but OPENAI_API_KEY not in environment — skipping embedding."
   else
-    EMBEDDING_JSON=$(python3 - <<PYEOF
-import sys, json, urllib.request, urllib.error
-content = """$CONTENT"""
-req_data = json.dumps({"model": "text-embedding-3-small", "input": content}).encode()
-req = urllib.request.Request(
-    "https://api.openai.com/v1/embeddings",
-    data=req_data,
-    headers={"Authorization": "Bearer $OPENAI_KEY", "Content-Type": "application/json"},
-    method="POST"
-)
-try:
-    with urllib.request.urlopen(req, timeout=15) as resp:
-        data = json.load(resp)
-        print(json.dumps(data["data"][0]["embedding"]))
-except Exception as e:
-    sys.stderr.write(f"  WARNING: Embedding generation failed — {e}\n")
-    print("null")
-PYEOF
+    # For helm_entities: embed "name — summary" to capture both identity and description
+    if [ "$TABLE" = "helm_entities" ] && [ -n "$SUMMARY" ]; then
+      EMBED_INPUT="$CONTENT — $SUMMARY"
+    else
+      EMBED_INPUT="$CONTENT"
+    fi
+    EMBEDDING_JSON=$(EMBED_INPUT_V="$EMBED_INPUT" OPENAI_KEY_V="$OPENAI_KEY" \
+      node --input-type=module - <<'JSEOF'
+const text = process.env.EMBED_INPUT_V;
+const key  = process.env.OPENAI_KEY_V;
+try {
+  const res = await fetch("https://api.openai.com/v1/embeddings", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model: "text-embedding-3-small", input: text }),
+  });
+  const data = await res.json();
+  if (data.data && data.data[0]) {
+    process.stdout.write(JSON.stringify(data.data[0].embedding));
+  } else {
+    process.stderr.write(`  WARNING: Unexpected response — ${JSON.stringify(data)}\n`);
+    process.stdout.write("null");
+  }
+} catch (e) {
+  process.stderr.write(`  WARNING: Embedding generation failed — ${e.message}\n`);
+  process.stdout.write("null");
+}
+JSEOF
 )
     # null means generation failed — treat as missing
     if [ "$EMBEDDING_JSON" = "null" ] || [ -z "$EMBEDDING_JSON" ]; then
@@ -191,6 +206,14 @@ case "$TABLE" in
     # --source defaults to 'seeded'. Pass --source learned for pattern graduation writes.
     printf '{"domain":"%s","belief":%s,"strength":%s,"active":true,"source":"%s"}' \
       "$TYPE" "$ESCAPED" "$STRENGTH" "$SOURCE" > "$TMPFILE"
+    if [ -n "$EMBEDDING_JSON" ]; then
+      node -e "
+        const fs = require('fs');
+        const obj = JSON.parse(fs.readFileSync('$TMPFILE', 'utf8'));
+        obj.embedding = $EMBEDDING_JSON;
+        fs.writeFileSync('$TMPFILE', JSON.stringify(obj));
+      "
+    fi
     ;;
 
   helm_entities)
@@ -224,6 +247,14 @@ case "$TABLE" in
     else
       printf '{"entity_type":"%s","name":%s,"attributes":%s,"aliases":%s,"active":true}' \
         "$TYPE" "$ESCAPED" "$ATTRIBUTES" "${ALIASES:-[]}" > "$TMPFILE"
+    fi
+    if [ -n "$EMBEDDING_JSON" ]; then
+      node -e "
+        const fs = require('fs');
+        const obj = JSON.parse(fs.readFileSync('$TMPFILE', 'utf8'));
+        obj.embedding = $EMBEDDING_JSON;
+        fs.writeFileSync('$TMPFILE', JSON.stringify(obj));
+      "
     fi
     ;;
 

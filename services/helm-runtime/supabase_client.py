@@ -128,6 +128,48 @@ class SupabaseClient:
             },
         )
 
+    async def match_beliefs(
+        self,
+        query_embedding: list,
+        threshold: float = 0.7,
+        count: int = 10,
+    ) -> list:
+        """
+        Semantic similarity search via match_beliefs() Supabase RPC.
+
+        Searches active beliefs only. Returns rows ordered by cosine similarity descending.
+        Each row: id, domain, belief, strength, active, created_at, similarity.
+        """
+        return await self.rpc(
+            "match_beliefs",
+            {
+                "query_embedding": query_embedding,
+                "match_threshold": threshold,
+                "match_count": count,
+            },
+        )
+
+    async def match_entities(
+        self,
+        query_embedding: list,
+        threshold: float = 0.7,
+        count: int = 10,
+    ) -> list:
+        """
+        Semantic similarity search via match_entities() Supabase RPC.
+
+        Searches active entities only. Returns rows ordered by cosine similarity descending.
+        Each row: id, entity_type, name, summary, attributes, first_seen, similarity.
+        """
+        return await self.rpc(
+            "match_entities",
+            {
+                "query_embedding": query_embedding,
+                "match_threshold": threshold,
+                "match_count": count,
+            },
+        )
+
     async def health_check(self) -> bool:
         """
         Confirm Supabase REST API is reachable and helm_frames is queryable.
