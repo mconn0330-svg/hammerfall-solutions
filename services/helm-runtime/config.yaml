@@ -50,25 +50,33 @@ embeddings:
 agents:
   helm_prime:
     provider: anthropic
-    model: claude-sonnet-4-6
+    model: claude-opus-4-6
     api_key_env: ANTHROPIC_API_KEY
 
   projectionist:
     provider: ollama
-    model: qwen2.5:3b
-    base_url_env: OLLAMA_BASE_URL   # set to http://localhost:11434 for local dev
+    model: qwen3:4b           # Upgraded from qwen2.5:3b — 100% schema compliance vs 80%, 40% faster.
+    base_url_env: OLLAMA_BASE_URL   # No-think mode. MIG partition 3 (~2.5GB).
+                                    # T3: base_url_env → OLLAMA_PROJECTIONIST_URL
 
   archivist:
     provider: ollama
-    model: qwen2.5:3b
-    base_url_env: OLLAMA_BASE_URL
+    model: qwen3:14b          # Upgraded from qwen2.5:3b — only model at 100% summary quality.
+    base_url_env: OLLAMA_BASE_URL   # No-think mode. MIG partition 4 (~9GB). Dedicated — does not share with Contemplator.
+                                    # T3: base_url_env → OLLAMA_ARCHIVIST_URL
 
   speaker:
     provider: ollama
-    model: qwen2.5:3b        # T1: shared Ollama instance, Qwen2.5 3B for classification
-    base_url_env: OLLAMA_BASE_URL
-    # T3 (BA7): update model to llama3.1:8b-instruct, base_url_env to OLLAMA_SPEAKER_URL
-    # (partition 2 dedicated instance). Classification prompt is identical — transparent upgrade.
+    model: qwen3:8b           # Upgraded from qwen2.5:3b — 90% routing accuracy, 0 high-risk misroutes.
+    base_url_env: OLLAMA_BASE_URL   # No-think mode. MIG partition 2 (~5GB). Prompt adjustment pending.
+                                    # T3: base_url_env → OLLAMA_SPEAKER_URL
+
+  contemplator:
+    provider: ollama
+    model: qwen3:14b         # Two-pass inner-life agent. Upgraded from qwen2.5:14b via cross-gen test.
+    base_url_env: OLLAMA_BASE_URL   # Dedicated MIG partition 5 (~9GB). Separate from Archivist (partition 4).
+                                    # Dual-mode: think=false for session_start (lightweight), think=true for session_end (deep).
+                                    # T3 (BA9): base_url_env → OLLAMA_CONTEMPLATOR_URL (partition 5 dedicated instance).
 
 # =============================================================================
 # BYO MODEL EXAMPLES

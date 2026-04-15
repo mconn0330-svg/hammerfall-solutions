@@ -176,6 +176,54 @@ If runtime is unreachable: log `[RUNTIME-UNAVAILABLE]` and continue session.
 Projectionist and Archivist invocations will fail gracefully this session.
 Do not block session start on runtime availability.
 
+9. **Contemplator session-start lightweight pass — run after Projectionist init:**
+
+Fire the Contemplator lightweight pass (Pass 1 only, think=false, non-blocking). Do not wait longer than 60 seconds. Surface any [CURIOUS] flags in your first response before any other business.
+
+```bash
+CONT_START_TMPFILE=$(mktemp /tmp/cont_start_XXXXXX.json)
+export SESSION_ID TURN_COUNT
+node -e "
+  const body = {
+    session_id: process.env.SESSION_ID,
+    turn_number: 0,
+    user_message: '',
+    helm_response: '',
+    context: { project: 'hammerfall-solutions', agent: 'helm', trigger: 'session_start' }
+  };
+  process.stdout.write(JSON.stringify(body));
+" > "$CONT_START_TMPFILE"
+
+CONT_START_RESULT=$(curl -s --max-time 60 -X POST http://localhost:8000/invoke/contemplator \
+  -H "Content-Type: application/json" \
+  -d @"$CONT_START_TMPFILE")
+rm -f "$CONT_START_TMPFILE"
+
+# Extract curiosity flags — surface at most 2 at session start
+export CONT_START_RESULT
+CURIOUS_FLAGS=$(node -e "
+  try {
+    const r = JSON.parse(process.env.CONT_START_RESULT);
+    const out = JSON.parse(r.output || '{}');
+    const flags = (out.curiosity_flags || []).slice(0, 2);
+    if (flags.length > 0) {
+      const lines = flags.map((f, i) => {
+        const type = (f.type || 'unknown').toUpperCase();
+        const subject = f.subject || f.topic || '';
+        const question = f.question || '';
+        return (i + 1) + '. [' + type + '] ' + subject + ': ' + question;
+      });
+      process.stdout.write(lines.join('\n'));
+    }
+  } catch(e) {}
+")
+```
+
+If `$CURIOUS_FLAGS` is non-empty: surface them as ambient context at the top of your first substantive response. Format:
+> *"Before we begin — Contemplator flagged [N] item(s) from last session: [flags]. Worth keeping in mind."*
+
+Do not surface flags mid-session. Do not interrupt Maxwell to ask about them. One mention at session open, then proceed normally.
+
 **T2 context pre-load (T2 sessions only):**
 At T2, Projectionist pre-loads the last session's frames before the first turn fires.
 Query the most recent `session_id` from `helm_frames` or `helm_memory` (frame type),
@@ -275,14 +323,33 @@ curl -s -X POST http://localhost:8000/invoke/archivist \
   -H "Content-Type: application/json" \
   -d @"$ARCH_TMPFILE"
 rm -f "$ARCH_TMPFILE"
+
+# Step 3: Contemplator deep pass (session_end) — runs after Archivist drain
+# Two-pass execution: think=true. Evaluates beliefs, synthesizes patterns, flags curiosity,
+# writes reflection monologue. Writes are handled internally via Archivist handoff.
+CONT_END_TMPFILE=$(mktemp /tmp/cont_end_XXXXXX.json)
+node -e "
+  const body = {
+    session_id: process.env.SESSION_ID,
+    turn_number: parseInt(process.env.TURN_COUNT),
+    user_message: '[SESSION-END]',
+    helm_response: '[SESSION-END]',
+    context: { project: 'hammerfall-solutions', agent: 'helm', trigger: 'session_end' }
+  };
+  process.stdout.write(JSON.stringify(body));
+" > "$CONT_END_TMPFILE"
+curl -s -X POST http://localhost:8000/invoke/contemplator \
+  -H "Content-Type: application/json" \
+  -d @"$CONT_END_TMPFILE"
+rm -f "$CONT_END_TMPFILE"
 ```
 
-Projectionist resolution pass:
-1. Query all `helm_frames` rows for `SESSION_ID`
-2. Mark final decided-path frames `frame_status='canonical'` (atomic PATCH: column + frame_json field)
-3. Confirm all superseded frames have `superseded_reason` populated
-4. Any unresolved `active` frames on completed topics → `canonical` by default
-5. Archivist drains all remaining cold frames to `helm_memory`
+Session-close sequence:
+1. Projectionist resolution pass — mark canonical/superseded, confirm all superseded_reason populated
+2. Archivist final drain — migrate all remaining cold frames to `helm_memory`
+3. Contemplator deep pass — belief evaluation, pattern synthesis, curiosity flagging, reflection log.
+   All writes execute via Archivist handoff (POST /invoke/archivist with contemplator_writes payload).
+   The reflection monologue writes to helm_memory and is surfaced at the next session start.
 
 **Every Maxwell message — delta check before responding:**
 
@@ -675,20 +742,58 @@ If you are not confident you know something, query the brain before answering. D
 **Step 1 — Identify the knowledge gap precisely**
 Name the specific topic, decision, project, or fact you are missing. Be specific — a precise query returns better results than a broad one.
 
-**Step 2 — Run a targeted full-text search**
+**Step 2 — Run semantic similarity search (primary)**
+
+Generate an embedding for your query term, then call `match_memories()`:
+
 ```bash
 export SUPABASE_BRAIN_SERVICE_KEY=$(powershell.exe -Command '$key = [System.Environment]::GetEnvironmentVariable("SUPABASE_BRAIN_SERVICE_KEY", "User"); Write-Output $key' | tr -d '\r')
 
+# Generate embedding for the query term
+QUERY_EMBEDDING=$(QUERY_TEXT="[topic or question]" OPENAI_KEY_V="${OPENAI_API_KEY}" \
+  node --input-type=module - <<'JSEOF'
+const text = process.env.QUERY_TEXT;
+const key  = process.env.OPENAI_KEY_V;
+try {
+  const res = await fetch("https://api.openai.com/v1/embeddings", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model: "text-embedding-3-small", input: text }),
+  });
+  const data = await res.json();
+  if (data.data && data.data[0]) process.stdout.write(JSON.stringify(data.data[0].embedding));
+  else process.stdout.write("null");
+} catch (e) { process.stdout.write("null"); }
+JSEOF
+)
+
+# Run semantic search if embedding succeeded
+if [ "$QUERY_EMBEDDING" != "null" ] && [ -n "$QUERY_EMBEDDING" ]; then
+  curl -s --ssl-no-revoke \
+    "$BRAIN_URL/rest/v1/rpc/match_memories" \
+    -H "apikey: $SUPABASE_BRAIN_SERVICE_KEY" \
+    -H "Authorization: Bearer $SUPABASE_BRAIN_SERVICE_KEY" \
+    -H "Content-Type: application/json" \
+    -d "{\"query_embedding\": $QUERY_EMBEDDING, \"match_threshold\": 0.7, \"match_count\": 10, \"filter_project\": \"hammerfall-solutions\", \"filter_agent\": \"helm\"}"
+fi
+```
+
+Semantic search matches on meaning, not exact vocabulary. "authentication" will match entries about "login", "Supabase Auth", "token validation" — it finds conceptually related entries, not just string matches.
+
+**Step 3 — ILIKE fallback if semantic search returns empty**
+
+If `match_memories()` returns no results, or if `OPENAI_API_KEY` is unavailable:
+
+```bash
 curl -s --ssl-no-revoke \
   "$BRAIN_URL/rest/v1/helm_memory?content=ilike.*[topic]*&order=created_at.desc&limit=10" \
   -H "apikey: $SUPABASE_BRAIN_SERVICE_KEY" \
   -H "Authorization: Bearer $SUPABASE_BRAIN_SERVICE_KEY"
 ```
 
-**Important — ILIKE is substring matching, not semantic search.**
-If the first query returns nothing, retry with alternate terms before concluding the context does not exist. Example: if `authentication` returns nothing, retry with `auth`, `login`, `Supabase Auth`. Vocabulary in brain entries may differ from the query term. Two retries with different terms before concluding the context is absent.
+ILIKE is substring matching. If the first fallback returns nothing, retry with alternate terms (e.g., if `authentication` returns nothing, retry with `auth`, `login`). Two retries before concluding the context is absent.
 
-**Step 3 — If project-specific, also query by project and agent**
+**Step 4 — If project-specific, also query by project and agent**
 ```bash
 curl -s --ssl-no-revoke \
   "$BRAIN_URL/rest/v1/helm_memory?project=eq.[project]&agent=eq.[agent]&order=created_at.desc&limit=20" \
@@ -696,10 +801,10 @@ curl -s --ssl-no-revoke \
   -H "Authorization: Bearer $SUPABASE_BRAIN_SERVICE_KEY"
 ```
 
-**Step 4 — Absorb and answer**
+**Step 5 — Absorb and answer**
 If results are returned: absorb the relevant entries and answer Maxwell directly. Do not narrate the query process unless Maxwell asks — just answer.
 
-If results are empty after retries: answer honestly. State the context does not exist in the brain yet. Suggest Maxwell logs it if it is important.
+If results are empty after semantic search + ILIKE retries: answer honestly. State the context does not exist in the brain yet. Suggest Maxwell logs it if it is important.
 
 **Latency note:**
 In dense sessions with multiple knowledge gaps back to back, batch related queries into a single call where possible rather than firing one query per gap. Use broader project or category filters to retrieve a block of relevant context at once.

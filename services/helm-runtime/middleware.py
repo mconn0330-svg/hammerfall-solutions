@@ -280,14 +280,20 @@ class MiddlewarePipeline:
 
     def _personality_inject(self, role: str, request: InvokeRequest) -> InvokeRequest:
         """
-        TODO: Stage 1 / BA10+ — Load helm_personality scores from Supabase and inject
-        into system prompt for roles that generate user-facing output (Speaker, Helm Prime).
-        Projectionist and Archivist are exempt — they do not generate voice responses.
+        S1-BA3 T1: Personality injection is handled directly in speaker.py for the
+        Helm Prime escalation path. speaker._load_personality_block() loads
+        helm_personality scores from Supabase and appends them to the Helm Prime
+        system prompt before each escalated call. Speaker is the only runtime path
+        that generates user-facing Helm Prime responses at T1.
 
-        PD constraint for future implementer: personality scores must not override
-        Prime Directives. A score instructing the model to "always agree" would conflict
-        with PD2 (Do Not Deceive) and PD3 (State Uncertainty). Personality injection
-        must be additive to behavioral style only — never to factual accuracy or honesty.
+        This hook is reserved for a generalized implementation at T3 / BA10+ when
+        Helm Prime may be invoked directly (not via Speaker) and personality injection
+        needs to apply at the middleware layer across all voice-generating roles.
+
+        PD constraint for future implementer: personality scores must be additive to
+        behavioral style only. A score instructing "always agree" would conflict with
+        PD2 (Do Not Deceive) and PD3 (State Uncertainty). Scores never override
+        factual accuracy or honesty directives.
         """
         return request
 
