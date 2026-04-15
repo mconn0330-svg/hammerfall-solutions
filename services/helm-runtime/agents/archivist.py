@@ -71,7 +71,7 @@ async def handle(
     contemplator_payload = req.context.get("contemplator_writes")
     if contemplator_payload:
         logger.info("Archivist: received contemplator_writes payload. session=%s", req.session_id)
-        return await _execute_contemplator_writes(contemplator_payload, supabase)
+        return await _execute_contemplator_writes(contemplator_payload, supabase, embedding_client)
 
     # Query all cold frames — not scoped to session, Archivist clears the full cold queue
     cold_frames = await supabase.select(
@@ -220,19 +220,31 @@ Summarize this turn in 1-3 sentences."""
                 return None
 
 
-async def _execute_contemplator_writes(payload: dict, supabase: SupabaseClient) -> str:
+async def _execute_contemplator_writes(
+    payload: dict,
+    supabase: SupabaseClient,
+    embedding_client: Optional[EmbeddingClient] = None,
+) -> str:
     """
     Execute the structured write payload produced by Contemplator after a session_end pass.
 
     Payload fields (all optional — any may be empty):
-      belief_patches  — list of {id, strength_delta, rationale}
-                        PATCH helm_beliefs.strength (clamped 0.0–1.0)
-      pattern_entries — list of {content, memory_type, source}
-                        INSERT into helm_memory (memory_type=pattern)
-      curiosity_flags — list of {topic, question, priority, type}
-                        INSERT into helm_memory (memory_type=curiosity_flag)
-      reflection      — {content, memory_type}
-                        INSERT into helm_memory (memory_type=monologue)
+      belief_patches      — list of {id, strength_delta, rationale}
+                            PATCH helm_beliefs.strength (clamped 0.0–1.0)
+      personality_patches — list of {attribute, score_delta, rationale}
+                            PATCH helm_personality.score (clamped 0.0–10.0)
+                            Requires 2+ corroborating observations — Contemplator enforces
+                            this constraint in its Pass 2 prompt.
+      pattern_entries     — list of {content, memory_type, source}
+                            INSERT into helm_memory (memory_type=pattern)
+      curiosity_flags     — list of {topic, question, priority, type}
+                            INSERT into helm_memory (memory_type=curiosity_flag)
+      reflection          — {content, memory_type}
+                            INSERT into helm_memory (memory_type=monologue)
+
+    Embeddings: generated for pattern_entries, curiosity_flags, and reflection if
+    embedding_client is available. Non-fatal — writes proceed without embedding on
+    any failure. Full content is embedded (not truncated) per architect guidance.
 
     Returns a one-line summary string. Errors are logged and collected but do
     not abort remaining writes — all writes are attempted regardless of failures.
@@ -240,6 +252,7 @@ async def _execute_contemplator_writes(payload: dict, supabase: SupabaseClient) 
     today = datetime.date.today().isoformat()
     results = {
         "belief_patches": 0,
+        "personality_patches": 0,
         "pattern_entries": 0,
         "curiosity_flags": 0,
         "reflection": False,
@@ -270,17 +283,49 @@ async def _execute_contemplator_writes(payload: dict, supabase: SupabaseClient) 
             logger.error("Archivist: belief_patch failed id=%s: %s", belief_id, e)
             results["errors"].append(f"belief_patch {belief_id}: {e}")
 
+    # --- Personality patches ---
+    # Requires 2+ corroborating observations — Contemplator enforces in Pass 2 prompt.
+    # Scores clamped 0.0–10.0 (personality scores are rated out of 10).
+    for patch in payload.get("personality_patches", []):
+        attr = patch.get("attribute")
+        try:
+            delta = float(patch["score_delta"])
+            rows = await supabase.select(
+                "helm_personality",
+                {"attribute": f"eq.{attr}", "select": "attribute,score"},
+            )
+            if not rows:
+                results["errors"].append(f"personality_patch {attr}: not found")
+                continue
+            current = float(rows[0]["score"])
+            new_score = round(max(0.0, min(10.0, current + delta)), 2)
+            await supabase.patch("helm_personality", {"attribute": attr}, {"score": new_score})
+            logger.info(
+                "Archivist: personality patched attribute=%s %.2f→%.2f (delta=%.2f)",
+                attr, current, new_score, delta,
+            )
+            results["personality_patches"] += 1
+        except Exception as e:
+            logger.error("Archivist: personality_patch failed attribute=%s: %s", attr, e)
+            results["errors"].append(f"personality_patch {attr}: {e}")
+
     # --- Pattern entries ---
     for entry in payload.get("pattern_entries", []):
         try:
-            await supabase.insert("helm_memory", {
+            content = entry["content"]
+            row = {
                 "project": "hammerfall-solutions",
                 "agent": "helm",
                 "memory_type": "pattern",
-                "content": entry["content"],
+                "content": content,
                 "session_date": today,
                 "sync_ready": False,
-            })
+            }
+            if embedding_client is not None:
+                embedding = await embedding_client.generate(content)
+                if embedding is not None:
+                    row["embedding"] = embedding
+            await supabase.insert("helm_memory", row)
             results["pattern_entries"] += 1
         except Exception as e:
             logger.error("Archivist: pattern_entry write failed: %s", e)
@@ -293,31 +338,43 @@ async def _execute_contemplator_writes(payload: dict, supabase: SupabaseClient) 
             topic = flag.get("topic", "")
             question = flag.get("question", "")
             content = f"[CURIOUS:{flag_type}] {topic} — {question}"
-            await supabase.insert("helm_memory", {
+            row = {
                 "project": "hammerfall-solutions",
                 "agent": "helm",
                 "memory_type": "curiosity_flag",
                 "content": content,
                 "session_date": today,
                 "sync_ready": False,
-            })
+            }
+            if embedding_client is not None:
+                embedding = await embedding_client.generate(content)
+                if embedding is not None:
+                    row["embedding"] = embedding
+            await supabase.insert("helm_memory", row)
             results["curiosity_flags"] += 1
         except Exception as e:
             logger.error("Archivist: curiosity_flag write failed: %s", e)
             results["errors"].append(f"curiosity_flag: {e}")
 
-    # --- Reflection ---
+    # --- Reflection (monologue) ---
+    # Highest-value embedding target — full content embedded, no truncation.
     reflection = payload.get("reflection")
     if reflection and reflection.get("content"):
         try:
-            await supabase.insert("helm_memory", {
+            content = reflection["content"]
+            row = {
                 "project": "hammerfall-solutions",
                 "agent": "helm",
                 "memory_type": "monologue",
-                "content": reflection["content"],
+                "content": content,
                 "session_date": today,
                 "sync_ready": False,
-            })
+            }
+            if embedding_client is not None:
+                embedding = await embedding_client.generate(content)
+                if embedding is not None:
+                    row["embedding"] = embedding
+            await supabase.insert("helm_memory", row)
             results["reflection"] = True
         except Exception as e:
             logger.error("Archivist: reflection write failed: %s", e)
@@ -326,6 +383,7 @@ async def _execute_contemplator_writes(payload: dict, supabase: SupabaseClient) 
     summary = (
         f"Contemplator writes complete: "
         f"{results['belief_patches']} belief patches, "
+        f"{results['personality_patches']} personality patches, "
         f"{results['pattern_entries']} pattern entries, "
         f"{results['curiosity_flags']} curiosity flags, "
         f"reflection={'yes' if results['reflection'] else 'no'}."
