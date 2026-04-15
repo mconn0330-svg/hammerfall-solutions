@@ -25,6 +25,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from agents import archivist as archivist_agent
+from agents import contemplator as contemplator_agent
 from agents import projectionist as projectionist_agent
 from agents import speaker as speaker_agent
 from embedding_client import EmbeddingClient
@@ -135,13 +136,49 @@ class InvokeResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 async def _handle_projectionist(req: InvokeRequest) -> str:
-    """Route to Projectionist handler — frame creation on Qwen2.5 3B via Ollama."""
+    """Route to Projectionist handler — frame creation via qwen3:4b on Ollama."""
     return await projectionist_agent.handle(req, router, supabase)
 
 
 async def _handle_archivist(req: InvokeRequest) -> str:
-    """Route to Archivist handler — frame migration with embedding on Qwen2.5 3B via Ollama."""
+    """Route to Archivist handler — frame migration with embedding via qwen3:14b on Ollama."""
     return await archivist_agent.handle(req, router, supabase, embedding_client)
+
+
+async def _handle_contemplator(req: InvokeRequest) -> str:
+    """
+    Contemplator — Helm's inner life. S1-BA3.
+
+    session_start: Pass 1 only, think=False (~10s, non-blocking).
+                   Returns curiosity flags for Helm Prime Routine 0.
+    session_end:   Pass 1 + Pass 2, think=True (~30s, deep synthesis).
+                   Returns full write payload, then triggers Archivist
+                   write handoff (belief patches, patterns, flags, reflection).
+
+    Trigger is read from req.context["trigger"]. Defaults to "session_end".
+    """
+    import json as _json
+
+    result_str = await contemplator_agent.handle(req, router, supabase)
+    result = _json.loads(result_str)
+
+    # session_end: hand off write payload to Archivist
+    if result.get("trigger") == "session_end" and result.get("status") == "session_end_complete":
+        payload = result.get("payload", {})
+        if payload:
+            write_req = InvokeRequest(
+                session_id=req.session_id,
+                turn_number=req.turn_number,
+                user_message=req.user_message,
+                helm_response=req.helm_response,
+                context={**req.context, "contemplator_writes": payload},
+            )
+            await archivist_agent.handle(write_req, router, supabase, embedding_client)
+            logger.info(
+                "Contemplator→Archivist write handoff complete. session=%s", req.session_id
+            )
+
+    return result_str
 
 
 async def _handle_speaker(req: InvokeRequest) -> str:
@@ -167,6 +204,7 @@ AGENT_HANDLERS = {
     "archivist": _handle_archivist,
     "speaker": _handle_speaker,
     "helm_prime": _handle_helm_prime,
+    "contemplator": _handle_contemplator,
 }
 
 
@@ -262,7 +300,7 @@ async def health() -> JSONResponse:
     overall = "healthy"
 
     # Check each configured model
-    for role in ("projectionist", "archivist", "helm_prime", "speaker"):
+    for role in ("projectionist", "archivist", "helm_prime", "speaker", "contemplator"):
         try:
             result = await router.check_model_health(role)
             checks["models"][role] = result

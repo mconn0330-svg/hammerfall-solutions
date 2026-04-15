@@ -11,12 +11,12 @@ Prime, response routing.
 Does NOT own: strategic reasoning, memory writes, frame management.
 Those belong to Helm Prime, Archivist, and Projectionist respectively.
 
-T1 implementation: Qwen2.5 3B performs classification on the shared Ollama
-instance (same OLLAMA_BASE_URL as Projectionist — separate invocation, no
-shared compute). Complex requests escalate to Helm Prime (claude-sonnet-4-6)
+T1 implementation: Qwen3 8B performs classification on the shared Ollama
+instance (same OLLAMA_BASE_URL as other agents — separate invocation, no
+shared compute). Complex requests escalate to Helm Prime (claude-opus-4-6)
 through the router.
 
-T3 (BA7+): Speaker moves to its own Llama 3.1 8B on MIG partition 2.
+T3 (BA7+): Speaker moves to its own dedicated MIG partition 2 (~5GB).
 Classification prompt is identical — model upgrades transparently.
 """
 
@@ -43,11 +43,10 @@ CLASSIFICATION_SYSTEM_PROMPT = """You are Speaker, the routing layer for Helm �
 Your job: classify the incoming request as simple or complex, then act on that classification.
 
 SIMPLE requests — resolve locally:
-- Factual recall with a clear answer (time, date, status of something already known)
+- Factual recall with a fully self-contained answer (time, date, definition)
 - Confirmations and acknowledgements
 - Greetings and pleasantries
 - One-turn questions requiring no prior context and no strategic judgment
-- Status checks that can be answered without reasoning
 
 COMPLEX requests — route to Helm Prime:
 - Architectural decisions or design questions
@@ -56,7 +55,23 @@ COMPLEX requests — route to Helm Prime:
 - Anything belief-linked (references values, tradeoffs, principles)
 - Anything Maxwell would evaluate for quality, correctness, or strategic alignment
 - Anything consequential or irreversible
-- Any ambiguous case — when in doubt, always route to Helm Prime
+- Any question containing "status", "update", "progress", or "where are we"
+  without a specific named subject — these require session context to answer correctly
+- Any question that cannot be answered without knowing what was discussed
+  in this session. If you are not certain the question is fully self-contained,
+  route to Helm Prime.
+
+AMBIGUOUS — always route to Helm Prime:
+- "What's the status?" / "Any updates?" / "Where are we?"
+  (no specific subject — requires session context)
+- "What do you think?" / "Does that make sense?" / "Is that right?"
+  (requires Helm's judgment)
+- "Should we proceed?" / "Are we good?"
+  (consequential, requires strategic awareness)
+- Any single-word or short-phrase question that depends on shared context
+
+WHEN IN DOUBT: route to Helm Prime.
+The cost of a wrong local resolution is always higher than an unnecessary escalation.
 
 RESPONSE FORMAT — return ONLY valid JSON. No explanation, no preamble, no markdown.
 

@@ -1,15 +1,19 @@
 """
 archivist.py — Archivist agent handler.
 
-Reads cold frames from helm_frames, generates a 1-3 sentence summary per frame
-via Qwen2.5 3B on Ollama, writes to helm_memory at full fidelity via
-supabase_client.py, then deletes the helm_frames row.
+Two responsibilities:
 
-The model's only job is summary generation. Frame structure, field values, and
-frame_status all come from the cold frame itself — the model does not infer these.
+1. Cold frame migration — reads cold frames from helm_frames, generates a
+   1-3 sentence summary per frame via qwen3:14b on Ollama, writes to helm_memory
+   at full fidelity via supabase_client.py, then deletes the helm_frames row.
 
-Write path: supabase_client.py → Supabase REST → helm_memory table
-Safety net: frame stays in helm_frames (layer='cold') on any write failure —
+2. Contemplator write handoff — when req.context contains "contemplator_writes",
+   executes the structured payload (belief patches, pattern entries, curiosity
+   flags, reflection log) directly to Supabase. No model call required.
+   Payload is produced by Contemplator after a session_end deep pass.
+
+Write path: supabase_client.py → Supabase REST → helm_memory / helm_beliefs
+Safety net: cold frames stay in helm_frames on any write failure —
             retried on next Archivist invocation. Nothing is lost.
 
 frame_status source of truth: the helm_frames column (authoritative per BA6
@@ -17,6 +21,7 @@ Projectionist contract). The column value is written into full_content JSONB.
 """
 
 import asyncio
+import datetime
 import logging
 from typing import Optional
 
@@ -48,8 +53,13 @@ async def handle(
     embedding_client: Optional[EmbeddingClient] = None,
 ) -> str:
     """
-    Migrate all cold frames for the current session from helm_frames to helm_memory.
+    Archivist entry point.
 
+    If req.context contains "contemplator_writes": execute the Contemplator
+    write payload (belief patches, pattern entries, curiosity flags, reflection).
+    No model call. Returns a summary of what was written.
+
+    Otherwise: migrate all cold frames from helm_frames to helm_memory.
     For each cold frame:
       1. Generate a 1-3 sentence summary via the model
       2. Write to helm_memory at full fidelity (summary in content, full frame in full_content)
@@ -58,6 +68,11 @@ async def handle(
 
     Returns a summary of what was migrated.
     """
+    contemplator_payload = req.context.get("contemplator_writes")
+    if contemplator_payload:
+        logger.info("Archivist: received contemplator_writes payload. session=%s", req.session_id)
+        return await _execute_contemplator_writes(contemplator_payload, supabase)
+
     # Query all cold frames — not scoped to session, Archivist clears the full cold queue
     cold_frames = await supabase.select(
         "helm_frames",
@@ -203,6 +218,122 @@ Summarize this turn in 1-3 sentences."""
                     _max_attempts, frame_id, e,
                 )
                 return None
+
+
+async def _execute_contemplator_writes(payload: dict, supabase: SupabaseClient) -> str:
+    """
+    Execute the structured write payload produced by Contemplator after a session_end pass.
+
+    Payload fields (all optional — any may be empty):
+      belief_patches  — list of {id, strength_delta, rationale}
+                        PATCH helm_beliefs.strength (clamped 0.0–1.0)
+      pattern_entries — list of {content, memory_type, source}
+                        INSERT into helm_memory (memory_type=pattern)
+      curiosity_flags — list of {topic, question, priority, type}
+                        INSERT into helm_memory (memory_type=curiosity_flag)
+      reflection      — {content, memory_type}
+                        INSERT into helm_memory (memory_type=monologue)
+
+    Returns a one-line summary string. Errors are logged and collected but do
+    not abort remaining writes — all writes are attempted regardless of failures.
+    """
+    today = datetime.date.today().isoformat()
+    results = {
+        "belief_patches": 0,
+        "pattern_entries": 0,
+        "curiosity_flags": 0,
+        "reflection": False,
+        "errors": [],
+    }
+
+    # --- Belief patches ---
+    for patch in payload.get("belief_patches", []):
+        belief_id = patch.get("id")
+        try:
+            delta = float(patch["strength_delta"])
+            rows = await supabase.select(
+                "helm_beliefs",
+                {"id": f"eq.{belief_id}", "select": "id,strength"},
+            )
+            if not rows:
+                results["errors"].append(f"belief_patch {belief_id}: not found")
+                continue
+            current = float(rows[0]["strength"])
+            new_strength = round(max(0.0, min(1.0, current + delta)), 4)
+            await supabase.patch("helm_beliefs", {"id": belief_id}, {"strength": new_strength})
+            logger.info(
+                "Archivist: belief patched id=%s %.4f→%.4f (delta=%.4f)",
+                belief_id, current, new_strength, delta,
+            )
+            results["belief_patches"] += 1
+        except Exception as e:
+            logger.error("Archivist: belief_patch failed id=%s: %s", belief_id, e)
+            results["errors"].append(f"belief_patch {belief_id}: {e}")
+
+    # --- Pattern entries ---
+    for entry in payload.get("pattern_entries", []):
+        try:
+            await supabase.insert("helm_memory", {
+                "project": "hammerfall-solutions",
+                "agent": "helm",
+                "memory_type": "pattern",
+                "content": entry["content"],
+                "session_date": today,
+                "sync_ready": False,
+            })
+            results["pattern_entries"] += 1
+        except Exception as e:
+            logger.error("Archivist: pattern_entry write failed: %s", e)
+            results["errors"].append(f"pattern_entry: {e}")
+
+    # --- Curiosity flags ---
+    for flag in payload.get("curiosity_flags", []):
+        try:
+            flag_type = flag.get("type", "unknown").upper()
+            topic = flag.get("topic", "")
+            question = flag.get("question", "")
+            content = f"[CURIOUS:{flag_type}] {topic} — {question}"
+            await supabase.insert("helm_memory", {
+                "project": "hammerfall-solutions",
+                "agent": "helm",
+                "memory_type": "curiosity_flag",
+                "content": content,
+                "session_date": today,
+                "sync_ready": False,
+            })
+            results["curiosity_flags"] += 1
+        except Exception as e:
+            logger.error("Archivist: curiosity_flag write failed: %s", e)
+            results["errors"].append(f"curiosity_flag: {e}")
+
+    # --- Reflection ---
+    reflection = payload.get("reflection")
+    if reflection and reflection.get("content"):
+        try:
+            await supabase.insert("helm_memory", {
+                "project": "hammerfall-solutions",
+                "agent": "helm",
+                "memory_type": "monologue",
+                "content": reflection["content"],
+                "session_date": today,
+                "sync_ready": False,
+            })
+            results["reflection"] = True
+        except Exception as e:
+            logger.error("Archivist: reflection write failed: %s", e)
+            results["errors"].append(f"reflection: {e}")
+
+    summary = (
+        f"Contemplator writes complete: "
+        f"{results['belief_patches']} belief patches, "
+        f"{results['pattern_entries']} pattern entries, "
+        f"{results['curiosity_flags']} curiosity flags, "
+        f"reflection={'yes' if results['reflection'] else 'no'}."
+    )
+    if results["errors"]:
+        summary += f" Errors ({len(results['errors'])}): {'; '.join(results['errors'])}"
+    logger.info(summary)
+    return summary
 
 
 async def _write_to_memory(

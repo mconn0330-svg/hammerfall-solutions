@@ -11,7 +11,7 @@ Runs in two modes:
                   and reflection log. All writes delegated to Archivist.
 
 Behavioral contract: agents/helm/contemplator/contemplator.md
-Model: Qwen2.5 14B (two-pass execution)
+Model: qwen3:14b — dual-mode (think=false for session_start, think=true for session_end)
 
 Write protocol: Contemplator never writes to Supabase directly.
 All writes expressed as a structured JSON payload sent to Archivist.
@@ -184,12 +184,17 @@ async def handle(
     trigger = req.context.get("trigger", "session_end")
     logger.info("Contemplator invoked: trigger=%s session=%s", trigger, req.session_id)
 
+    # Dual-mode think routing:
+    #   session_start — think=False (lightweight, Pass 1 only, ~10s, non-blocking)
+    #   session_end   — think=True  (deep pass, Pass 1 + Pass 2, ~30s, full synthesis)
+    think = (trigger != "session_start")
+
     # --- Fetch brain snapshot ---
     memories, beliefs, entities = await _fetch_snapshot(supabase)
     snapshot = _build_snapshot(memories, beliefs, entities)
     logger.info(
-        "Contemplator snapshot: %d memories, %d beliefs, %d entities (%d chars)",
-        len(memories), len(beliefs), len(entities), len(snapshot),
+        "Contemplator snapshot: %d memories, %d beliefs, %d entities (%d chars) think=%s",
+        len(memories), len(beliefs), len(entities), len(snapshot), think,
     )
 
     # --- Pass 1 ---
@@ -200,7 +205,7 @@ async def handle(
             {"role": "user", "content": PASS1_USER_TEMPLATE.format(snapshot=snapshot)},
         ],
         stream=False,
-        extra_kwargs={"format": "json", "options": {"num_predict": PASS1_MAX_TOKENS, "temperature": 0.4}},
+        extra_kwargs={"format": "json", "options": {"num_predict": PASS1_MAX_TOKENS, "temperature": 0.4}, "think": think},
     )
 
     pass1_content = pass1_raw.choices[0].message.content.strip()
@@ -230,7 +235,7 @@ async def handle(
             "curiosity_flags": curiosity,
         })
 
-    # --- Pass 2 (session_end only) ---
+    # --- Pass 2 (session_end only) — think=True for deep synthesis ---
     pass2_raw = await router.invoke(
         role="contemplator",
         messages=[
@@ -244,7 +249,7 @@ async def handle(
             },
         ],
         stream=False,
-        extra_kwargs={"format": "json", "options": {"num_predict": PASS2_MAX_TOKENS, "temperature": 0.4}},
+        extra_kwargs={"format": "json", "options": {"num_predict": PASS2_MAX_TOKENS, "temperature": 0.4}, "think": True},
     )
 
     pass2_content = pass2_raw.choices[0].message.content.strip()
