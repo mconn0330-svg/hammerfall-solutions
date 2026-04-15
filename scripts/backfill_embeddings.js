@@ -200,6 +200,52 @@ async function backfillEntities(brainUrl, serviceKey, openaiKey) {
   return { success, failed };
 }
 
+async function backfillMemory(brainUrl, serviceKey, openaiKey) {
+  console.log("\n--- helm_memory ---");
+  const rows = await supabaseGet(
+    brainUrl, serviceKey,
+    "helm_memory?select=id,content&embedding=is.null"
+  );
+  console.log(`  ${rows.length} rows with null embedding`);
+  if (!rows.length) return { success: 0, failed: 0 };
+
+  let success = 0, failed = 0;
+
+  for (let i = 0; i < rows.length; i++) {
+    const { id, content } = rows[i];
+    const text = (content || "").trim();
+
+    if (!text) {
+      console.log(`  SKIP  [${i+1}/${rows.length}] id=${id} — empty content`);
+      failed++;
+      continue;
+    }
+
+    console.log(`  [${i+1}/${rows.length}] id=${id} — ${text.slice(0, 60)}...`);
+
+    if (DRY_RUN) {
+      console.log("    DRY RUN — skipping embed + patch");
+      success++;
+    } else {
+      try {
+        const embedding = await generateEmbedding(text, openaiKey);
+        await supabasePatch(brainUrl, serviceKey, "helm_memory", id, { embedding });
+        success++;
+      } catch (e) {
+        console.log(`    ERROR: ${e.message}`);
+        failed++;
+      }
+    }
+
+    if ((i + 1) % BATCH_SIZE === 0 && !DRY_RUN) {
+      console.log(`  Batch complete — sleeping ${BATCH_SLEEP_MS}ms`);
+      await sleep(BATCH_SLEEP_MS);
+    }
+  }
+
+  return { success, failed };
+}
+
 // ---------------------------------------------------------------------------
 // Entry point
 // ---------------------------------------------------------------------------
@@ -213,13 +259,15 @@ async function main() {
   console.log(`Brain URL: ${brainUrl}`);
   console.log(`Model:     ${EMBEDDING_MODEL}`);
 
+  const memory = await backfillMemory(brainUrl, serviceKey, openaiKey);
   const beliefs = await backfillBeliefs(brainUrl, serviceKey, openaiKey);
   const entities = await backfillEntities(brainUrl, serviceKey, openaiKey);
 
-  const totalSuccess = beliefs.success + entities.success;
-  const totalFailed = beliefs.failed + entities.failed;
+  const totalSuccess = memory.success + beliefs.success + entities.success;
+  const totalFailed = memory.failed + beliefs.failed + entities.failed;
 
   console.log(`\n=== Backfill complete ===`);
+  console.log(`  helm_memory:   ${memory.success} embedded, ${memory.failed} failed/skipped`);
   console.log(`  helm_beliefs:  ${beliefs.success} embedded, ${beliefs.failed} failed/skipped`);
   console.log(`  helm_entities: ${entities.success} embedded, ${entities.failed} failed/skipped`);
   console.log(`  Total:         ${totalSuccess} embedded, ${totalFailed} failed/skipped`);
