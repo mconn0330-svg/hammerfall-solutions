@@ -90,6 +90,44 @@ class SupabaseClient:
             )
             return self._check_response(response)
 
+    async def rpc(self, function_name: str, params: dict) -> Any:
+        """Call a Supabase RPC (stored function). Returns the function's response."""
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{self.url}/rest/v1/rpc/{function_name}",
+                json=params,
+                headers=self._headers,
+                timeout=15.0,
+            )
+            return self._check_response(response)
+
+    async def match_memories(
+        self,
+        query_embedding: list,
+        project: str,
+        agent: str,
+        threshold: float = 0.7,
+        count: int = 10,
+    ) -> list:
+        """
+        Semantic similarity search via match_memories() Supabase RPC.
+
+        Returns rows ordered by cosine similarity descending.
+        Each row: id, project, agent, memory_type, content, session_date,
+                  created_at, similarity.
+        Returns [] if no matches exceed the threshold.
+        """
+        return await self.rpc(
+            "match_memories",
+            {
+                "query_embedding": query_embedding,
+                "match_project": project,
+                "match_agent": agent,
+                "match_threshold": threshold,
+                "match_count": count,
+            },
+        )
+
     async def health_check(self) -> bool:
         """
         Confirm Supabase REST API is reachable and helm_frames is queryable.

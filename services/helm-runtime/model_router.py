@@ -71,6 +71,12 @@ class AgentConfigSchema(BaseModel):
         return self
 
 
+class EmbeddingsConfigSchema(BaseModel):
+    """Schema for the optional embeddings block in config.yaml."""
+    model: str = "text-embedding-3-small"
+    api_key_env: str = "OPENAI_API_KEY"
+
+
 class SupabaseConfigSchema(BaseModel):
     """Schema for the supabase block in config.yaml."""
     url_env: str = "SUPABASE_BRAIN_URL"
@@ -95,6 +101,7 @@ class HelmRuntimeConfig(BaseModel):
     """Root config schema. Validated at service startup."""
     service: ServiceConfigSchema = ServiceConfigSchema()
     supabase: SupabaseConfigSchema = SupabaseConfigSchema()
+    embeddings: Optional[EmbeddingsConfigSchema] = None
     agents: dict[str, AgentConfigSchema]
 
     @field_validator("agents")
@@ -135,6 +142,7 @@ class ModelRouter:
 
         self._agent_configs = self._resolve_env_vars()
         self._supabase_config = self._resolve_supabase()
+        self._embeddings_config = self._resolve_embeddings()
 
         logger.info("ModelRouter initialized. Agents: %s", list(self._agent_configs.keys()))
 
@@ -206,6 +214,34 @@ class ModelRouter:
             )
 
         return {"url": url, "service_key": key}
+
+    def _resolve_embeddings(self) -> dict:
+        """
+        Resolve embedding config. Optional — returns empty dict if no embeddings block.
+        Warns (does not fail) if api_key_env is set but env var is missing.
+        """
+        emb = self._config.embeddings
+        if emb is None:
+            return {}
+
+        api_key = os.environ.get(emb.api_key_env)
+        if not api_key:
+            logger.warning(
+                "Embeddings configured but '%s' env var is not set — "
+                "embedding generation disabled. Set %s to enable semantic search.",
+                emb.api_key_env, emb.api_key_env,
+            )
+            return {"model": emb.model}
+
+        return {"model": emb.model, "api_key": api_key}
+
+    @property
+    def embedding_api_key(self) -> Optional[str]:
+        return self._embeddings_config.get("api_key")
+
+    @property
+    def embedding_model(self) -> str:
+        return self._embeddings_config.get("model", "text-embedding-3-small")
 
     @property
     def supabase_url(self) -> str:

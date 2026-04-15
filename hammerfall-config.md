@@ -143,6 +143,7 @@ export GITHUB_TOKEN=ghp_your-github-pat-here
 export VERCEL_TOKEN=your-vercel-token-here
 export REPLIT_TOKEN=your-replit-token-here
 export EXPO_TOKEN=your-expo-token-here
+export OPENAI_API_KEY=sk-your-openai-key-here   # Required for semantic memory (S1-BA2+)
 ```
 
 *Note: No Supabase password env var needed. Bootstrap generates a unique

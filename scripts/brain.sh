@@ -59,6 +59,7 @@ FROM_ENTITY=""
 TO_ENTITY=""
 REL_NOTES=""
 REL_STRENGTH=""
+EMBED=false
 
 shift 5 2>/dev/null
 while [[ $# -gt 0 ]]; do
@@ -77,6 +78,7 @@ while [[ $# -gt 0 ]]; do
     --rel-notes)    REL_NOTES="$2";    shift 2 ;;
     --rel-strength) REL_STRENGTH="$2"; shift 2 ;;
     --source)       SOURCE="$2";       shift 2 ;;
+    --embed)        EMBED=true;        shift 1 ;;
     *) shift ;;
   esac
 done
@@ -117,12 +119,49 @@ else
   SUMMARY_ESCAPED=""
 fi
 
+# Generate embedding via OpenAI text-embedding-3-small (helm_memory only, --embed flag)
+# Non-fatal — if generation fails, write proceeds without embedding.
+EMBEDDING_JSON=""
+if [ "$EMBED" = true ] && [ "$TABLE" = "helm_memory" ]; then
+  OPENAI_KEY="${OPENAI_API_KEY}"
+  if [ -z "$OPENAI_KEY" ]; then
+    echo "  WARNING: --embed set but OPENAI_API_KEY not in environment — skipping embedding."
+  else
+    EMBEDDING_JSON=$(python3 - <<PYEOF
+import sys, json, urllib.request, urllib.error
+content = """$CONTENT"""
+req_data = json.dumps({"model": "text-embedding-3-small", "input": content}).encode()
+req = urllib.request.Request(
+    "https://api.openai.com/v1/embeddings",
+    data=req_data,
+    headers={"Authorization": "Bearer $OPENAI_KEY", "Content-Type": "application/json"},
+    method="POST"
+)
+try:
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        data = json.load(resp)
+        print(json.dumps(data["data"][0]["embedding"]))
+except Exception as e:
+    sys.stderr.write(f"  WARNING: Embedding generation failed — {e}\n")
+    print("null")
+PYEOF
+)
+    # null means generation failed — treat as missing
+    if [ "$EMBEDDING_JSON" = "null" ] || [ -z "$EMBEDDING_JSON" ]; then
+      EMBEDDING_JSON=""
+    fi
+  fi
+fi
+
 # Write JSON to temp file — avoids Windows/Git Bash multi-byte UTF-8 corruption
 TMPFILE=$(mktemp /tmp/brain_write_XXXXXX.json)
 
 case "$TABLE" in
 
   helm_memory)
+    # Build base payload — add optional fields only when present.
+    # Embedding injected last via node so the 1536-float array is written without
+    # shell quoting issues (printf %s treats the JSON array as a plain string).
     if [ -n "$FULL_CONTENT" ] && [ -n "$CONFIDENCE" ]; then
       printf '{"project":"%s","agent":"%s","memory_type":"%s","content":%s,"sync_ready":%s,"full_content":%s,"confidence":%s}' \
         "$PROJECT" "$AGENT" "$TYPE" "$ESCAPED" "$SYNC_READY" "$FULL_CONTENT" "$CONFIDENCE" > "$TMPFILE"
@@ -135,6 +174,15 @@ case "$TABLE" in
     else
       printf '{"project":"%s","agent":"%s","memory_type":"%s","content":%s,"sync_ready":%s}' \
         "$PROJECT" "$AGENT" "$TYPE" "$ESCAPED" "$SYNC_READY" > "$TMPFILE"
+    fi
+    # Inject embedding into the JSON object if generation succeeded
+    if [ -n "$EMBEDDING_JSON" ]; then
+      node -e "
+        const fs = require('fs');
+        const obj = JSON.parse(fs.readFileSync('$TMPFILE', 'utf8'));
+        obj.embedding = $EMBEDDING_JSON;
+        fs.writeFileSync('$TMPFILE', JSON.stringify(obj));
+      "
     fi
     ;;
 
