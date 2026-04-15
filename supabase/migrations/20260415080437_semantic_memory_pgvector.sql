@@ -9,11 +9,12 @@ CREATE EXTENSION IF NOT EXISTS vector;
 -- vector(1536) matches text-embedding-3-small output dimensions
 ALTER TABLE helm_memory ADD COLUMN IF NOT EXISTS embedding vector(1536);
 
--- IVFFlat index for cosine similarity search
--- lists=100: standard default for up to ~1M rows
+-- HNSW index for cosine similarity search
+-- No training phase required — safe to create before rows are populated
+-- m=16, ef_construction=64: balanced default for most workloads
 CREATE INDEX IF NOT EXISTS helm_memory_embedding_idx
-  ON helm_memory USING ivfflat (embedding vector_cosine_ops)
-  WITH (lists = 100);
+  ON helm_memory USING hnsw (embedding vector_cosine_ops)
+  WITH (m = 16, ef_construction = 64);
 
 -- match_memories() — semantic similarity search for Helm memory entries
 -- Called from supabase_client.py match_memories() method
