@@ -59,7 +59,11 @@ FROM_ENTITY=""
 TO_ENTITY=""
 REL_NOTES=""
 REL_STRENGTH=""
-EMBED=false
+# EMBED default is type-conditional (set after flag parsing — flags override).
+# behavioral|correction|reasoning → true (high-value, always semantically searchable)
+# scratchpad|heartbeat|* → false (high-volume or low-value, embed explicitly if needed)
+# --embed overrides to true. --no-embed overrides to false.
+EMBED_OVERRIDE=""
 
 shift 5 2>/dev/null
 while [[ $# -gt 0 ]]; do
@@ -78,10 +82,20 @@ while [[ $# -gt 0 ]]; do
     --rel-notes)    REL_NOTES="$2";    shift 2 ;;
     --rel-strength) REL_STRENGTH="$2"; shift 2 ;;
     --source)       SOURCE="$2";       shift 2 ;;
-    --embed)        EMBED=true;        shift 1 ;;
+    --embed)        EMBED_OVERRIDE=true;  shift 1 ;;
+    --no-embed)     EMBED_OVERRIDE=false; shift 1 ;;
     *) shift ;;
   esac
 done
+
+# Apply type-conditional default, then honour explicit override if set
+case "$TYPE" in
+  behavioral|correction|reasoning) EMBED=true ;;
+  *) EMBED=false ;;
+esac
+if [ -n "$EMBED_OVERRIDE" ]; then
+  EMBED="$EMBED_OVERRIDE"
+fi
 
 CONFIG_FILE="$(dirname "$0")/../hammerfall-config.md"
 BRAIN_URL=$(grep "supabase_brain_url:" "$CONFIG_FILE" | awk '{print $2}')

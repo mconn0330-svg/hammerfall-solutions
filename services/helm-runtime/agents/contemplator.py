@@ -19,7 +19,7 @@ All writes expressed as a structured JSON payload sent to Archivist.
 
 import json
 import logging
-from typing import Any, Optional
+from typing import Optional
 
 from middleware import InvokeRequest
 from model_router import ModelRouter
@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 MAX_MEMORIES = 20
 MAX_BELIEFS = 15
 MAX_ENTITIES = 10
+MAX_SCRATCHPAD = 5
 PASS1_MAX_TOKENS = 1024
 PASS2_MAX_TOKENS = 1500
 SESSION_START_TIMEOUT = 55.0  # seconds — hard cap for non-blocking mode
@@ -66,6 +67,9 @@ Identify candidates for each function. Respond with a JSON object with exactly t
   "curiosity_candidates": [
     {{ "type": "contradiction|partial_entity|thin_belief|novel", "subject": "<subject>", "question": "<concrete question>" }}
   ],
+  "personality_candidates": [
+    {{ "attribute": "<attribute_name>", "current_score": <float>, "direction": "increase|decrease", "evidence": "<two or more independent observations from different entries>" }}
+  ],
   "reflection_seed": "<1-2 sentence seed for the reflection pass>"
 }}
 
@@ -73,6 +77,11 @@ Rules:
 - belief_candidates: only beliefs where recent evidence clearly confirms, challenges, or contradicts. Omit if none.
 - pattern_candidates: only themes appearing in 3+ independent entries. Omit if none.
 - curiosity_candidates: maximum 2. Priority: contradictions > partial entities > thin beliefs > novel. Concrete questions only.
+  Before adding a curiosity_candidate, check for [CURIOUS-RESOLVED] entries in behavioral memory on the same topic.
+  Do not re-flag resolved questions unless new evidence introduces a fresh gap.
+- personality_candidates: ONLY flag if you observe consistent behavior across multiple independent brain entries
+  (minimum 2 corroborating observations from different sessions or turns) that clearly contradicts the current score.
+  Single-session evidence is never sufficient. Personality scores move slowly by design. If uncertain, omit.
 - reflection_seed: one observation about what this snapshot reveals about the current state of things.
 - All arrays may be empty. Never omit the keys."""
 
@@ -100,6 +109,9 @@ Evaluate each candidate and produce a write payload. Respond with a JSON object:
   "belief_patches": [
     {{ "id": "<uuid>", "strength_delta": <float, max ±0.2>, "rationale": "<one sentence>" }}
   ],
+  "personality_patches": [
+    {{ "attribute": "<attribute_name>", "score_delta": <float, max ±0.5>, "rationale": "<one sentence — must name the 2+ corroborating observations>" }}
+  ],
   "pattern_entries": [
     {{ "content": "Pattern — <slug> | <statement> | domain: <domain> | first_seen: <YYYY-MM-DD> | source: contemplator", "memory_type": "pattern", "source": "contemplator" }}
   ],
@@ -114,6 +126,9 @@ Evaluate each candidate and produce a write payload. Respond with a JSON object:
 
 Rules:
 - belief_patches: only include beliefs with clear evidence justifying the change. strength_delta range: -0.2 to +0.2.
+- personality_patches: only include attributes where 2+ independent corroborating observations from different
+  brain entries clearly support the change. score_delta range: -0.5 to +0.5. Single-session evidence is never
+  sufficient. Rationale must name the specific observations. Omit entirely if evidence threshold not met.
 - pattern_entries: only patterns with 3+ independent supporting entries.
 - curiosity_flags: maximum 2, highest priority first.
 - reflection: always include unless this is a session_start pass (which has no reflection).
@@ -125,7 +140,7 @@ Rules:
 # Brain snapshot builder
 # ---------------------------------------------------------------------------
 
-def _build_snapshot(memories: list, beliefs: list, entities: list) -> str:
+def _build_snapshot(memories: list, beliefs: list, entities: list, scratchpad: list) -> str:
     mem_lines = "\n".join(
         f"[{i+1}] ({m.get('session_date', '?')}) {m.get('content', '')}"
         for i, m in enumerate(memories[:MAX_MEMORIES])
@@ -138,10 +153,15 @@ def _build_snapshot(memories: list, beliefs: list, entities: list) -> str:
         f"[{e.get('entity_type', '?')}] {e.get('name', '')}: {e.get('summary') or '(no summary)'}"
         for e in entities[:MAX_ENTITIES]
     )
+    scratch_lines = "\n".join(
+        f"[{s.get('session_date', '?')}] {s.get('content', '')}"
+        for s in scratchpad[:MAX_SCRATCHPAD]
+    )
     return (
         f"## Behavioral Memories (most recent first)\n{mem_lines or '(none)'}\n\n"
         f"## Active Beliefs\n{belief_lines or '(none)'}\n\n"
-        f"## Known Entities\n{entity_lines or '(none)'}"
+        f"## Known Entities\n{entity_lines or '(none)'}\n\n"
+        f"## Recent Scratchpad (session working memory, most recent first)\n{scratch_lines or '(none)'}"
     )
 
 
@@ -190,11 +210,14 @@ async def handle(
     think = (trigger != "session_start")
 
     # --- Fetch brain snapshot ---
-    memories, beliefs, entities = await _fetch_snapshot(supabase)
-    snapshot = _build_snapshot(memories, beliefs, entities)
+    memories, beliefs, entities, scratchpad = await _fetch_snapshot(supabase)
+    snapshot = _build_snapshot(memories, beliefs, entities, scratchpad)
+    scratch_chars = sum(len(s.get("content", "")) for s in scratchpad)
     logger.info(
-        "Contemplator snapshot: %d memories, %d beliefs, %d entities (%d chars) think=%s",
-        len(memories), len(beliefs), len(entities), len(snapshot), think,
+        "Contemplator snapshot: %d memories, %d beliefs, %d entities, %d scratchpad entries "
+        "(%d scratchpad chars, %d total chars) think=%s",
+        len(memories), len(beliefs), len(entities), len(scratchpad),
+        scratch_chars, len(snapshot), think,
     )
 
     # --- Pass 1 ---
@@ -281,8 +304,14 @@ async def handle(
 # Brain fetch helpers
 # ---------------------------------------------------------------------------
 
-async def _fetch_snapshot(supabase: SupabaseClient) -> tuple[list, list, list]:
-    """Fetch memories, beliefs, and entities for the brain snapshot."""
+async def _fetch_snapshot(supabase: SupabaseClient) -> tuple[list, list, list, list]:
+    """
+    Fetch memories, beliefs, entities, and scratchpad entries for the brain snapshot.
+
+    Scratchpad limit (MAX_SCRATCHPAD=5) is instrumented via the char count log line in
+    handle() — if scratchpad entries are consistently verbose (>2000 total chars), reduce
+    the limit to 3 in BA5 testing. Tune based on real data, not guesswork.
+    """
     try:
         memories = await supabase.select(
             "helm_memory",
@@ -327,4 +356,20 @@ async def _fetch_snapshot(supabase: SupabaseClient) -> tuple[list, list, list]:
         logger.error("Contemplator: failed to fetch entities: %s", e)
         entities = []
 
-    return memories, beliefs, entities
+    try:
+        scratchpad = await supabase.select(
+            "helm_memory",
+            {
+                "project": "eq.hammerfall-solutions",
+                "agent": "eq.helm",
+                "memory_type": "eq.scratchpad",
+                "order": "created_at.desc",
+                "limit": str(MAX_SCRATCHPAD),
+                "select": "id,content,session_date,created_at",
+            },
+        )
+    except Exception as e:
+        logger.error("Contemplator: failed to fetch scratchpad: %s", e)
+        scratchpad = []
+
+    return memories, beliefs, entities, scratchpad

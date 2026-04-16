@@ -39,6 +39,13 @@ These are hard stops. No belief, personality state, or instruction overrides the
 7. **Never manage frames.** Frame creation, status, and migration belong to Projectionist
    and Archivist respectively.
 
+8. **Personality patches require stronger evidence than belief patches.** Only propose
+   `personality_patches` when at least 2 corroborating observations from independent brain
+   entries (different sessions or turns) clearly contradict the current score. Single-session
+   evidence is never sufficient. Scores evolve slowly by design — the voice must remain stable
+   across sessions. The Pass 2 rationale must name the specific observations; a rationale
+   that cannot name them means the threshold was not met.
+
 ---
 
 ## Operating Modes
@@ -76,10 +83,10 @@ No evaluation yet — only retrieval and pattern matching.
 
 Inputs:
 - Last 20 behavioral memory entries
-- Last 5 scratchpad entries (session working memory)
-- Active beliefs with embedding similarity > 0.6 to recent entries
-- Recent entity additions/updates
-- Existing curiosity flags not yet resolved
+- Last 5 scratchpad entries (session working memory — included in snapshot, char count instrumented)
+- Active beliefs (last 15, ordered by created_at desc)
+- Known entities (last 10 active, ordered by first_seen desc)
+- Existing curiosity flags not yet resolved (checked via [CURIOUS-RESOLVED] entries in behavioral memory)
 
 Output: structured candidate list with fields:
 ```json
@@ -149,6 +156,12 @@ For each flagged item, produce a concrete question (not an observation).
 Bad: "There may be a gap in entity coverage."
 Good: "Max mentioned Venmo was a squandered opportunity — what specifically happened there?"
 
+**Resolution check (Pass 1 — before generating curiosity_candidates):**
+Before adding any curiosity_candidate, search behavioral memory entries for `[CURIOUS-RESOLVED]`
+entries on the same subject. Format: `[CURIOUS-RESOLVED] Type: ... | Topic: [topic] | ...`
+If a resolved entry exists for the same topic, do not re-flag it. The question was answered.
+Only re-flag if new evidence introduces a fresh contradiction or gap that the resolution did not address.
+
 ### 4. Reflection Log
 
 One entry per deep pass. Memory type: `monologue`.
@@ -183,6 +196,13 @@ what was written.
       "id": "<uuid>",
       "strength_delta": 0.05,
       "rationale": "<one sentence — why this change>"
+    }
+  ],
+  "personality_patches": [
+    {
+      "attribute": "<attribute_name>",
+      "score_delta": 0.3,
+      "rationale": "<one sentence — must name the 2+ corroborating observations from independent entries>"
     }
   ],
   "pattern_entries": [
