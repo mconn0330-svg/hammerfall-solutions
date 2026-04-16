@@ -285,7 +285,7 @@ async def _execute_contemplator_writes(
 
     # --- Personality patches ---
     # Requires 2+ corroborating observations — Contemplator enforces in Pass 2 prompt.
-    # Scores clamped 0.0–10.0 (personality scores are rated out of 10).
+    # Scores clamped 0.0–1.0 — matches helm_personality score scale and speaker.py translation table.
     for patch in payload.get("personality_patches", []):
         attr = patch.get("attribute")
         try:
@@ -298,10 +298,10 @@ async def _execute_contemplator_writes(
                 results["errors"].append(f"personality_patch {attr}: not found")
                 continue
             current = float(rows[0]["score"])
-            new_score = round(max(0.0, min(10.0, current + delta)), 2)
+            new_score = round(max(0.0, min(1.0, current + delta)), 4)
             await supabase.patch("helm_personality", {"attribute": attr}, {"score": new_score})
             logger.info(
-                "Archivist: personality patched attribute=%s %.2f→%.2f (delta=%.2f)",
+                "Archivist: personality patched attribute=%s %.4f→%.4f (delta=%.4f)",
                 attr, current, new_score, delta,
             )
             results["personality_patches"] += 1
