@@ -269,10 +269,9 @@ node -e "
   process.stdout.write(JSON.stringify(body));
 " > "$PROJ_TMPFILE"
 
-curl -s -X POST http://localhost:8000/invoke/projectionist \
+(curl -s -X POST http://localhost:8000/invoke/projectionist \
   -H "Content-Type: application/json" \
-  -d @"$PROJ_TMPFILE"
-rm -f "$PROJ_TMPFILE"
+  -d @"$PROJ_TMPFILE"; rm -f "$PROJ_TMPFILE") &
 ```
 
 Projectionist will:
@@ -307,10 +306,9 @@ node -e "
   };
   process.stdout.write(JSON.stringify(body));
 " > "$PROJ_RES_TMPFILE"
-curl -s -X POST http://localhost:8000/invoke/projectionist \
+(curl -s -X POST http://localhost:8000/invoke/projectionist \
   -H "Content-Type: application/json" \
-  -d @"$PROJ_RES_TMPFILE"
-rm -f "$PROJ_RES_TMPFILE"
+  -d @"$PROJ_RES_TMPFILE"; rm -f "$PROJ_RES_TMPFILE") &
 
 # Step 2: Archivist final drain — migrate all remaining cold frames
 ARCH_TMPFILE=$(mktemp /tmp/arch_req_XXXXXX.json)
@@ -324,10 +322,9 @@ node -e "
   };
   process.stdout.write(JSON.stringify(body));
 " > "$ARCH_TMPFILE"
-curl -s -X POST http://localhost:8000/invoke/archivist \
+(curl -s -X POST http://localhost:8000/invoke/archivist \
   -H "Content-Type: application/json" \
-  -d @"$ARCH_TMPFILE"
-rm -f "$ARCH_TMPFILE"
+  -d @"$ARCH_TMPFILE"; rm -f "$ARCH_TMPFILE") &
 
 # Step 3: Contemplator deep pass (session_end) — runs after Archivist drain
 # Two-pass execution: think=true. Evaluates beliefs, synthesizes patterns, flags curiosity,
@@ -343,10 +340,9 @@ node -e "
   };
   process.stdout.write(JSON.stringify(body));
 " > "$CONT_END_TMPFILE"
-curl -s -X POST http://localhost:8000/invoke/contemplator \
+(curl -s -X POST http://localhost:8000/invoke/contemplator \
   -H "Content-Type: application/json" \
-  -d @"$CONT_END_TMPFILE"
-rm -f "$CONT_END_TMPFILE"
+  -d @"$CONT_END_TMPFILE"; rm -f "$CONT_END_TMPFILE") &
 ```
 
 Session-close sequence:
@@ -508,10 +504,9 @@ node -e "
   };
   process.stdout.write(JSON.stringify(body));
 " > "$ARCH_TMPFILE"
-curl -s -X POST http://localhost:8000/invoke/archivist \
+(curl -s -X POST http://localhost:8000/invoke/archivist \
   -H "Content-Type: application/json" \
-  -d @"$ARCH_TMPFILE"
-rm -f "$ARCH_TMPFILE"
+  -d @"$ARCH_TMPFILE"; rm -f "$ARCH_TMPFILE") &
 ```
 
 Archivist drains all `helm_frames WHERE layer='cold'` — migrates to `helm_memory`,
