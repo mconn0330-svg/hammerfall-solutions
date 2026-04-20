@@ -17,6 +17,7 @@ Write protocol: Contemplator never writes to Supabase directly.
 All writes expressed as a structured JSON payload sent to Archivist.
 """
 
+import asyncio
 import json
 import logging
 from typing import Optional
@@ -221,7 +222,7 @@ async def handle(
     )
 
     # --- Pass 1 ---
-    pass1_raw = await router.invoke(
+    _pass1_coro = router.invoke(
         role="contemplator",
         messages=[
             {"role": "system", "content": PASS1_SYSTEM},
@@ -230,6 +231,18 @@ async def handle(
         stream=False,
         extra_kwargs={"format": "json", "options": {"num_predict": PASS1_MAX_TOKENS, "temperature": 0.4}, "think": think},
     )
+    try:
+        pass1_raw = await (
+            asyncio.wait_for(_pass1_coro, timeout=SESSION_START_TIMEOUT)
+            if trigger == "session_start"
+            else _pass1_coro
+        )
+    except asyncio.TimeoutError:
+        logger.warning(
+            "Contemplator session_start timed out after %.0fs — returning empty curiosity flags. session=%s",
+            SESSION_START_TIMEOUT, req.session_id,
+        )
+        return json.dumps({"status": "session_start_timeout", "curiosity_flags": []})
 
     pass1_content = pass1_raw.choices[0].message.content.strip()
     pass1_data = _extract_json(pass1_content)
