@@ -311,6 +311,9 @@ async def _resolution_pass(
                 )
 
         elif status == "superseded" and not fj.get("superseded_reason"):
+            # NOTE: pivot implementation must set layer='cold' in the same PATCH that sets
+            # frame_status='superseded' — otherwise superseded frames stay warm and inflate
+            # the warm queue until the next interval trigger fires.
             updated_fj = {**fj, "superseded_reason": "Resolved at session end — approach not continued"}
             try:
                 await supabase.patch(
@@ -324,6 +327,22 @@ async def _resolution_pass(
                     "Projectionist resolution pass: failed to fill superseded_reason id=%s: %s",
                     frame["id"], e,
                 )
+
+        # canonical frames are already terminal — no action needed
+
+    # Flush all remaining warm frames to cold so Archivist can drain them to helm_memory.
+    # Without this, canonical frames from active→canonical above stay warm forever —
+    # Archivist only reads layer=cold, so they would never reach helm_memory.
+    try:
+        await supabase.patch(
+            "helm_frames",
+            {"session_id": session_id, "layer": "warm"},
+            {"layer": "cold"},
+        )
+    except Exception as e:
+        logger.error(
+            "Projectionist resolution pass: failed to flush warm→cold: %s", e,
+        )
 
     logger.info(
         "Projectionist resolution pass complete: %d canonical, %d superseded_reason filled. session=%s",
