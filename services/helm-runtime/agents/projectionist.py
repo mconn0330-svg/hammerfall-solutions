@@ -20,6 +20,14 @@ from supabase_client import SupabaseClient
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
+# Offload trigger configuration
+# ---------------------------------------------------------------------------
+
+WARM_QUEUE_MAX          = 20    # batch trigger — offload all when warm count hits this
+FRAME_OFFLOAD_INTERVAL  = 10    # interval trigger — every N turns
+FRAME_OFFLOAD_CONSERVATIVE = True  # fire at 80% of interval (turn 8, 16, 24...)
+
+# ---------------------------------------------------------------------------
 # Projectionist system prompt
 #
 # Instructs the model to return ONLY valid JSON matching the frame schema.
@@ -65,12 +73,18 @@ async def handle(
     Build a frame JSON from the turn, write it to helm_frames, return the frame JSON.
 
     Steps:
-      1. Build prompt with verbatim turn content
-      2. Call Qwen2.5 3B via Ollama with JSON mode enforced
-      3. output_validator middleware validates the response (runs in pipeline after this returns)
-      4. Write validated frame to helm_frames
-      5. Return frame JSON string
+      1. Check for resolution_pass flag — if set, run session-end resolution and return early
+      2. Build prompt with verbatim turn content
+      3. Call Qwen2.5 3B via Ollama with JSON mode enforced
+      4. output_validator middleware validates the response (runs in pipeline after this returns)
+      5. Write validated frame to helm_frames
+      6. Evaluate offload triggers (batch priority, then interval)
+      7. Return frame JSON string
     """
+    # Resolution pass — skip model call, run classification pass over session frames
+    if req.context.get("resolution_pass"):
+        return await _resolution_pass(req.session_id, req.turn_number, supabase)
+
     timestamp = datetime.now(timezone.utc).isoformat()
 
     user_prompt = f"""Turn number: {req.turn_number}
@@ -165,4 +179,158 @@ Produce the frame JSON now."""
         )
         raise
 
+    # Evaluate offload triggers — non-blocking best-effort (failures logged, not raised)
+    try:
+        await _check_offload_triggers(req.session_id, req.turn_number, supabase)
+    except Exception as e:
+        logger.error("Projectionist offload trigger error: session=%s turn=%d error=%s",
+                     req.session_id, req.turn_number, e)
+
     return json.dumps(frame)
+
+
+# ---------------------------------------------------------------------------
+# Offload triggers
+# ---------------------------------------------------------------------------
+
+async def _check_offload_triggers(
+    session_id: str,
+    turn_number: int,
+    supabase: SupabaseClient,
+) -> None:
+    """
+    Evaluate batch trigger (priority) then interval trigger.
+
+    Batch: if warm frame count >= WARM_QUEUE_MAX, offload all warm frames.
+    Interval: every FRAME_OFFLOAD_INTERVAL turns (or 80% of that when conservative),
+              offload the oldest single warm frame.
+    Layer change only — frame_status is untouched here (resolution pass handles that).
+    """
+    warm_frames = await supabase.select(
+        "helm_frames",
+        {
+            "session_id": f"eq.{session_id}",
+            "layer":      "eq.warm",
+            "select":     "id,turn_number",
+        },
+    )
+
+    # Batch trigger (priority)
+    if len(warm_frames) >= WARM_QUEUE_MAX:
+        await supabase.patch(
+            "helm_frames",
+            {"session_id": session_id, "layer": "warm"},
+            {"layer": "cold"},
+        )
+        logger.info(
+            "Projectionist batch offload: %d frames warm→cold. session=%s",
+            len(warm_frames), session_id,
+        )
+        return
+
+    # Interval trigger
+    effective_interval = (
+        max(1, int(FRAME_OFFLOAD_INTERVAL * 0.8))
+        if FRAME_OFFLOAD_CONSERVATIVE
+        else FRAME_OFFLOAD_INTERVAL
+    )
+    if turn_number > 0 and turn_number % effective_interval == 0:
+        oldest = await supabase.select(
+            "helm_frames",
+            {
+                "session_id": f"eq.{session_id}",
+                "layer":      "eq.warm",
+                "order":      "turn_number.asc",
+                "limit":      "1",
+                "select":     "id,turn_number",
+            },
+        )
+        if oldest:
+            await supabase.patch(
+                "helm_frames",
+                {"id": oldest[0]["id"]},
+                {"layer": "cold"},
+            )
+            logger.info(
+                "Projectionist interval offload: frame turn=%d warm→cold. session=%s",
+                oldest[0]["turn_number"], session_id,
+            )
+
+
+# ---------------------------------------------------------------------------
+# Session-end resolution pass
+# ---------------------------------------------------------------------------
+
+async def _resolution_pass(
+    session_id: str,
+    turn_number: int,
+    supabase: SupabaseClient,
+) -> str:
+    """
+    Final classification pass at session end.
+
+    - All remaining 'active' frames → 'canonical' (atomic PATCH: column + frame_json)
+    - All 'superseded' frames with no superseded_reason → fill default reason
+    - Does not write a new frame to helm_frames
+    """
+    logger.info("Projectionist resolution pass: session=%s turn=%d", session_id, turn_number)
+
+    try:
+        frames = await supabase.select(
+            "helm_frames",
+            {
+                "session_id": f"eq.{session_id}",
+                "select":     "id,turn_number,frame_status,frame_json",
+            },
+        )
+    except Exception as e:
+        logger.error("Projectionist resolution pass: failed to fetch frames: %s", e)
+        return json.dumps({"status": "resolution_pass_failed", "error": str(e)})
+
+    canonical_count  = 0
+    filled_reason_count = 0
+
+    for frame in frames:
+        fj     = frame.get("frame_json") or {}
+        status = frame.get("frame_status", "active")
+
+        if status == "active":
+            # Atomic PATCH — column + frame_json in one write
+            updated_fj = {**fj, "frame_status": "canonical"}
+            try:
+                await supabase.patch(
+                    "helm_frames",
+                    {"id": frame["id"]},
+                    {"frame_status": "canonical", "frame_json": updated_fj},
+                )
+                canonical_count += 1
+            except Exception as e:
+                logger.error(
+                    "Projectionist resolution pass: failed to mark canonical id=%s: %s",
+                    frame["id"], e,
+                )
+
+        elif status == "superseded" and not fj.get("superseded_reason"):
+            updated_fj = {**fj, "superseded_reason": "Resolved at session end — approach not continued"}
+            try:
+                await supabase.patch(
+                    "helm_frames",
+                    {"id": frame["id"]},
+                    {"frame_json": updated_fj},
+                )
+                filled_reason_count += 1
+            except Exception as e:
+                logger.error(
+                    "Projectionist resolution pass: failed to fill superseded_reason id=%s: %s",
+                    frame["id"], e,
+                )
+
+    logger.info(
+        "Projectionist resolution pass complete: %d canonical, %d superseded_reason filled. session=%s",
+        canonical_count, filled_reason_count, session_id,
+    )
+    return json.dumps({
+        "status":               "resolution_pass_complete",
+        "canonical_count":      canonical_count,
+        "filled_reason_count":  filled_reason_count,
+    })
