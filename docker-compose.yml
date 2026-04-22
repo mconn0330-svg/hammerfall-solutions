@@ -43,6 +43,17 @@ services:
     volumes:
       # Persist pulled models — qwen2.5:3b does not re-download on every up
       - ollama_data:/root/.ollama
+    # Request all available NVIDIA GPUs. Without this block Ollama runs CPU-only,
+    # which is unusable for the 14B models (Archivist, Contemplator). Requires the
+    # nvidia runtime registered with Docker (Docker Desktop on Windows ships this
+    # for WSL2 hosts; on Linux install nvidia-container-toolkit).
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     healthcheck:
       # `ollama list` exits 0 when the server is responsive. The official
       # ollama/ollama image does not include curl, so the previous curl-based
