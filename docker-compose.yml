@@ -1,5 +1,3 @@
-version: "3.9"
-
 # Helm Runtime Service + Ollama sidecar
 # One command stands up the full local stack:
 #
