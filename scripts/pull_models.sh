@@ -13,7 +13,7 @@
 # Usage:
 #   bash scripts/pull_models.sh
 #
-# Total disk: ~17 GB (qwen3:4b ~2.6 GB, qwen3:8b ~5.2 GB, qwen3:14b ~9 GB).
+# Total disk: ~12 GB (qwen3:4b ~2.6 GB, qwen3:14b ~9 GB).
 # Time: ~10–30 minutes on a typical home connection.
 #
 # Models tracked here must match the agent assignments in
@@ -31,8 +31,8 @@ if ! docker ps --format "{{.Names}}" | grep -q "^${CONTAINER}$"; then
   exit 1
 fi
 
-# Three unique models. qwen3:14b serves both Archivist and Contemplator.
-MODELS=("qwen3:4b" "qwen3:8b" "qwen3:14b")
+# Two unique models. qwen3:14b serves both Archivist and Contemplator.
+MODELS=("qwen3:4b" "qwen3:14b")
 
 for model in "${MODELS[@]}"; do
   echo "==> Pulling ${model}"
