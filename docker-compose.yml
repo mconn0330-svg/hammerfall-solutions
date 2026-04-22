@@ -44,7 +44,11 @@ services:
       # Persist pulled models — qwen2.5:3b does not re-download on every up
       - ollama_data:/root/.ollama
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      # `ollama list` exits 0 when the server is responsive. The official
+      # ollama/ollama image does not include curl, so the previous curl-based
+      # check could never pass — leaving the container marked unhealthy and
+      # blocking helm-runtime via depends_on.
+      test: ["CMD", "ollama", "list"]
       interval: 10s
       timeout: 5s
       retries: 5
