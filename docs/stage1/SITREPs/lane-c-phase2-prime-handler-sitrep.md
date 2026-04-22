@@ -56,7 +56,7 @@ Built the real `_handle_helm_prime` handler to replace the `[STUB]` that `main.p
 
 3. **Speaker still uses Opus 4.6 in its embedded `HELM_PRIME_RUNTIME_PROMPT`** — the fallback prompt Speaker sends when escalating to Prime. Duplicates some identity language that's now in `helm_prompt.md`. Redundant-but-not-broken during Phase 2 coexistence; goes away with Speaker in Phase 3.
 
-4. **Personality block uses `/10` formatting** (carried over from Speaker's `_load_personality_block` for consistency). Scores in Supabase are stored 0.0–1.0; the `/10` rendering is a presentation choice. If helm_prompt.md's new "Personality tuning" section (Phase 2 Task 2.5) establishes a different convention, revisit.
+4. **Bug exists in `speaker.py` `_load_personality_block`** — same `/10` formatting bug that was caught and fixed in this PR's handler (scores are 0.0–1.0 in Supabase; `/10` rendering would make Helm Prime read 0.88 as 8.8%, inverting the meaning). Not worth fixing in Speaker since it dies in Phase 3, but noting for Phase 3 cleanup verification — confirm the bug doesn't get inherited anywhere else when Speaker is removed.
 
 ## Next
 

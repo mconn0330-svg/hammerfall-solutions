@@ -108,7 +108,7 @@ async def _load_personality_block(supabase: SupabaseClient) -> str:
             attr = r.get("attribute", "?")
             score = r.get("score", "?")
             desc = r.get("description", "")
-            lines.append(f"{attr}: {score}/10 — {desc}")
+            lines.append(f"{attr}: {score} — {desc}")
         return "\n".join(lines)
     except Exception as e:
         logger.warning("helm_prime: failed to load personality scores — %s", e)
