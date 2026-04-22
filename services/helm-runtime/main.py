@@ -28,7 +28,6 @@ from agents import archivist as archivist_agent
 from agents import contemplator as contemplator_agent
 from agents import helm_prime as helm_prime_agent
 from agents import projectionist as projectionist_agent
-from agents import speaker as speaker_agent
 from embedding_client import EmbeddingClient
 from middleware import InvokeRequest, MiddlewarePipeline, PrimeDirectivesViolation
 from model_router import ConfigError, ModelRouter, UnknownRoleError
@@ -182,16 +181,6 @@ async def _handle_contemplator(req: InvokeRequest) -> str:
     return result_str
 
 
-async def _handle_speaker(req: InvokeRequest) -> str:
-    """
-    Speaker routing — S1-BA1.
-    Classifies request as simple (resolve locally via Qwen2.5 3B) or complex
-    (escalate to Helm Prime). Classification failure defaults to Helm Prime.
-    See agents/speaker.py for full implementation.
-    """
-    return await speaker_agent.handle(req, router, supabase)
-
-
 async def _handle_helm_prime(req: InvokeRequest) -> str:
     """
     Helm Prime invocation via runtime.
@@ -203,7 +192,6 @@ async def _handle_helm_prime(req: InvokeRequest) -> str:
 AGENT_HANDLERS = {
     "projectionist": _handle_projectionist,
     "archivist": _handle_archivist,
-    "speaker": _handle_speaker,
     "helm_prime": _handle_helm_prime,
     "contemplator": _handle_contemplator,
 }
@@ -301,7 +289,7 @@ async def health() -> JSONResponse:
     overall = "healthy"
 
     # Check each configured model
-    for role in ("projectionist", "archivist", "helm_prime", "speaker", "contemplator"):
+    for role in ("projectionist", "archivist", "helm_prime", "contemplator"):
         try:
             result = await router.check_model_health(role)
             checks["models"][role] = result

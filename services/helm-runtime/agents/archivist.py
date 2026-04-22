@@ -285,7 +285,7 @@ async def _execute_contemplator_writes(
 
     # --- Personality patches ---
     # Requires 2+ corroborating observations — Contemplator enforces in Pass 2 prompt.
-    # Scores clamped 0.0–1.0 — matches helm_personality score scale and speaker.py translation table.
+    # Scores clamped 0.0–1.0 — matches helm_personality score scale. Displayed as /10 in user-facing contexts is a rendering choice made at presentation time.
     for patch in payload.get("personality_patches", []):
         attr = patch.get("attribute")
         try:

@@ -206,7 +206,7 @@ class MiddlewarePipeline:
         """
         Inject session_id, turn_number, and project into the system prompt context.
         Ensures these fields are always present without each agent handler adding them.
-        Only applied to roles that use session context (not speaker at T1).
+        Applied only to roles that use session context (Projectionist, Archivist).
         """
         if role in ("projectionist", "archivist"):
             context_block = (
@@ -280,19 +280,18 @@ class MiddlewarePipeline:
 
     def _personality_inject(self, role: str, request: InvokeRequest) -> InvokeRequest:
         """
-        S1-BA3 T1: Personality injection is handled directly in speaker.py for the
-        Helm Prime escalation path. speaker._load_personality_block() loads
+        Personality injection currently lives in agents/helm_prime.py, which loads
         helm_personality scores from Supabase and appends them to the Helm Prime
-        system prompt before each escalated call. Speaker is the only runtime path
-        that generates user-facing Helm Prime responses at T1.
+        system prompt before each call. Helm Prime is the only voice-generating role
+        in the post-Speaker architecture.
 
-        This hook is reserved for a generalized implementation at T3 / BA10+ when
-        Helm Prime may be invoked directly (not via Speaker) and personality injection
-        needs to apply at the middleware layer across all voice-generating roles.
+        This hook is reserved for a future generalized implementation that pushes
+        personality injection up to the middleware layer if additional voice-generating
+        roles are added.
 
-        PD constraint for future implementer: personality scores must be additive to
-        behavioral style only. A score instructing "always agree" would conflict with
-        PD2 (Do Not Deceive) and PD3 (State Uncertainty). Scores never override
+        PD constraint for any future implementer: personality scores must be additive
+        to behavioral style only. A score instructing "always agree" would conflict
+        with PD2 (Do Not Deceive) and PD3 (State Uncertainty). Scores never override
         factual accuracy or honesty directives.
         """
         return request
@@ -307,7 +306,7 @@ class MiddlewarePipeline:
 
         Applies to all roles (Option A — no role scoping). Projectionist and
         Archivist content does not match these patterns in normal operation.
-        Guards activate automatically for Speaker and Helm Prime when wired.
+        Guards apply to Helm Prime, where user-facing voice is generated.
 
         On violation: logs at WARNING, raises PrimeDirectivesViolation.
         Model call is never made.
@@ -359,8 +358,8 @@ class MiddlewarePipeline:
         Known limitation: For Projectionist, output is a JSON frame containing
         a conversation already delivered to Maxwell. The guard scans the frame
         content (user/helm fields) but cannot retroactively block the turn.
-        Real post-guard value is Archivist prose summaries and future Speaker
-        and Helm Prime responses.
+        Real post-guard value is Archivist prose summaries and Helm Prime
+        responses, which the guard can block before they reach Maxwell.
 
         On violation: logs at WARNING, raises PrimeDirectivesViolation.
         Output is never returned to caller.

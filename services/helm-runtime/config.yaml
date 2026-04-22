@@ -65,12 +65,6 @@ agents:
     base_url_env: OLLAMA_BASE_URL   # No-think mode. MIG partition 4 (~9GB). Dedicated — does not share with Contemplator.
                                     # T3: base_url_env → OLLAMA_ARCHIVIST_URL
 
-  speaker:
-    provider: ollama
-    model: qwen3:8b           # Upgraded from qwen2.5:3b — 90% routing accuracy, 0 high-risk misroutes.
-    base_url_env: OLLAMA_BASE_URL   # No-think mode. MIG partition 2 (~5GB). Prompt adjustment pending.
-                                    # T3: base_url_env → OLLAMA_SPEAKER_URL
-
   contemplator:
     provider: ollama
     model: qwen3:14b         # Two-pass inner-life agent. Upgraded from qwen2.5:14b via cross-gen test.
