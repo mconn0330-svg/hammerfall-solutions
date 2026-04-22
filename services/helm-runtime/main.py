@@ -26,6 +26,7 @@ from pydantic import BaseModel, Field
 
 from agents import archivist as archivist_agent
 from agents import contemplator as contemplator_agent
+from agents import helm_prime as helm_prime_agent
 from agents import projectionist as projectionist_agent
 from agents import speaker as speaker_agent
 from embedding_client import EmbeddingClient
@@ -193,10 +194,10 @@ async def _handle_speaker(req: InvokeRequest) -> str:
 
 async def _handle_helm_prime(req: InvokeRequest) -> str:
     """
-    Helm Prime runs on Claude Code, not the runtime. This endpoint exists for
-    completeness and future use (e.g. Hammerfall Cloud routing Helm Prime calls).
+    Helm Prime invocation via runtime.
+    See agents/helm_prime.py for full implementation.
     """
-    return f"[STUB] Helm Prime invocation via runtime. Future use."
+    return await helm_prime_agent.handle(req, router, supabase)
 
 
 AGENT_HANDLERS = {
