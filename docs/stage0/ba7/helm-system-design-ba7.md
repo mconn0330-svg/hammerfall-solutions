@@ -1,6 +1,8 @@
 # Helm System — Technical Design Specification
 ## State at BA7 Close
 
+> **Historical document — frozen at the date below.** References to "Speaker" reflect the pre-Ambient Turn architecture. Speaker was deprecated in Lane C Phase 3 (PRs #78 code deletion, #79 contract archival, #80 reference scrub). Current architecture: `docs/founding_docs/Helm_The_Ambient_Turn.md`. Deprecation rationale: `docs/archive/speaker-deprecated/`.
+
 **Version:** BA7 Close
 **Date:** 2026-04-12
 **Maintained by:** Core Helm — `agents/helm/helm_prompt.md`
