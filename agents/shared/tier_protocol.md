@@ -7,7 +7,6 @@ subsystems exist at every tier. What changes is when they fire and how often Hel
 initiates.
 
 Active tier is a config value in `hammerfall-config.md`. Maxwell is sole user at Tier 1.
-The lever is an app permission in Quartermaster when productized.
 
 ---
 
@@ -38,6 +37,7 @@ not a gap, it is T1 reality.
 - Helm Prime initiates on schedule
 - Projectionist pre-loads context from prior session frames
 - Archivist batches pending writes
+- Contemplator runs inner-monologue passes between sessions
 
 **HARDWARE:** T1 hardware plus a persistent scheduler. No new inference hardware required.
 
@@ -48,15 +48,16 @@ not a gap, it is T1 reality.
 **TRIGGER:** Always on — event-driven continuous operation.
 
 **AGENTS:** Full physical separation. Each agent is a persistent process.
-- Helm Prime + Projectionist + Archivist → DGX Spark
+- Helm Prime + Projectionist + Archivist + Contemplator → Thor
 - Communication via message bus (Redis or equivalent)
 
-**HARDWARE:** DGX Spark. Single-node architecture.
+**HARDWARE:** Thor (RTX 6000 Ada, 85GB VRAM, MIG partitioning). Single-node architecture.
+All four cognitive subsystems run concurrently on partitioned VRAM.
 
 **T3 Note:** The behavioral contracts written at T1 are validated by months of real
 sessions before Stage 4 hardware arrives. Nothing gets thrown away. BA7 (orchestration
 layer) wires smaller Ollama models to Projectionist and Archivist roles as a T3 proving
-ground before the Spark ships.
+ground before Thor ships.
 
 ---
 
@@ -77,15 +78,16 @@ These values are read by the Projectionist at session start.
 
 | Agent | T1 | T2 | T3 |
 |---|---|---|---|
-| Helm Prime | Claude Code | Claude Code | DGX Spark |
-| Projectionist | Claude Code (Agent tool) | Claude Code (Agent tool) | DGX Spark |
-| Archivist | Claude Code (Agent tool) | Claude Code (Agent tool) | DGX Spark |
+| Helm Prime | Claude Code | Claude Code | Thor |
+| Projectionist | Claude Code (Agent tool) | Claude Code (Agent tool) | Thor |
+| Archivist | Claude Code (Agent tool) | Claude Code (Agent tool) | Thor |
+| Contemplator | Claude Code (Agent tool) | Claude Code (Agent tool) | Thor |
 
 ## Taskers — Stage 4 Forward Reference
 
 Taskers are scope-bound Helm instances created dynamically by Helm Prime at Stage 4.
-Each Tasker is a full Helm stack (Helm Prime + Projectionist + Archivist) operating
-within a bounded project or task context. All Taskers write to the same Supabase brain
+Each Tasker is a full Helm stack (Helm Prime + Projectionist + Archivist + Contemplator)
+operating within a bounded project or task context. All Taskers write to the same Supabase brain
 scoped
 by `project` and `agent` fields. One identity, one brain. Helm Prime creates and prunes
 Taskers as work starts and ends. The IDE Helm is a manually-created example of what a

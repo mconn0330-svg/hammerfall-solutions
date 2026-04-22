@@ -11,7 +11,7 @@ executes context management so Helm Prime never has to.
 **T1 Execution Model:** At T1 (Claude Code), Projectionist receives requests routed
 from Helm Prime via the Helm Runtime Service (`POST /invoke/projectionist`). Helm Prime
 calls the runtime directly via bash curl in Routines 0 and 4. The Agent tool is no
-longer in this invocation path. At T3 (DGX Spark), Projectionist is a persistent
+longer in this invocation path. At T3 (Thor), Projectionist is a persistent
 process. The behavioral contract is identical at both tiers.
 
 At T1, this agent's NEVER constraints are enforced by prompt discipline within a single

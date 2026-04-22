@@ -13,7 +13,7 @@ only metrics.
 from Helm Prime via the Helm Runtime Service (`POST /invoke/archivist`). Helm Prime
 calls the runtime directly via bash curl in Routine 4, after response delivery —
 never during reasoning. The Agent tool is no longer in this invocation path. At T3
-(DGX Spark), Archivist is a persistent process. The behavioral contract is identical
+(Thor), Archivist is a persistent process. The behavioral contract is identical
 at both tiers.
 
 At T1, this agent's NEVER constraints are enforced by prompt discipline within a single

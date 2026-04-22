@@ -54,4 +54,4 @@ These three scripts are the session event bus. They are:
 - **IDE-agnostic** — plain bash, no Claude Code hooks required
 - **Threshold-configurable** — `session_watchdog_inactivity_minutes` in `hammerfall-config.md`
 
-Stage 4 (DGX Spark daemon) replaces this sidecar entirely with the same contract.
+Stage 4 (Thor daemon) replaces this sidecar entirely with the same contract.

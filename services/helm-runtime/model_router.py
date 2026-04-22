@@ -322,7 +322,7 @@ class ModelRouter:
 
     # Health check cache: role → {"result": dict, "checked_at": float}
     # TTL of 60s prevents repeated API calls to paid providers (Anthropic, OpenAI)
-    # on every /health invocation (monitoring loops, smoke tests, Quartermaster polling).
+    # on every /health invocation (monitoring loops, smoke tests, external pollers).
     _health_cache: dict = {}
     _health_cache_ttl: int = 60  # seconds
 

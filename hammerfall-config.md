@@ -47,10 +47,10 @@ frame_offload_conservative: true  # When true, interval trigger fires at 80% of 
 # Tier capability requirements:
 # T1 — Any capable LLM with tool-use. Claude Code current implementation.
 # T2 — T1 + persistent scheduler (cron or equivalent)
-# T3 — DGX Spark (Helm Prime, Projectionist, Archivist, Contemplator)
+# T3 — Thor (RTX 6000 Ada, 85GB VRAM, MIG partitioning)
+#       hosts Helm Prime, Projectionist, Archivist, Contemplator concurrently.
 #
 # active_tier is a config stub at T1. Maxwell is sole user.
-# Quartermaster manages this as an app permission when productized.
 # BA7 will wire Projectionist and Archivist to local Ollama models —
 # active_tier remains T1, model substitution is transparent to this config.
 
