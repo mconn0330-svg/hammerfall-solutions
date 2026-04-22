@@ -1,5 +1,7 @@
 # Helm — Stage 0 Complete System Summary
 
+> **Historical document — frozen at the date below.** References to "Speaker" reflect the pre-Ambient Turn architecture. Speaker was deprecated in Lane C Phase 3 (PRs #78 code deletion, #79 contract archival, #80 reference scrub). Current architecture: `docs/founding_docs/Helm_The_Ambient_Turn.md`. Deprecation rationale: `docs/archive/speaker-deprecated/`.
+
 **Version:** Stage 0 Close
 **Date:** 2026-04-14
 **Written by:** Core Helm

@@ -1,6 +1,8 @@
 # Helm System — Agent Model Selection
 ## Stage 1 / BA3: Contemplator + Model Evaluation
 
+> **Historical document — frozen at the date below.** References to "Speaker" reflect the pre-Ambient Turn architecture. Speaker was deprecated in Lane C Phase 3 (PRs #78 code deletion, #79 contract archival, #80 reference scrub). Current architecture: `docs/founding_docs/Helm_The_Ambient_Turn.md`. Deprecation rationale: `docs/archive/speaker-deprecated/`.
+
 **Version:** BA3  
 **Date:** 2026-04-15  
 **Branch:** feature/s1-ba3-contemplator-personality

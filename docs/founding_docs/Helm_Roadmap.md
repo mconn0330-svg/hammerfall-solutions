@@ -492,7 +492,7 @@ Over time, Helm's accumulated experience converts to new Feats. A sequence of ac
 - BA1-3: core runtime agents (Projectionist, Archivist, Contemplator)
 - Semantic memory with pgvector
 - Contemplator dual-mode (think / no-think) wired
-- Personality injection (via Speaker today; moves to direct injection via Prime handler in Lane C)
+- Personality injection (direct injection via Prime handler — landed in Lane C, PR #76)
 
 **Queued immediately after Lane C:**
 

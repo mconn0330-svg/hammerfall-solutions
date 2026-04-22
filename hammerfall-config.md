@@ -47,7 +47,7 @@ frame_offload_conservative: true  # When true, interval trigger fires at 80% of 
 # Tier capability requirements:
 # T1 — Any capable LLM with tool-use. Claude Code current implementation.
 # T2 — T1 + persistent scheduler (cron or equivalent)
-# T3 — DGX Spark (Helm Prime, Projectionist, Archivist) + RTX 4090 (Speaker)
+# T3 — DGX Spark (Helm Prime, Projectionist, Archivist, Contemplator)
 #
 # active_tier is a config stub at T1. Maxwell is sole user.
 # Quartermaster manages this as an app permission when productized.

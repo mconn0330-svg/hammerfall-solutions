@@ -1,6 +1,8 @@
 # BA7 — Helm Runtime Service: Technical Specification
 ## Proving Ground → Production Foundation
 
+> **Historical document — frozen at the date below.** References to "Speaker" reflect the pre-Ambient Turn architecture. Speaker was deprecated in Lane C Phase 3 (PRs #78 code deletion, #79 contract archival, #80 reference scrub). Current architecture: `docs/founding_docs/Helm_The_Ambient_Turn.md`. Deprecation rationale: `docs/archive/speaker-deprecated/`.
+
 **Version:** Pre-build spec
 **Date:** 2026-04-12
 **Status:** Approved for implementation

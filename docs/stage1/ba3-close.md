@@ -1,6 +1,8 @@
 # BA3 Close — Contemplator + Personality Injection
 ## Stage 1 Build Area 3
 
+> **Historical document — frozen at the date below.** References to "Speaker" reflect the pre-Ambient Turn architecture. Speaker was deprecated in Lane C Phase 3 (PRs #78 code deletion, #79 contract archival, #80 reference scrub). Current architecture: `docs/founding_docs/Helm_The_Ambient_Turn.md`. Deprecation rationale: `docs/archive/speaker-deprecated/`.
+
 **Status:** CLOSED  
 **PR:** #66 (merged)  
 **Branch:** feature/s1-ba3-contemplator-personality  
