@@ -6,9 +6,9 @@ Both Projectionist and Archivist use this for all Supabase reads and writes.
 
 Relationship to brain.sh:
   brain.sh remains the canonical write tool for Claude Code shell contexts
-  (Helm Prime, Routine 4, snapshot.sh, sync_projects.sh). It is NOT replaced
-  globally. This module is the Python equivalent used exclusively within the
-  Helm Runtime Service. Two contexts, two tools, one Supabase endpoint.
+  (Helm Prime, Routine 4, snapshot.sh). It is NOT replaced globally. This
+  module is the Python equivalent used exclusively within the Helm Runtime
+  Service. Two contexts, two tools, one Supabase endpoint.
 """
 
 import httpx
