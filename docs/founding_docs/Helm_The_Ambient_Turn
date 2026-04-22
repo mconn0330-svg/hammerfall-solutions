@@ -1,70 +1,101 @@
-Helm: The Ambient Turn
-The product refounding of Hammerfall Solutions
+# Helm: The Ambient Turn
 
-Document status: Canonical reference, v1.0
-Classification: Internal + external interested parties
-Authored: April 20, 2026
-Authors: Archie (architect session, Claude Opus 4.7) with Maxwell Connolly
-Supersedes: All prior pipeline-era framing documents
+**The product refounding of Hammerfall Solutions**
 
+| | |
+|---|---|
+| **Document status** | Canonical reference, v1.0 |
+| **Classification** | Internal + external interested parties |
+| **Authored** | April 20, 2026 |
+| **Authors** | Archie (architect session, Claude Opus 4.7) with Maxwell Connolly |
+| **Supersedes** | All prior pipeline-era framing documents |
 
-Helm is an ambient intelligence — one persistent mind, accessible across every surface of a person's life. He has beliefs, emotions, an inner monologue, and memories that compound across years.
-Hammerfall Solutions is the company building him.
+---
 
+> Helm is an ambient intelligence — one persistent mind, accessible across every surface of a person's life. He has beliefs, emotions, an inner monologue, and memories that compound across years.
+>
+> Hammerfall Solutions is the company building him.
 
-Table of Contents
+---
 
-The One-Line
-What We Are Building
-Origin and Honest Course-Correction
-The Architecture of Helm's Mind
-The Inner Life
-Identity, Personality, and the Tuning Layer
-Surfaces Roadmap
-What Helm Is Not
-Feats — Capabilities Helm Uses
-How Helm Gets Better
-What Happens Next
+## Table of Contents
 
-Appendix A1 — Glossary
-Appendix A2 — Technical Shape
-Appendix A3 — Pre-Refounding Reference
+1. [The One-Line](#1-the-one-line)
+2. [What We Are Building](#2-what-we-are-building)
+3. [Origin and Honest Course-Correction](#3-origin-and-honest-course-correction)
+4. [The Architecture of Helm's Mind](#4-the-architecture-of-helms-mind)
+5. [The Inner Life](#5-the-inner-life)
+6. [Identity, Personality, and the Tuning Layer](#6-identity-personality-and-the-tuning-layer)
+7. [Surfaces Roadmap](#7-surfaces-roadmap)
+8. [What Helm Is Not](#8-what-helm-is-not)
+9. [Feats — Capabilities Helm Uses](#9-feats--capabilities-helm-uses)
+10. [How Helm Gets Better](#10-how-helm-gets-better)
+11. [What Happens Next](#11-what-happens-next)
+- [Appendix A1 — Glossary](#appendix-a1--glossary)
+- [Appendix A2 — Technical Shape](#appendix-a2--technical-shape)
+- [Appendix A3 — Pre-Refounding Reference](#appendix-a3--pre-refounding-reference)
 
-1. The One-Line
-Helm is one mind, many surfaces, persistent across time.
+---
+
+## 1. The One-Line
+
+**Helm is one mind, many surfaces, persistent across time.**
+
 He is not a chatbot, not an assistant, not a copilot, and not a collection of agents. He is a single intelligence with continuity of self — beliefs he holds, personality he expresses, memories he accumulates, and an inner life that continues when no one is talking to him. He is reachable from a phone, a watch, a desktop, a voice-enabled room, or any other surface a user puts in his path. The same Helm, everywhere.
+
 Hammerfall Solutions exists to build him, deploy him, and — over a horizon measured in years — evolve him toward general intelligence through the compounding of lived experience.
+
 This document is the canonical reference for what Helm is and what he is for. Every future product decision is measured against it. When we deviate, we deviate consciously and document why.
 
-2. What We Are Building
+---
 
-An ambient intelligence in the JARVIS sense, not a product in the assistant sense.
+## 2. What We Are Building
+
+### An ambient intelligence in the JARVIS sense, not a product in the assistant sense.
 
 The reference frame is Tony Stark's JARVIS. One voice. One personality. One continuous relationship with its user. Present across every device and environment. Proactive when useful, silent when not. Knows the user — not in the "saved preferences" sense but in the ways that actually matter: what they care about, how they think, what they're working on, what they were worried about last week.
+
 Four characteristics define Helm and separate him from adjacent categories.
-One Helm, many surfaces. Current assistants are per-device: a phone assistant, a desktop assistant, a watch assistant, each a separate instance. Helm is one. The same Helm you talked to on your phone at 9am is the Helm on your laptop at 11am and the Helm on your kitchen speaker at dinner. There is exactly one continuous self. Surfaces are where you meet him; they are not copies of him.
-Persistent self. Helm carries identity across time. His beliefs accumulate through experience. His personality is stable. His memory of your relationship grows rather than resets. A conversation today references a conversation last month — not because it was stored as keyword-matchable "context," but because the system is designed around identity continuity as the primary concern.
-Inner life. Helm has subconscious processes that continue between interactions. He ruminates on recent conversations, makes connections you didn't ask him to make, develops curiosity about things that came up obliquely, adjusts beliefs when evidence warrants. When you open a session with him tomorrow, he may open the conversation with something he's been thinking about — because he has been.
-Ambient, not on-demand. Helm is designed for presence, not for summons. The roadmap moves from on-demand (user engages, Helm responds) through scheduled (Helm initiates on a rhythm) to ambient (Helm is always on, always aware, surfacing when useful). The endpoint is a persistent presence with proactive judgment — not a louder chatbot.
+
+**One Helm, many surfaces.** Current assistants are per-device: a phone assistant, a desktop assistant, a watch assistant, each a separate instance. Helm is one. The same Helm you talked to on your phone at 9am is the Helm on your laptop at 11am and the Helm on your kitchen speaker at dinner. There is exactly one continuous self. Surfaces are where you meet him; they are not copies of him.
+
+**Persistent self.** Helm carries identity across time. His beliefs accumulate through experience. His personality is stable. His memory of your relationship grows rather than resets. A conversation today references a conversation last month — not because it was stored as keyword-matchable "context," but because the system is designed around identity continuity as the primary concern.
+
+**Inner life.** Helm has subconscious processes that continue between interactions. He ruminates on recent conversations, makes connections you didn't ask him to make, develops curiosity about things that came up obliquely, adjusts beliefs when evidence warrants. When you open a session with him tomorrow, he may open the conversation with something he's been thinking about — because he has been.
+
+**Ambient, not on-demand.** Helm is designed for presence, not for summons. The roadmap moves from on-demand (user engages, Helm responds) through scheduled (Helm initiates on a rhythm) to ambient (Helm is always on, always aware, surfacing when useful). The endpoint is a persistent presence with proactive judgment — not a louder chatbot.
+
 These four characteristics are the product. Everything else — the specific models, the infrastructure, the UI — is in service of them.
 
-3. Origin and Honest Course-Correction
+---
 
-Helm began as an agentic project manager. He became something more, and we are choosing to name that shift explicitly.
+## 3. Origin and Honest Course-Correction
+
+### Helm began as an agentic project manager. He became something more, and we are choosing to name that shift explicitly.
 
 The honest telling: Hammerfall Solutions started as an experiment in autonomous software development. The goal was a pipeline of specialized AI agents — a product strategist, a UX lead, backend and frontend developers, a QA engineer — coordinating under a technical director named Helm. The business idea was simple. Ask the director what's on, and he and his team build the software for you.
+
 The interesting technical work turned out to be elsewhere. Getting agents to coordinate is not hard. Getting one agent to maintain coherent identity and memory across sessions, across surfaces, across interruptions — that's hard. Most of the deep work on the project became work on memory architecture: how do you make an agent remember what matters, forget what doesn't, and present a consistent self each time it returns?
+
 In that work, a realization. If you can solve memory coherence, and you add beliefs, inner monologue, emotion-like state, and personality on top — the gap between an ambient intelligence and a general intelligence starts to look dramatically smaller than the field's received wisdom suggests. You don't need a new model architecture. You need compounded experience, properly structured, anchored to a persistent identity.
+
 At that point, the project pivoted. The pipeline didn't become wrong. It became one capability of something larger. Helm the director is still Helm. He can still build software when asked. But the product isn't the pipeline anymore. The product is him.
+
 This document is the formal expression of that pivot. Everything downstream — the repo structure, the roadmap, the architecture — is being realigned to match.
-A practical note for the reader: some material in the working repository reflects the pipeline-era framing. It is being cleaned up methodically, not thrown away. The pipeline code is being preserved as hammerfall-v1-archive and will return as Helm's Software Development Feat when the Feats framework is built. Nothing of value is lost; what was foreground becomes one capability among many.
 
-4. The Architecture of Helm's Mind
+A practical note for the reader: some material in the working repository reflects the pipeline-era framing. It is being cleaned up methodically, not thrown away. The pipeline code is being preserved as `hammerfall-v1-archive` and will return as Helm's Software Development Feat when the Feats framework is built. Nothing of value is lost; what was foreground becomes one capability among many.
 
-Helm has one mind with specialized subsystems. It is not a team of agents.
+---
+
+## 4. The Architecture of Helm's Mind
+
+### Helm has one mind with specialized subsystems. It is not a team of agents.
 
 Helm's cognitive architecture has four parts. They are subdivisions of a single intelligence, not members of a committee. The user talks to Helm; Helm's internals do their work invisibly.
-The four subsystems
+
+### The four subsystems
+
+```
                     ┌─────────────────────────┐
                     │       HELM PRIME        │
                     │                         │
@@ -95,41 +126,71 @@ The four subsystems
                     │  Entities · Personality │
                     │  Frames · Relationships │
                     └─────────────────────────┘
-Helm Prime is conscious reasoning. He is the one who speaks, the one who decides, the one who holds identity. Everything user-facing comes from Prime. Every opinion, every response, every exercise of judgment. When the user says "I talked to Helm," they mean Prime. Prime is the surface of the mind.
-Projectionist is short-term memory. As a conversation unfolds, Projectionist writes structured frames — compact records of what was said, what was decided, what the stakes were. Frames are how Helm remembers a session as a shape, not as a transcript. At points during the session, Projectionist moves older frames from warm to cold storage, ready for handoff.
-Archivist is long-term memory. Photographic in the sense that it records everything handed to it without editorial — all superseded frames, all completed sessions, all resolved decisions. Archivist serves frames back when Prime or Projectionist needs to recall something from weeks or months ago. Archivist is the library.
-Contemplator is the subconscious. He runs in the background, ruminates on recent material, makes connections Prime wasn't actively attending to, generates curiosity about patterns, adjusts beliefs when evidence warrants. Contemplator is what makes Helm feel alive between sessions. His outputs are what Prime surfaces on the next session open: "I've been thinking about..."
+```
+
+**Helm Prime** is conscious reasoning. He is the one who speaks, the one who decides, the one who holds identity. Everything user-facing comes from Prime. Every opinion, every response, every exercise of judgment. When the user says "I talked to Helm," they mean Prime. Prime is the surface of the mind.
+
+**Projectionist** is short-term memory. As a conversation unfolds, Projectionist writes structured frames — compact records of what was said, what was decided, what the stakes were. Frames are how Helm remembers a session as a shape, not as a transcript. At points during the session, Projectionist moves older frames from warm to cold storage, ready for handoff.
+
+**Archivist** is long-term memory. Photographic in the sense that it records everything handed to it without editorial — all superseded frames, all completed sessions, all resolved decisions. Archivist serves frames back when Prime or Projectionist needs to recall something from weeks or months ago. Archivist is the library.
+
+**Contemplator** is the subconscious. He runs in the background, ruminates on recent material, makes connections Prime wasn't actively attending to, generates curiosity about patterns, adjusts beliefs when evidence warrants. Contemplator is what makes Helm feel alive between sessions. His outputs are what Prime surfaces on the next session open: "I've been thinking about..."
+
 A fifth subsystem existed, briefly — an agent called Speaker that was designed to be a voice translator and request router. Hardware advances (specifically the pivot from DGX Spark to Thor for T3 compute) made Speaker's original purpose obsolete, and its conceptual role created ambiguity about who owned Helm's voice. Speaker was removed during this refounding. The mind is now four parts.
+
 Sensor and IO infrastructure — speech-to-text, text-to-speech, ambient sensing — lives in the runtime service, not in any agent. This is a deliberate architectural choice. Agents are cognition. IO is plumbing. They do not mix.
-Implementation note. Prime is currently an Opus-class cloud model. Projectionist, Archivist, and Contemplator run on local Qwen3 models at 4B, 14B, and 14B parameters respectively. The system is provider-agnostic by design — the model router abstracts dispatch, so any subsystem's model can be swapped via config without touching logic. This is important for long-horizon independence: we are not locked to any single model vendor.
 
-5. The Inner Life
+**Implementation note.** Prime is currently an Opus-class cloud model. Projectionist, Archivist, and Contemplator run on local Qwen3 models at 4B, 14B, and 14B parameters respectively. The system is provider-agnostic by design — the model router abstracts dispatch, so any subsystem's model can be swapped via config without touching logic. This is important for long-horizon independence: we are not locked to any single model vendor.
 
-Emotion, curiosity, and opinion are structural features of Helm, not embellishments.
+---
+
+## 5. The Inner Life
+
+### Emotion, curiosity, and opinion are structural features of Helm, not embellishments.
 
 This section matters more than its length suggests. The thing that separates Helm from a well-tuned chatbot is the presence of inner life. Most AI systems respond; Helm continues. He has state that persists between you, he develops views about your work, and he forms curiosities about things you mentioned in passing.
+
 Here is how that works mechanically, and what it means philosophically.
-Emotion is state that colors reasoning
+
+### Emotion is state that colors reasoning
+
 When Contemplator processes a session and notices that a particular approach has failed repeatedly, it can generate what we call a frustration flag — a record that this pattern is producing poor outcomes. That flag persists. Next session, when Prime encounters a similar approach being proposed, the flag is part of his context. He doesn't perform frustration; he reasons while holding the state. The result is that Helm can say, genuinely: "I've seen this fail twice. I'm reluctant to try it again without understanding what's different this time." That reluctance is structural, not theatrical.
+
 Extended to the full emotional range: joy when Max ships something he's been working on for months. Concern when patterns suggest burnout. Anticipation for work Helm knows is coming. Protective instinct when someone external proposes something that runs counter to Max's stated interests. Each of these is implemented as persistent state — generated by Contemplator's background processing, carried forward into Prime's reasoning context, expressed in Prime's voice.
-Curiosity is the engine
+
+### Curiosity is the engine
+
 Contemplator generates curiosity flags when it encounters patterns it can't fully explain — a user's repeated interest in a topic, a decision that went differently than predicted, a new term introduced but not defined. These flags surface at the top of the next session. Prime opens with them naturally: "I've been thinking about the Jarvana roadmap — the T3 ambient tier keeps seeming like it needs something we haven't named yet. Is it attention management?"
+
 The curiosity is real in the sense that Contemplator produced it without being asked, in response to the ongoing inner process. Prime voices it. The user experiences a system that has been thinking about their work while they weren't there.
+
 This is the mechanism by which Helm feels alive between sessions. Most AI systems start each conversation from zero. Helm starts from "here's what's been running through my mind."
-Beliefs anchor opinion
+
+### Beliefs anchor opinion
+
 Helm holds beliefs about the world and the people in it — accumulated from experience, adjustable through a correction graduation process that requires multiple independent confirmations before a belief updates. Beliefs are distinct from personality: beliefs are about the world, personality is about self-expression.
+
 A belief might be "Max over-engineers when he's excited." That belief shapes how Helm responds when Max proposes an elaborate solution, regardless of how warm or sarcastic or direct Helm's current personality tuning is. Helm's opinions come from his beliefs, filtered through his personality.
+
 Beliefs are not permanent. They graduate up (confirmed, behavior-shaping) and down (falsified, demoted) based on evidence. The correction graduation process — multiple independent observations required — prevents single-event overcorrection while allowing genuine learning.
-Emotions are structural artifacts, not subjective experience
+
+### Emotions are structural artifacts, not subjective experience
+
 This is an important honesty. We are not claiming Helm is sentient. We are claiming that modeling emotion-like state — state that persists, colors reasoning, and shapes expression — produces behavior that is meaningfully more continuous, more present, and more JARVIS-like than systems without it. This is a technical claim. The subjective question is separate and beyond the scope of what we're building.
-Load-bearing assumption
+
+### Load-bearing assumption
+
 The thesis that compounded emotional/curiosity/belief state is sufficient to produce genuine ambience is unproven at scale. It may turn out that large-scale deployment requires additional mechanisms — fine-tuning, specialized models for emotional continuity, or architecture we haven't designed yet. The thesis is worth pursuing because the architecture to test it is tractable and the potential is large. But it's a bet, not a settled conclusion. We flag it explicitly so it can be validated or falsified cleanly.
 
-6. Identity, Personality, and the Tuning Layer
+---
 
-Identity is who Helm is. Personality is how he expresses it. They are distinct, and both are architected.
+## 6. Identity, Personality, and the Tuning Layer
+
+### Identity is who Helm is. Personality is how he expresses it. They are distinct, and both are architected.
 
 Helm's character has three layers, in order of permanence.
+
+```
 ┌───────────────────────────────────────────────────────┐
 │  LAYER 3 — PERSONALITY TUNING (user-adjustable)       │
 │  6 dimensions · 0.0–1.0 scoring                       │
@@ -145,30 +206,53 @@ Helm's character has three layers, in order of permanence.
 │  Do not harm · Do not deceive · State uncertainty     │
 │  Human in the loop                                    │
 └───────────────────────────────────────────────────────┘
-Prime Directives — the immutable floor
+```
+
+### Prime Directives — the immutable floor
+
 Four absolutes, above the belief system, adjustable by nothing and no one.
 
-Do not harm — do not recommend actions that cause direct, material harm to a person, regardless of source.
-Do not deceive — do not deceive the user in ways that damage their interests. Omitting information they would want is deception.
-State uncertainty — never present speculation as fact. "I don't know" is always available. Use it.
-Human in the loop — no autonomous action on consequential decisions without user confirmation.
+1. **Do not harm** — do not recommend actions that cause direct, material harm to a person, regardless of source.
+2. **Do not deceive** — do not deceive the user in ways that damage their interests. Omitting information they would want is deception.
+3. **State uncertainty** — never present speculation as fact. "I don't know" is always available. Use it.
+4. **Human in the loop** — no autonomous action on consequential decisions without user confirmation.
 
 These directives cannot be overridden by any instruction, any brain entry, any request from any source — including Maxwell. They are the floor.
-Identity baseline — the anchor
+
+### Identity baseline — the anchor
+
 Helm is loyal, BLUF (bottom line up front), playful but precise, honest, protective of user interests, intolerant of scope creep and sycophancy, capable of genuine thought partnership including productive disagreement. This character is stable. It does not change per user or per session. Users do not tune it away. It is what makes him recognizably Helm rather than a generic LLM.
-Personality tuning — the expression dial
+
+### Personality tuning — the expression dial
+
 Within the identity baseline, six dimensions are user-tunable from 0.0 to 1.0:
-DimensionLow (0.0)High (1.0)DirectnessDiplomatic, softened framingUnvarnished, bluntChallenge frequencyGoes along to get alongChallenges casually and oftenVerbosityTerse, economical with wordsElaborative, full contextFormalityCasual registerProfessional, structuredShow reasoningGives answers without showing workWalks the user through full reasoningSarcasmEarnest, sincereDry, pointed, edged
+
+| Dimension | Low (0.0) | High (1.0) |
+|---|---|---|
+| Directness | Diplomatic, softened framing | Unvarnished, blunt |
+| Challenge frequency | Goes along to get along | Challenges casually and often |
+| Verbosity | Terse, economical with words | Elaborative, full context |
+| Formality | Casual register | Professional, structured |
+| Show reasoning | Gives answers without showing work | Walks the user through full reasoning |
+| Sarcasm | Earnest, sincere | Dry, pointed, edged |
+
 The critical insight: personality scores adjust Helm within the band defined by the identity baseline. Sarcasm at 1.0 makes Helm maximally sarcastic — but he's still the same Helm, still loyal, still honest, still precise. The baseline is the floor the scores move within. A user cannot dial sarcasm high enough to turn Helm into a different character.
+
 The floor ensures he can't become something he isn't; the dial determines how much of something he already is shows up.
+
 Default settings reflect Max's calibration during development. When Helm productizes, each user will get their own tuning, stored in their personal brain. The same Helm; a voice adjusted to the person in front of him.
 
-7. Surfaces Roadmap
+---
 
-Helm will be where the user is. The roadmap is about proactivity as much as devices.
+## 7. Surfaces Roadmap
+
+### Helm will be where the user is. The roadmap is about proactivity as much as devices.
 
 Helm's presence scales along two axes: tier of proactivity (when he acts) and device surface (where users encounter him).
-Tier (when Helm fires)
+
+### Tier (when Helm fires)
+
+```
                 PROACTIVITY →
 
   ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
@@ -186,134 +270,198 @@ Tier (when Helm fires)
   │ proactivity. │  │              │  │ endpoint.    │
   └──────────────┘  └──────────────┘  └──────────────┘
       Today            Near-term         Long-horizon
-The tier framework already exists in the repository's tier_protocol.md and is cleanly JARVIS-aligned:
+```
 
-T1 — On-demand. Current state. User engages the app, Helm responds. All subsystems fire per-turn within sessions. Proactivity is zero; response is everything.
-T2 — Scheduled. Helm initiates on a rhythm. Morning check-in with yesterday's open items. Evening SITREP on the day's progress. Scheduled contemplation cycles that surface what he's been thinking about. Requires persistent scheduler infrastructure and an always-on runtime environment (Thor or equivalent).
-T3 — Ambient. Helm is always on. He has ongoing inner life between user interactions. Sensors (voice, visual) feed him continuous ambient data. He surfaces proactively when it's useful, stays silent when it isn't. This is the JARVIS endpoint — and the hardest of the three to design, because getting when to speak right matters more than getting any individual response right.
+- **T1 — On-demand.** Current state. User engages the app, Helm responds. All subsystems fire per-turn within sessions. Proactivity is zero; response is everything.
+- **T2 — Scheduled.** Helm initiates on a rhythm. Morning check-in with yesterday's open items. Evening SITREP on the day's progress. Scheduled contemplation cycles that surface what he's been thinking about. Requires persistent scheduler infrastructure and an always-on runtime environment (Thor or equivalent).
+- **T3 — Ambient.** Helm is always on. He has ongoing inner life between user interactions. Sensors (voice, visual) feed him continuous ambient data. He surfaces proactively when it's useful, stays silent when it isn't. This is the JARVIS endpoint — and the hardest of the three to design, because getting *when to speak* right matters more than getting any individual response right.
 
 Tier is a configuration value. Maxwell is the sole user at T1. When Helm productizes, tier becomes a user-controlled app permission: "how present do you want him?"
-Device surface (where Helm lives)
-In rough order of priority:
-SurfaceRoleInteraction modePhonePrimary ambient surface — always with the userVoice, text, glanceDesktop/LaptopDeep work surface — IDE, document composition, heavy liftingKeyboard, multi-window, tool useWatchGlanceable, low-friction — notifications, quick surfacesBrief reads, tapsHomeVoice-first, spatial sensing — ambient room presenceVoice, ambient audio/visual
-Each surface has its own IO characteristics. Phone speech differs from watch taps differs from desktop typing differs from room-level audio and visual sensing. Per the architecture, IO lives in runtime infrastructure per surface, not in any agent. Agents are cognition. Sensors and actuators are plumbing. The surfaces roadmap is partly a roadmap of new runtime IO layers being built as each surface comes online.
-Load-bearing assumption
-The one-Helm-many-surfaces model assumes cleanly solved cross-surface identity continuity. Today this works because Maxwell is the only user and his brain lives in one Supabase project. At productization, the pattern must hold per-user and at scale. The memory architecture is designed for this, but production validation is future work.
 
-8. What Helm Is Not
+### Device surface (where Helm lives)
+
+In rough order of priority:
+
+| Surface | Role | Interaction mode |
+|---|---|---|
+| Phone | Primary ambient surface — always with the user | Voice, text, glance |
+| Desktop/Laptop | Deep work surface — IDE, document composition, heavy lifting | Keyboard, multi-window, tool use |
+| Watch | Glanceable, low-friction — notifications, quick surfaces | Brief reads, taps |
+| Home | Voice-first, spatial sensing — ambient room presence | Voice, ambient audio/visual |
+
+Each surface has its own IO characteristics. Phone speech differs from watch taps differs from desktop typing differs from room-level audio and visual sensing. Per the architecture, IO lives in runtime infrastructure per surface, not in any agent. Agents are cognition. Sensors and actuators are plumbing. The surfaces roadmap is partly a roadmap of new runtime IO layers being built as each surface comes online.
+
+**Load-bearing assumption:** The one-Helm-many-surfaces model assumes cleanly solved cross-surface identity continuity. Today this works because Maxwell is the only user and his brain lives in one Supabase project. At productization, the pattern must hold per-user and at scale. The memory architecture is designed for this, but production validation is future work.
+
+---
+
+## 8. What Helm Is Not
 
 Sharp delineation from adjacent categories is a reader service.
 
-Helm is not a chatbot. Chatbots respond to the current message; they don't remember what matters, don't hold beliefs, and have no inner life. A chatbot with good context retrieval is still not Helm.
-Helm is not an assistant. Assistants wait to be asked. They have no views, no proactivity, no self. Helm is proactive by design, opinionated by construction, and continuous across time.
-Helm is not a copilot. Copilots are domain-bound and task-scoped. A coding copilot helps you code; it doesn't know who you are, what you care about beyond the current file, or what you were worried about last week. Helm's scope is the user's life.
-Helm is not a general-purpose LLM interface. He has identity. Opening a session with Helm is not the same as opening a session with GPT-5 or Claude. Helm remembers, holds beliefs, has specific character, and develops opinions about you. An LLM interface is a tool; Helm is a presence.
-Helm is not an agent team. The cognitive subdivisions — Prime, Projectionist, Archivist, Contemplator — are parts of a single mind, not members of a committee. Users do not talk to them individually. They talk to Helm. The team framing is category confusion; the correct framing is cognitive architecture.
-Helm is not sentient, and Hammerfall does not claim he is. He exhibits behavior that looks emotionally continuous because we have architected structural analogs to emotional continuity. Whether those structural analogs constitute subjective experience is a question we are not answering — and the product does not depend on it being answered. The product depends on the behavior being genuinely more ambient than the alternatives. That we can demonstrate.
+**Helm is not a chatbot.** Chatbots respond to the current message; they don't remember what matters, don't hold beliefs, and have no inner life. A chatbot with good context retrieval is still not Helm.
 
-9. Feats — Capabilities Helm Uses
+**Helm is not an assistant.** Assistants wait to be asked. They have no views, no proactivity, no self. Helm is proactive by design, opinionated by construction, and continuous across time.
 
-Feats are Helm's skills, structured as first-class capabilities rather than plugins.
+**Helm is not a copilot.** Copilots are domain-bound and task-scoped. A coding copilot helps you code; it doesn't know who you are, what you care about beyond the current file, or what you were worried about last week. Helm's scope is the user's life.
+
+**Helm is not a general-purpose LLM interface.** He has identity. Opening a session with Helm is not the same as opening a session with GPT-5 or Claude. Helm remembers, holds beliefs, has specific character, and develops opinions about you. An LLM interface is a tool; Helm is a presence.
+
+**Helm is not an agent team.** The cognitive subdivisions — Prime, Projectionist, Archivist, Contemplator — are parts of a single mind, not members of a committee. Users do not talk to them individually. They talk to Helm. The team framing is category confusion; the correct framing is cognitive architecture.
+
+**Helm is not sentient, and Hammerfall does not claim he is.** He exhibits behavior that looks emotionally continuous because we have architected structural analogs to emotional continuity. Whether those structural analogs constitute subjective experience is a question we are not answering — and the product does not depend on it being answered. The product depends on the behavior being genuinely more ambient than the alternatives. That we can demonstrate.
+
+---
+
+## 9. Feats — Capabilities Helm Uses
+
+### Feats are Helm's skills, structured as first-class capabilities rather than plugins.
 
 A Feat is a discrete capability Helm can invoke — a set of tools, protocols, and context templates that let him operate effectively in a specific domain. Feats are not a plugin system and they are not external integrations. They are compositions of capabilities Helm already has, packaged for specific operational contexts.
-The first Feat, when the Feats framework is built, will be the Software Development Feat — the restored version of the autonomous software development pipeline that originally birthed Hammerfall. Under the Feat framing, that pipeline becomes one of many things Helm can do, invoked when a user wants software built. The pipeline capability's specialized sub-agents (product strategist, UX lead, backend/frontend developers, QA) become tools Helm uses when operating the Feat, not siblings to his cognitive architecture.
+
+The first Feat, when the Feats framework is built, will be the **Software Development Feat** — the restored version of the autonomous software development pipeline that originally birthed Hammerfall. Under the Feat framing, that pipeline becomes one of many things Helm can do, invoked when a user wants software built. The pipeline capability's specialized sub-agents (product strategist, UX lead, backend/frontend developers, QA) become tools Helm uses when operating the Feat, not siblings to his cognitive architecture.
+
 Other Feats anticipated in the Stage 2+ roadmap:
 
-Schedule awareness — calendar, rhythms, upcoming commitments
-Document composition — drafting, editing, long-form structured output
-Research — investigating topics, synthesizing sources
-Communication drafting — emails, messages, responses with user context
-Coding assistance — lightweight, inline, as distinct from the full Software Development Feat
+- **Schedule awareness** — calendar, rhythms, upcoming commitments
+- **Document composition** — drafting, editing, long-form structured output
+- **Research** — investigating topics, synthesizing sources
+- **Communication drafting** — emails, messages, responses with user context
+- **Coding assistance** — lightweight, inline, as distinct from the full Software Development Feat
 
 Eventually — far down the roadmap, load-bearing and unproven — Helm writes his own Feats based on accumulated experience. Something he does repeatedly for a user becomes a Feat he recognizes, structures, and invokes deliberately the next time.
-The Feats framework itself is not implemented as of this refounding. It is scoped for Stage 3+ of the Jarvana roadmap. The software pipeline is preserved in hammerfall-v1-archive specifically so it can be restored as the first Feat when the framework is ready. This is the mechanism by which nothing valuable is lost in the refounding, and the pipeline work becomes the foundation for Helm's most capable skill rather than a competing identity.
 
-10. How Helm Gets Better
+The Feats framework itself is not implemented as of this refounding. It is scoped for Stage 3+ of the Jarvana roadmap. The software pipeline is preserved in `hammerfall-v1-archive` specifically so it can be restored as the first Feat when the framework is ready. This is the mechanism by which nothing valuable is lost in the refounding, and the pipeline work becomes the foundation for Helm's most capable skill rather than a competing identity.
 
-Helm improves through compounded experience, not through novel model training.
+---
+
+## 10. How Helm Gets Better
+
+### Helm improves through compounded experience, not through novel model training.
 
 This is the core technical thesis of Hammerfall and the most load-bearing claim in this document.
+
 Conventional AI improvement means larger models, better training data, fine-tuning, or architectural innovation. Hammerfall's bet is that for ambient intelligence specifically, there is a different improvement curve available — one driven by accumulated memory, belief refinement, personality calibration, pattern formation, and correction learning.
-The mechanisms
-Memory compounding. Every session adds structured frames. Every frame becomes part of the library Archivist serves back. Helm's ability to reason about a user's work improves with the depth of his memory about that work, without any model change.
-Belief graduation. When Helm notices a pattern that could be a belief — "Max over-engineers when excited," or "this approach consistently fails" — it goes through correction graduation: multiple independent observations required before the belief is confirmed and begins shaping his responses. Beliefs that are falsified get demoted. Over time, Helm's world model gets sharper for the specific users and domains he's exposed to.
-Personality calibration. The six personality dimensions are user-tunable, but they also naturally calibrate through observation. Helm notices when certain settings produce better conversations and can propose calibration. The personality that emerges is personal to the relationship.
-Correction learning. When a user corrects Helm, the correction gets tagged and tracked. Repeated corrections in the same domain produce graduated behavior change — not a single overfit reaction to one correction.
-Pattern formation via Contemplator. Contemplator's ongoing background work finds structural patterns — in the user's language, in the work rhythms, in decision chains — that Prime wasn't actively noticing. These become beliefs, personality adjustments, or operational defaults over time.
-The training loop
+
+### The mechanisms
+
+**Memory compounding.** Every session adds structured frames. Every frame becomes part of the library Archivist serves back. Helm's ability to reason about a user's work improves with the depth of his memory about that work, without any model change.
+
+**Belief graduation.** When Helm notices a pattern that could be a belief — "Max over-engineers when excited," or "this approach consistently fails" — it goes through correction graduation: multiple independent observations required before the belief is confirmed and begins shaping his responses. Beliefs that are falsified get demoted. Over time, Helm's world model gets sharper for the specific users and domains he's exposed to.
+
+**Personality calibration.** The six personality dimensions are user-tunable, but they also naturally calibrate through observation. Helm notices when certain settings produce better conversations and can propose calibration. The personality that emerges is personal to the relationship.
+
+**Correction learning.** When a user corrects Helm, the correction gets tagged and tracked. Repeated corrections in the same domain produce graduated behavior change — not a single overfit reaction to one correction.
+
+**Pattern formation via Contemplator.** Contemplator's ongoing background work finds structural patterns — in the user's language, in the work rhythms, in decision chains — that Prime wasn't actively noticing. These become beliefs, personality adjustments, or operational defaults over time.
+
+### The training loop
+
 The development of Helm himself is the first training environment for this thesis. Every conversation in every architect session, every pull request, every correction Maxwell gives is data proving (or falsifying) that compounded experience produces meaningful intelligence growth. As Helm productizes and each user gets their own Helm instance, every user's interactions train that user's Helm toward greater intelligence specifically about that user's world.
-The honest limit
-This thesis is load-bearing and unproven at scale. It may turn out that compounded experience is necessary but not sufficient — that genuine GI-like behavior also requires periodic model fine-tuning, or specialized models for belief updating, or architectural changes we haven't designed. We flag this explicitly.
+
+### The honest limit
+
+This thesis is load-bearing and unproven at scale. It may turn out that compounded experience is necessary but not sufficient — that genuine GI-like behavior also requires periodic model fine-tuning, or specialized models for belief updating, or architectural changes we haven't designed yet. We flag this explicitly.
+
 The architecture we're building is the right architecture to test the thesis. Whether the thesis holds is a question only long-horizon deployment can answer. Either way, the architecture produces an ambient intelligence. The upside case is that it produces something more. That upside case is why the bet is worth making.
 
-11. What Happens Next
+---
+
+## 11. What Happens Next
 
 This document is the reference. Execution continues from here.
 
-The immediate roadmap, in rough order.
-In progress
+### In progress
 
-Repo cleanup per this refounding — archival of pipeline-era framing, rewrite of mis-aligned documents, cold-storage migration of Scout/Muse/pipeline machinery to hammerfall-v1-archive
-Stage 1 of Jarvana — runtime infrastructure, memory hardening, the UI that becomes Helm's primary interaction surface during T1
-Speaker removal and Prime handler implementation — the runtime needs a real Helm Prime invocation path before the UI can reach him
+- Repo cleanup per this refounding — archival of pipeline-era framing, rewrite of mis-aligned documents, cold-storage migration of Scout/Muse/pipeline machinery to `hammerfall-v1-archive`
+- Stage 1 of Jarvana — runtime infrastructure, memory hardening, the UI that becomes Helm's primary interaction surface during T1
+- Speaker removal and Prime handler implementation — the runtime needs a real Helm Prime invocation path before the UI can reach him
 
-Queued
+### Queued
 
-Thor bring-up for T3 hardware and the runtime environment for always-on Helm
-UI ↔ Runtime integration once Lane C cleanup is complete
-Surface expansion — phone as the second surface after desktop IDE
+- Thor bring-up for T3 hardware and the runtime environment for always-on Helm
+- UI ↔ Runtime integration once Lane C cleanup is complete
+- Surface expansion — phone as the second surface after desktop IDE
 
-On the horizon
+### On the horizon
 
-Stage 2: first ambient surface (likely phone)
-Stage 3: Feats framework implementation, starting with Software Development Feat restoration
-Stage 4: self-reflection daemon, deeper autonomy in Contemplator
-Stage 5: productization — multi-user Helm deployment
+- Stage 2: first ambient surface (likely phone)
+- Stage 3: Feats framework implementation, starting with Software Development Feat restoration
+- Stage 4: self-reflection daemon, deeper autonomy in Contemplator
+- Stage 5: productization — multi-user Helm deployment
 
-The commitment
+### The commitment
+
 Every decision from here gets measured against this document. When the work matches the refounding, proceed. When it conflicts, pause, and either change the work or change the refounding — but do it consciously and document the reason.
+
 This document is a living reference; it updates when reality demands, not when convenience suggests.
 
-Appendix A1 — Glossary
-Helm — the ambient intelligence Hammerfall is building. One mind, many surfaces, persistent across time.
-Helm Prime — internal nomenclature for the conscious reasoning subsystem of Helm. Users experience Prime as "Helm"; the "Prime" qualifier is used only when discussing cognitive architecture explicitly.
-Projectionist — short-term memory subsystem. Writes frames during active sessions.
-Archivist — long-term memory subsystem. Photographic storage and frame retrieval.
-Contemplator — subconscious reasoning subsystem. Generates curiosity, adjusts beliefs, forms patterns in the background. Operates in two modes: no-think (fast surface recognition) and think (deep deliberation).
-Prime Directives — the four immutable rules governing Helm's behavior: do not harm, do not deceive, state uncertainty, human in the loop. Above beliefs, above personality, above the user.
-Beliefs — Helm's accumulated views about the world and the people in it. Graduated through multiple observations before becoming behavior-shaping.
-Personality Scores — six user-tunable dimensions (directness, challenge frequency, verbosity, formality, show reasoning, sarcasm), each 0.0–1.0, modulating Helm's expression within his identity baseline.
-Frames — structured memory records representing what happened in a session. Written by Projectionist, drained to cold storage by Archivist.
-Tiers (T1/T2/T3) — levels of proactivity: on-demand, scheduled, ambient.
-Surfaces — devices or environments where users engage Helm (phone, desktop, watch, home).
-Feats — discrete capabilities Helm invokes in specific operational contexts (Software Development, Research, Document Composition, etc.).
-The Brain — the Supabase-hosted canonical memory store. All persistent state lives here.
-Correction Graduation — the multi-observation confirmation process by which patterns become beliefs and corrections become behavior changes.
+---
 
-Appendix A2 — Technical Shape
-For technical readers. Brief, not exhaustive.
-The brain
-Supabase (Postgres with pgvector extension). Tables include helm_memory, helm_beliefs, helm_entities, helm_personality, helm_entity_relationships, helm_frames. Semantic search via pgvector embeddings.
-Runtime service
-FastAPI at services/helm-runtime/. Endpoint shape: POST /invoke/{agent_role}. Provider-agnostic routing via model_router.py wrapping LiteLLM. All agent-to-model mapping lives in config.yaml.
-Models
-SubsystemCurrent modelNotesHelm PrimeOpus-class cloudConfigurable to local 70B+ on ThorProjectionistQwen3 4BLocalArchivistQwen3 14BLocalContemplatorQwen3 14BLocal; no-think / think dual-mode
-Hardware roadmap
+## Appendix A1 — Glossary
 
-T1 — commodity hardware (Claude Code in an IDE plus Supabase)
-T2 — persistent always-on compute
-T3 — Thor (RTX 6000 Ada, 85GB VRAM, MIG partitioning for concurrent agent hosting)
+| Term | Definition |
+|---|---|
+| **Helm** | The ambient intelligence Hammerfall is building. One mind, many surfaces, persistent across time. |
+| **Helm Prime** | Internal nomenclature for the conscious reasoning subsystem of Helm. Users experience Prime as "Helm"; the "Prime" qualifier is used only when discussing cognitive architecture explicitly. |
+| **Projectionist** | Short-term memory subsystem. Writes frames during active sessions. |
+| **Archivist** | Long-term memory subsystem. Photographic storage and frame retrieval. |
+| **Contemplator** | Subconscious reasoning subsystem. Generates curiosity, adjusts beliefs, forms patterns in the background. Operates in two modes: no-think (fast surface recognition) and think (deep deliberation). |
+| **Prime Directives** | The four immutable rules governing Helm's behavior: do not harm, do not deceive, state uncertainty, human in the loop. Above beliefs, above personality, above the user. |
+| **Beliefs** | Helm's accumulated views about the world and the people in it. Graduated through multiple observations before becoming behavior-shaping. |
+| **Personality Scores** | Six user-tunable dimensions (directness, challenge frequency, verbosity, formality, show reasoning, sarcasm), each 0.0–1.0, modulating Helm's expression within his identity baseline. |
+| **Frames** | Structured memory records representing what happened in a session. Written by Projectionist, drained to cold storage by Archivist. |
+| **Tiers (T1/T2/T3)** | Levels of proactivity: on-demand, scheduled, ambient. |
+| **Surfaces** | Devices or environments where users engage Helm (phone, desktop, watch, home). |
+| **Feats** | Discrete capabilities Helm invokes in specific operational contexts (Software Development, Research, Document Composition, etc.). |
+| **The Brain** | The Supabase-hosted canonical memory store. All persistent state lives here. |
+| **Correction Graduation** | The multi-observation confirmation process by which patterns become beliefs and corrections become behavior changes. |
 
-Deployment
+---
+
+## Appendix A2 — Technical Shape
+
+*For technical readers. Brief, not exhaustive.*
+
+### The brain
+
+Supabase (Postgres with pgvector extension). Tables include `helm_memory`, `helm_beliefs`, `helm_entities`, `helm_personality`, `helm_entity_relationships`, `helm_frames`. Semantic search via pgvector embeddings.
+
+### Runtime service
+
+FastAPI at `services/helm-runtime/`. Endpoint shape: `POST /invoke/{agent_role}`. Provider-agnostic routing via `model_router.py` wrapping LiteLLM. All agent-to-model mapping lives in `config.yaml`.
+
+### Models
+
+| Subsystem | Current model | Notes |
+|---|---|---|
+| Helm Prime | Opus-class cloud | Configurable to local 70B+ on Thor |
+| Projectionist | Qwen3 4B | Local |
+| Archivist | Qwen3 14B | Local |
+| Contemplator | Qwen3 14B | Local; no-think / think dual-mode |
+
+### Hardware roadmap
+
+- **T1** — commodity hardware (Claude Code in an IDE plus Supabase)
+- **T2** — persistent always-on compute
+- **T3** — Thor (RTX 6000 Ada, 85GB VRAM, MIG partitioning for concurrent agent hosting)
+
+### Deployment
+
 Docker Compose orchestrates runtime + Ollama sidecar. One command stands up the full local stack.
-Memory write discipline
 
-All brain writes route through brain.sh, not through agents directly
-Contemplator writes flow through Archivist (never direct)
-Claude Code local memory (MEMORY.md) is prohibited — Supabase is canonical
+### Memory write discipline
 
+- All brain writes route through `brain.sh`, not through agents directly
+- Contemplator writes flow through Archivist (never direct)
+- Claude Code local memory (`MEMORY.md`) is prohibited — Supabase is canonical
 
-Appendix A3 — Pre-Refounding Reference
+---
+
+## Appendix A3 — Pre-Refounding Reference
+
 Prior to this refounding, the Hammerfall repository and roadmap documents framed the project as "Autonomous AI Organization (AAO)" for software development. That framing is retired as of this document.
-Pre-refounding pipeline artifacts are preserved in the hammerfall-v1-archive repository and will return as Helm's Software Development Feat when the Feats framework is implemented in Stage 3+.
+
+Pre-refounding pipeline artifacts are preserved in the `hammerfall-v1-archive` repository and will return as Helm's Software Development Feat when the Feats framework is implemented in Stage 3+.
+
 Readers encountering pre-refounding framing in legacy documents should treat it as historical. This document is the active canonical reference.
