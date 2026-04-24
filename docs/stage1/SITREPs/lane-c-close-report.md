@@ -123,7 +123,7 @@ Helm's foundational memory preserved in main:
 
 | # | Check | Result |
 |---|---|---|
-| 1 | Runtime boots, /health, /config/agents shows 4 agents | **PARTIAL** — static-coherence verified (see Deviation #1) |
+| 1 | Runtime boots, /health, /config/agents shows 4 agents | **PASS** — live boot verified; /health healthy across all 4 models + Supabase; /config/agents returns exactly the 4 expected agents |
 | 2 | No Speaker references outside archive | **PASS** — all hits are banner-annotated historical docs, Lane C SITREPs about Speaker deprecation, narrative `middleware.py` reference, or UI mock data (Lane B follow-up) |
 | 3 | Cold storage files gone from main | **PASS** — all 7 spec paths absent |
 | 4 | Archive repo integrity | **PASS** — public, README present, all 5 expected top-level paths present, 101 commits |
@@ -134,34 +134,47 @@ Helm's foundational memory preserved in main:
 | 9 | Speaker test scripts gone, contemplator test retained | **PASS** — `speaker_prompt_test.js` and `agent_stress_test_qwen3.js` gone, `contemplator_stress_test_qwen3.js` retained |
 | 10 | E2E Prime invocation test | **DEFERRED** per spec — requires Lane B UI |
 
-### Deviation #1 — Validation 1 boot deferred to static-coherence check
+### Deviation #1 — Compose file path differs from spec wording
 
-The spec's Validation 1 calls for `cd services/helm-runtime && docker-compose up -d`
-followed by curls to `/health` and `/config/agents`. On this environment a live
-boot was not run because:
+The spec's Validation 1 calls for `cd services/helm-runtime && docker-compose up -d`,
+but the compose file lives at the repo root (`./docker-compose.yml`), not at
+`services/helm-runtime/`. Minor spec template path mismatch — boot was run from
+repo root and worked.
 
-1. Docker daemon is currently offline (Docker Desktop not running).
-2. The compose file is at the repo root (`./docker-compose.yml`), not at
-   `services/helm-runtime/docker-compose.yml` as the spec wording implies — minor
-   spec template path mismatch.
-3. A live boot pulls the Ollama image and requires NVIDIA GPU passthrough, plus
-   `ANTHROPIC_API_KEY`, `SUPABASE_BRAIN_URL`, and `SUPABASE_BRAIN_SERVICE_KEY` env
-   vars. This is a heavy operation and an interactive Maxwell decision.
+**Live boot results (2026-04-23):**
 
-Static coherence verified instead (which is what /config/agents would return on a
-real boot):
+```
+$ docker-compose up -d
+ Container hammerfall-solutions-ollama-1        Healthy
+ Container hammerfall-solutions-helm-runtime-1  Started
 
-- 4 agent handler files exist: `archivist.py`, `contemplator.py`, `helm_prime.py`,
-  `projectionist.py` (no `speaker.py`)
-- All 4 imported in `main.py` lines 27–30
-- `AGENT_HANDLERS` dict has exactly 4 entries: `projectionist`, `archivist`,
-  `helm_prime`, `contemplator`
-- `config.yaml` has 4 agent blocks: `helm_prime` (anthropic), `projectionist`
-  (ollama), `archivist` (ollama), `contemplator` (ollama)
+$ curl -s http://localhost:8000/health
+{
+  "status": "healthy",
+  "checks": {
+    "service": "ok",
+    "models": {
+      "projectionist": {"status": "ok", "provider": "ollama",    "model": "qwen3:4b"},
+      "archivist":     {"status": "ok", "provider": "ollama",    "model": "qwen3:14b"},
+      "helm_prime":    {"status": "ok", "provider": "anthropic", "model": "claude-opus-4-6"},
+      "contemplator":  {"status": "ok", "provider": "ollama",    "model": "qwen3:14b"}
+    },
+    "supabase": {"status": "ok", "table": "helm_frames", "rows_queryable": true}
+  }
+}
 
-A live boot smoke test should be run by Maxwell before Lane A integration work
-begins. That is the right gate for confirming `/health` actually returns healthy
-against real Ollama + Supabase endpoints.
+$ curl -s http://localhost:8000/config/agents
+{
+  "agents": {
+    "helm_prime":    {"provider": "anthropic", "model": "claude-opus-4-6"},
+    "projectionist": {"provider": "ollama",    "model": "qwen3:4b",  "base_url": "http://ollama:11434"},
+    "archivist":     {"provider": "ollama",    "model": "qwen3:14b", "base_url": "http://ollama:11434"},
+    "contemplator":  {"provider": "ollama",    "model": "qwen3:14b", "base_url": "http://ollama:11434"}
+  }
+}
+```
+
+All 4 agents present. No `speaker` entry. Supabase reachable. Models all reachable.
 
 ### Deviation #2 — Founding docs .docx variants never existed
 
@@ -175,8 +188,6 @@ were not in scope of that flip.
 
 ## Known follow-ups
 
-- **Live runtime boot smoke test** — see Deviation #1. Maxwell to run before
-  Lane A integration.
 - **End-to-end Prime invocation test** — deferred per spec; requires Lane B UI
   for surface-level invocation.
 - **`helm-ui/src/data/mockData.js`** carries Speaker references in mock UI
