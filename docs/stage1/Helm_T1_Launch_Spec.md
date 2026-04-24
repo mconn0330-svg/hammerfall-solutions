@@ -3,27 +3,44 @@
 | | |
 |---|---|
 | **Status** | 🟡 Active — Lane C closing, T1 Launch work begins |
-| **Purpose** | Complete all backend prep, UI gap resolution, and integration work required to achieve Stage 1 T1 on-demand presence at production quality. |
-| **Estimated PRs** | 15-18 |
+| **Version** | v2.0 — revised to include T0 Memory Foundation phase |
+| **Purpose** | Complete all backend infrastructure, UI gap resolution, and integration work required to achieve Stage 1 T1 on-demand presence at production quality. |
+| **Estimated PRs** | 20-24 |
 | **Exit criteria** | A user opens the UI, talks to Helm, sees live agent activity, and experiences a coherent identity — all on real data, no mocks. |
 
 ---
 
 ## What This Spec Covers
 
-This is everything between "Lane C closes" and "Stage 1 exit outcomes achieved." It consolidates what was previously tracked as Lane A (backend integration prep) and Lane B (UI build) into a single sequenced plan.
+This is everything between "Lane C closes" and "Stage 1 exit outcomes achieved." Four phases:
 
-Three phases:
+1. **Phase 0 (T0) — Memory Foundation** (first — replaces shell infrastructure with production-grade Python memory module)
+2. **Phase 1 — Freestanding UI work** (can run in parallel with T0, no backend dependency)
+3. **Phase 2 — Backend build** (requires T0 complete)
+4. **Phase 3 — Integration + launch validation** (requires Phase 2 complete)
 
-1. **Phase 1 — Freestanding work** (can start now, no blockers)
-2. **Phase 2 — Backend build** (requires Lane C closed)
-3. **Phase 3 — Integration + launch validation** (requires Phase 2 complete)
+### Why T0 Exists
+
+The runtime's memory write infrastructure is currently split between Python (`supabase_client.py` for in-process agents) and shell (`brain.sh` for external callers like Claude Code sessions). The shell path has no retry, no transactions, no structured logging, string-concatenated curl bodies, and process-spawn-per-entry overhead. Every T1/T2 task that touches a write path (prompt storage, belief history, signals, pattern writes) would either build on this fragile substrate or work around it.
+
+T0 builds the correct substrate first. Every subsequent phase lands on production-grade infrastructure instead of accumulating migration targets.
 
 ---
 
 ## Progress Tracker
 
-### Phase 1 — Freestanding (start now)
+### Phase 0 — Memory Foundation (first, after Lane C close)
+
+| Task | Description | Type | Status |
+|---|---|---|---|
+| T0.1 | Memory module — core package + models + client | Helm IDE build | 🔵 Queued |
+| T0.2 | Memory module — outbox pattern + durability | Helm IDE build | 🔵 Queued |
+| T0.3 | Migrate in-process agents to memory module | Helm IDE build | 🔵 Queued |
+| T0.4 | Snapshot service — replace snapshot.sh | Helm IDE build | 🔵 Queued |
+| T0.5 | Prompt management — replace sync/pull scripts | Helm IDE build | 🔵 Queued |
+| T0.6 | Shell deprecation + cleanup | Helm IDE build | 🔵 Queued |
+
+### Phase 1 — Freestanding UI (can start in parallel with T0)
 
 | Task | Description | Type | Status |
 |---|---|---|---|
@@ -31,33 +48,36 @@ Three phases:
 | T1.2 | Update mock IDs to UUIDs | UI | 🔵 Ready |
 | T1.3 | Hardcode personality translations in widget | UI | 🔵 Ready |
 | T1.4 | Date formatting utility | UI | 🔵 Ready |
-| T1.5 | Glass morphism + visual polish pass | UI | 🔵 Ready |
-| T1.6 | Commit Supabase anon key to repo (`.env`) | Helm IDE | 🟡 Key obtained |
+| T1.5a | Glass morphism — define CSS design tokens | UI | 🔵 Ready |
+| T1.5b | Glass morphism — apply tokens across components | UI | 🔵 Ready |
+| T1.6 | Commit Supabase anon key to repo (.env) | Helm IDE | 🟡 Key in spec |
 | T1.7 | UI Interaction Spec document (three layers) | Architect | 🔵 Ready |
 
-### Phase 2 — Backend Build (blocked on Lane C close)
+> **T1.7 is a hard gate.** Phase 2 does not open until T1.7 is reviewed and accepted by both Helm IDE and Architect. T1.7 defines the contracts T2.4 builds against.
+
+### Phase 2 — Backend Build (requires T0 complete + T1.7 locked)
 
 | Task | Description | Type | Status |
 |---|---|---|---|
-| T2.1 | Supabase prompt storage | Helm IDE build | 🔵 Queued — FIRST |
-| T2.2 | Schema reference doc (Widget Data Map output) | Helm IDE | 🔵 Queued |
-| T2.3 | Contemplator→Archivist async handoff | Helm IDE build | 🔵 Queued |
-| T2.4 | SSE endpoint + UI directive support | Helm IDE build | 🔵 Queued |
-| T2.5 | Add slug column to helm_beliefs | Helm IDE build | 🔵 Queued |
-| T2.6 | Belief observation history | Helm IDE build | 🔵 Queued |
-| T2.7 | RPC function get_signals() | Helm IDE build | 🔵 Queued |
-| T2.8 | RPC function get_entities_with_counts() | Helm IDE build | 🔵 Queued |
+| T2.1 | Supabase prompt storage (via memory module) | Helm IDE build | 🔵 Queued |
+| T2.2 | Contemplator→Archivist async handoff | Helm IDE build | 🔵 Queued |
+| T2.3 | SSE endpoint + UI directive support + prompt caching | Helm IDE build | 🔵 Queued |
+| T2.4 | Add slug column to helm_beliefs | Helm IDE build | 🔵 Queued |
+| T2.5 | Belief observation history (helm_belief_history) | Helm IDE build | 🔵 Queued |
+| T2.6 | Signals table + dual-write hook (helm_signals) | Helm IDE build | 🔵 Queued |
+| T2.7 | RPC function get_entities_with_counts() | Helm IDE build | 🔵 Queued |
+| T2.8 | Schema reference doc (Widget Data Map) | Helm IDE | 🔵 Queued — LAST in Phase 2 |
 
-### Phase 3 — Integration + Launch Validation (blocked on Phase 2)
+### Phase 3 — Integration + Launch Validation (⛔ blocked on Phase 2)
 
-> **⛔ DO NOT START Phase 3 until explicitly cleared by Maxwell.**
+> **⛔ DO NOT START Phase 3 until Maxwell explicitly clears each task.**
 
 | Task | Description | Type | Status |
 |---|---|---|---|
-| T3.1 | JSON + fallback response parser | UI | 🔴 Blocked on T2.4 |
-| T3.2 | executeDirective() handler | UI | 🔴 Blocked on T2.4 |
-| T3.3 | Connect UI to real Supabase | UI | 🔴 Blocked on T1.6 + T2.5-T2.8 |
-| T3.4 | Connect UI to real runtime | UI | 🔴 Blocked on Lane C + T2.4 |
+| T3.1 | JSON + fallback response parser | UI | 🔴 Blocked on T2.3 |
+| T3.2 | executeDirective() handler | UI | 🔴 Blocked on T2.3 |
+| T3.3 | Connect UI to real Supabase (per-widget feature flags) | UI | 🔴 Blocked on T1.6 + T2.4-T2.7 |
+| T3.4 | Connect UI to real runtime (chat + SSE + node state) | UI | 🔴 Blocked on T0 + T2.3 |
 | T3.5 | T1 Launch validation | Test | 🔴 Blocked on T3.1-T3.4 |
 
 ### Previously Completed
@@ -71,276 +91,347 @@ Three phases:
 | Docked widgets + minimize pills (PR #81) | ✅ Done |
 | Position settings + full-screen + slash commands | ✅ Done |
 | Widget viewport clamping + quadrant stacking | ✅ Done |
+| Lane C refounding (PRs #73-87) | ✅ Done |
 
 ---
 
-## Phase 1 — Freestanding Tasks
+## Phase 0 — Memory Foundation
 
-These tasks have zero backend dependency. Start immediately. Each is a standalone PR.
+**Purpose:** Replace the shell-based memory infrastructure (`brain.sh`, `snapshot.sh`, `sync_prompt.sh`) with a production-grade Python memory module inside the runtime. This becomes the single write/read interface for all memory operations across all callers — in-process agents, external agents (Claude Code), future MCP clients.
 
----
-
-### T1.1 — Remove Speaker from mockData.js
-
-**What:** The `AGENT_STATUS`, `ACTIVITY`, and `LOGS.system` arrays in `helm-ui/src/data/mockData.js` still contain Speaker entries. Speaker was killed in PR #78. The mock data must reflect the current four-agent cognitive architecture: Helm Prime, Projectionist, Archivist, Contemplator.
-
-**File:** `helm-ui/src/data/mockData.js`
-
-**Changes:**
-
-1. **`AGENT_STATUS` array** — Find and remove the entire Speaker object. Four agent entries should remain: Helm Prime (Anthropic, claude-opus-4-6), Projectionist (Ollama, qwen3:4b), Archivist (Ollama, qwen3:14b), Contemplator (Ollama, qwen3:14b).
-
-2. **`ACTIVITY` array** — Find any activity entries where `agent` is `"Speaker"` or the `message` references Speaker routing. Remove these entries or update them to reference `"Helm Prime"`.
-
-3. **`LOGS` object** — Check `session`, `contemplator`, and `system` arrays. Update "All 5 agents reachable" to "All 4 agents reachable." Update any `routing: "SPEAKER"` or `routing: "LOCAL"` to `routing: "HELM_PRIME"`.
-
-**Verification:** Run the UI (`cd helm-ui && npm run dev`). Open Agent Status widget — four agents. Open Console Activity tab — no Speaker. Open Console System tab — no "5 agents" references.
-
-**Deliverable:** One PR — mockData.js cleanup only.
+**Package location:** `services/helm-runtime/memory/`
 
 ---
 
-### T1.2 — Update Mock IDs to UUIDs
+### T0.1 — Memory Module Core Package
 
-**What:** Mock data uses short IDs (`"b1"`, `"e1"`, `"s1"`, `"mem1"`). Supabase uses UUIDs (36-character strings like `"8f3a2b1c-4d5e-6f7a-8b9c-0d1e2f3a4b5c"`). If UI components break on long IDs (truncation, column overflow, key collisions), we need to find out now.
+**What:** Create the foundational memory package with a clean Python API, Pydantic models, and a Supabase client wrapper with production-grade reliability.
 
-**File:** `helm-ui/src/data/mockData.js`
+**Package structure:**
 
-**Changes:** Replace every `id` field across all mock arrays with properly formatted UUIDs. Use deterministic fake UUIDs for readability (e.g., `"00000000-0000-4000-8000-000000000001"` for belief 1).
-
-**Affected exports:** `PERSONALITY`, `BELIEFS`, `ENTITIES`, `SIGNALS`, `AGENT_STATUS`, `MEMORY`, `ACTIVITY` — every export with an `id` field.
-
-**What to watch for:** Any widget that displays IDs, uses IDs as React `key` props, or cross-references by ID. Verify nothing overflows or breaks.
-
-**Deliverable:** One PR — mockData.js ID updates. Can combine with T1.1.
-
----
-
-### T1.3 — Hardcode Personality Translations
-
-**What:** The `PERSONALITY` mock includes a `translations` object mapping score ranges to human-readable descriptions (e.g., directness 0.0 = "Softens every point, frames diplomatically"). This does not exist in the `helm_personality` Supabase table and should not — translations are presentation logic, not brain content.
-
-**File:** PersonalityWidget component (likely `helm-ui/src/widgets/PersonalityWidget.jsx`)
-
-**Changes:**
-
-1. Create a constant in the PersonalityWidget file with the full translations mapping per dimension. Copy the exact values from the current `PERSONALITY` mock data entries. Structure:
-
-```javascript
-const PERSONALITY_TRANSLATIONS = {
-  directness: {
-    0.0: "Softens every point, frames diplomatically",
-    0.2: "Gentle framing, avoids bluntness",
-    0.5: "Balanced — direct when it matters, diplomatic otherwise",
-    0.8: "Says it straight, minimal cushioning",
-    1.0: "Unvarnished, blunt, zero sugar-coating"
-  },
-  challenge_frequency: { /* ... */ },
-  verbosity: { /* ... */ },
-  formality: { /* ... */ },
-  show_reasoning: { /* ... */ },
-  sarcasm: { /* ... */ }
-};
+```
+services/helm-runtime/memory/
+├── __init__.py          # Public API exports
+├── client.py            # Supabase client wrapper — connection pooling,
+│                        #   retry with tenacity-style backoff, timeout,
+│                        #   circuit breaker
+├── models.py            # Pydantic models — Entry, MemoryType enum,
+│                        #   BeliefUpdate, Signal, PromptContent,
+│                        #   SnapshotResult
+├── settings.py          # Pydantic Settings — loaded once at startup,
+│                        #   fails loud, replaces grep-on-markdown config
+└── writer.py            # Core write operations — write(), delta(),
+                         #   the public interface all callers use
 ```
 
-2. Add a lookup function that finds the nearest translation for the current score:
+**Public API — the interface all callers use:**
 
-```javascript
-function getTranslation(attribute, score) {
-  const translations = PERSONALITY_TRANSLATIONS[attribute];
-  if (!translations) return '';
-  const keys = Object.keys(translations).map(Number).sort((a, b) => a - b);
-  const nearest = keys.reduce((prev, curr) =>
-    Math.abs(curr - score) < Math.abs(prev - score) ? curr : prev
-  );
-  return translations[nearest];
-}
+```python
+from memory import MemoryWriter
+
+# All agents call the same interface
+writer = MemoryWriter(supabase_url, supabase_key)
+
+# Write a memory entry
+entry_id = await writer.write(
+    project="hammerfall-solutions",
+    agent="contemplator",
+    memory_type=MemoryType.BEHAVIORAL,
+    content="Pattern — Max over-engineers when excited",
+    sync_ready=False
+)
+
+# Query deltas since a watermark
+entries = await writer.delta(since=last_timestamp, agent="contemplator")
 ```
 
-3. Remove `translations` from `PERSONALITY` entries in mockData.js.
+**Client reliability features:**
+- Connection pooling via `httpx.AsyncClient` (replaces per-request curl spawns)
+- Retry with exponential backoff via `tenacity` (3 retries, 1s/2s/4s backoff)
+- Timeout per request (10s default, configurable)
+- Circuit breaker: after 5 consecutive failures, stop attempting writes for 30s, then retry. Prevents cascading failures when Supabase is down.
+- Client-generated UUIDs on every write — retries are idempotent (upsert, not insert)
 
-**Verification:** Run the UI, open Personality widget. Each dimension shows a description matching its score. Moving sliders updates descriptions.
+**Pydantic models — validated at the boundary:**
 
-**Deliverable:** One PR — PersonalityWidget constant + mockData.js cleanup.
+```python
+from enum import Enum
+from pydantic import BaseModel, Field
+from uuid import UUID, uuid4
+from datetime import datetime
+
+class MemoryType(str, Enum):
+    BEHAVIORAL = "behavioral"
+    DECISION = "decision"
+    CORRECTION = "correction"
+    PATTERN = "pattern"
+    OBSERVATION = "observation"
+    MONOLOGUE = "monologue"
+
+class Entry(BaseModel):
+    id: UUID = Field(default_factory=uuid4)
+    project: str
+    agent: str
+    memory_type: MemoryType
+    content: str
+    full_content: dict | None = None
+    confidence: float = 0.5
+    session_date: datetime = Field(default_factory=datetime.utcnow)
+    sync_ready: bool = False
+
+class BeliefUpdate(BaseModel):
+    belief_id: UUID
+    previous_strength: float
+    new_strength: float
+    summary: str
+    source: str = "contemplator"
+
+class Signal(BaseModel):
+    slug: str
+    statement: str
+    domain: str = "general"
+    observation_count: int = 1
+```
+
+**Settings — Pydantic Settings replaces config parsing:**
+
+```python
+from pydantic_settings import BaseSettings
+
+class MemorySettings(BaseSettings):
+    supabase_url: str
+    supabase_service_key: str
+    retry_attempts: int = 3
+    retry_backoff_base: float = 1.0
+    timeout_seconds: float = 10.0
+    circuit_breaker_threshold: int = 5
+    circuit_breaker_cooldown: float = 30.0
+
+    class Config:
+        env_prefix = "HELM_MEMORY_"
+```
+
+**Structured logging:**
+
+```python
+import structlog
+logger = structlog.get_logger("helm.memory")
+
+# Every write operation logs:
+logger.info("memory.write", project=project, agent=agent,
+            memory_type=memory_type, entry_id=str(entry_id))
+
+# Every failure logs:
+logger.error("memory.write.failed", project=project, agent=agent,
+             error=str(e), retry_count=attempt)
+```
+
+**Dependencies to add to requirements.txt:** `tenacity`, `httpx`, `structlog`, `pydantic-settings`
+
+**Deliverable:** One PR — memory package with client, models, settings, writer. Unit tests for the models and settings validation.
 
 ---
 
-### T1.4 — Date Formatting Utility
+### T0.2 — Outbox Pattern for Durability
 
-**What:** Supabase returns ISO 8601 timestamps (`"2026-04-14T09:14:03.000Z"`). The UI uses clean strings (`"2026-04-14"`, `"09:14:00"`) in mocks. A shared utility prevents raw ISO strings from appearing when real data arrives.
-
-**File to create:** `helm-ui/src/utils/formatDate.js`
+**What:** Add a local outbox (SQLite or JSONL file) that buffers writes before draining to Supabase. When Supabase is unreachable, writes land in the outbox instead of failing. An async worker drains the outbox when connectivity returns. This replaces the `.md` append fallback in `brain.sh`, which is itself a divergence vector (writes go to a file that nobody reads back).
 
 **Implementation:**
 
-```javascript
-export function formatDate(isoString, format = 'datetime') {
-  if (!isoString) return '—';
-  const d = new Date(isoString);
-  if (isNaN(d.getTime())) return '—';
+```python
+# memory/outbox.py
 
-  switch (format) {
-    case 'date': return d.toLocaleDateString('en-CA');
-    case 'time': return d.toLocaleTimeString('en-US', {
-      hour: '2-digit', minute: '2-digit', hour12: false
-    });
-    case 'datetime': return `${formatDate(isoString, 'date')} ${formatDate(isoString, 'time')}`;
-    case 'relative': return getRelativeTime(d);
-    default: return d.toISOString();
-  }
-}
+class Outbox:
+    """Local write buffer for Supabase durability."""
 
-function getRelativeTime(date) {
-  const diffMs = Date.now() - date;
-  const diffMins = Math.floor(diffMs / 60000);
-  if (diffMins < 1) return 'just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h ago`;
-  return `${Math.floor(diffMins / 1440)}d ago`;
-}
+    def __init__(self, path: Path = Path("/tmp/helm-outbox.jsonl")):
+        self.path = path
+
+    async def enqueue(self, table: str, payload: dict):
+        """Append a write to the outbox."""
+        entry = {"table": table, "payload": payload,
+                 "queued_at": datetime.utcnow().isoformat()}
+        async with aiofiles.open(self.path, "a") as f:
+            await f.write(json.dumps(entry) + "\n")
+        logger.info("outbox.enqueued", table=table)
+
+    async def drain(self, client: SupabaseClient) -> int:
+        """Drain all outbox entries to Supabase. Returns count drained."""
+        if not self.path.exists():
+            return 0
+        # Read all, attempt each, remove on success
+        # Failed entries stay in outbox for next drain cycle
+        ...
+
+    async def drain_loop(self, client: SupabaseClient, interval: float = 5.0):
+        """Continuous drain worker. Run as asyncio.create_task()."""
+        while True:
+            count = await self.drain(client)
+            if count > 0:
+                logger.info("outbox.drained", count=count)
+            await asyncio.sleep(interval)
 ```
 
-**Where to apply:** Chat timestamps (`time`), Activity stream (`time`), System logs (`time`), Memory widget (`date`), Entities `first_seen` (`date`), Belief observations (`relative`), Contemplator logs (`datetime`).
+**Integration with writer.py:** The `MemoryWriter.write()` method tries Supabase first. If the client's circuit breaker is open or the write fails after retries, the write goes to the outbox. The outbox drain worker runs as a background task started at runtime boot.
 
-**Verification:** Run the UI. No raw ISO strings visible anywhere.
+**Outbox file location:** `/tmp/helm-outbox.jsonl` for development. Configurable via `HELM_MEMORY_OUTBOX_PATH` env var. For production, a persistent path inside a Docker volume.
 
-**Deliverable:** One PR — utility file + widget updates.
+**Deliverable:** One PR — outbox module + integration with writer + drain worker startup in main.py.
 
 ---
 
-### T1.5 — Glass Morphism + Visual Polish Pass
+### T0.3 — Migrate In-Process Agents to Memory Module
 
-**What:** Comprehensive visual polish pass to achieve consistent neo-organic glass morphism across the entire Helm UI. The node and brain menu already express this style. The Console, docked widgets, and canvas widgets need to match.
+**What:** All four cognitive subsystems (Prime, Projectionist, Archivist, Contemplator) currently write to Supabase through various paths — some via `supabase_client.py` directly, some via patterns inherited from the pre-refounding architecture. This task migrates all in-process agent write operations to use the `memory.write()` API.
 
-**Design tokens — use these exact values for consistency:**
+**What to change per agent:**
 
-| Token | Value | Where |
+| Agent | Current write path | New write path |
 |---|---|---|
-| Background (app) | `#0a0e1a` to `#0d1420` | Root background. No pure black. |
-| Panel surface | `rgba(10, 20, 40, 0.6)` to `rgba(15, 25, 50, 0.8)` | Console, widgets, all panels. Never opaque. |
-| Blur | `backdrop-filter: blur(16px)` to `blur(24px)` | All panel surfaces. Node particles visible through panels. |
-| Border | `0.5px solid rgba(80, 140, 220, 0.15)` | Panel edges. Thin, subtle, blue-tinted. Nothing above 1px. |
-| Border hover | `border-color: rgba(80, 140, 220, 0.35)` | Subtle brightening on hover/focus. CSS transition for smooth fade. |
-| Primary text | `#c8deff` | Body text, widget content. Soft blue-white. |
-| Muted text | `rgba(120, 160, 210, 0.5)` | Secondary info, timestamps, user messages. |
-| Label text | `#7ab4ff` with `letter-spacing: 1px` | Widget headers, tab labels, section titles. Accent blue. |
-| Helm responses | `#a8c8ff` | Slightly brighter than primary. Helm's voice stands out. |
-| User messages | `rgba(160, 200, 240, 0.5)` | Muted, receding. The user is the context, Helm is the foreground. |
-| Status green | `#2aff8a` | Agent online, health ok. |
-| Contemplator amber | `rgba(220, 160, 80, 0.8)` | Contemplation state, ◈ button. |
-| Error red | `#ff4444` | Agent error, connection lost. |
-| Interactive blue | `#3a7aff` | Buttons, links, active tab indicators. |
-| Font | `'IBM Plex Mono', 'Space Mono', monospace` | All text. Monospace throughout. |
-| Label size | `10-11px` | Widget headers, tab labels. |
-| Body size | `12-13px` | Content text, chat messages. |
-| Border radius | `6-8px` | Consistent across all panels and widgets. |
-| Scrollbar | `scrollbar-width: thin; scrollbar-color: rgba(80, 140, 220, 0.2) transparent` | No bright scrollbars. |
+| Projectionist | `supabase_client.insert('helm_frames', ...)` | `memory.write(type=FRAME, ...)` |
+| Archivist | `supabase_client.insert('helm_memory', ...)` | `memory.write(type=DECISION/BEHAVIORAL, ...)` |
+| Contemplator | Mixed — some `supabase_client`, some formatted for brain.sh | `memory.write(type=PATTERN/MONOLOGUE, ...)` |
+| Prime | Reads only (personality, prompt) — no direct writes | No change at T0 — writes come via subsystems |
 
-**Components to audit:**
+**Key principle:** Agents import `memory` and call `memory.write()`. They never import `supabase_client` directly for write operations. Reads (personality loading, prompt loading, frame retrieval) continue through the existing `supabase_client` until those are also migrated — but writes are the priority because writes are where data loss and divergence happen.
 
-1. **Console drawer** — header bar, tab strip, chat pane background, split-view divider, input bar, Send button (`interactive blue at low opacity`), Contemplate button (◈, `amber at low opacity`), drawer resize handle (thin line, not a grab bar).
+**Validation:** After migration, run the runtime, invoke a session, verify that Projectionist frames, Archivist memories, and Contemplator patterns all land in Supabase via the new write path. Check structured logs for `memory.write` events.
 
-2. **Docked widget panels** — each widget in the Console right pane gets glass surface treatment. Widget headers use label style. Widget controls (minimize/expand/close) are `rgba(100, 150, 200, 0.3)`, brightening on hover.
-
-3. **Canvas widgets** — widgets opened from the brain menu. Same glass treatment as docked versions. Same component, same styling, different container.
-
-4. **Widget content** — belief scores, personality sliders, memory entries, entity cards follow the text color hierarchy. Interactive elements use interactive blue. Status indicators use green/amber/red.
-
-5. **Console input bar** — `background: rgba(255, 255, 255, 0.04)` with `0.5px` border. Placeholder in muted text.
-
-**What to avoid:**
-- Opaque backgrounds on any panel
-- Borders thicker than 1px
-- Drop shadows (glass effect comes from blur + transparency, not elevation)
-- Pure white text (always tinted blue)
-- Inconsistent border radius
-- Bright scrollbar tracks
-
-**Verification:** Run the UI. The entire application should feel like one cohesive visual system. The node, brain menu, Console, and all widgets should look like they belong together.
-
-**Deliverable:** One PR — CSS/style updates across Console and widget components.
+**Deliverable:** One PR — agent file updates + verification.
 
 ---
 
-### T1.6 — Commit Supabase Anon Key to Repo
+### T0.4 — Snapshot Service — Replace snapshot.sh
 
-**What:** Add the Supabase anon key to a committed `.env` file in `helm-ui/` so any device that clones the repo can connect to Supabase without manual setup.
+**What:** Replace `scripts/snapshot.sh` with a Python snapshot service inside the runtime. Snapshots become a derived artifact — a generated view of brain state, like `build/` or `dist/`.
 
-**Why committed and not `.env.local`:** The anon key is designed to be public. It provides no privileged access — RLS policies control what it can read and write. Supabase's own documentation recommends putting the anon key in frontend code. The **service key** is the one that must never be committed (it bypasses RLS). Committing the anon key means any device, any clone, any deployment can reach Supabase immediately without per-machine configuration.
+**Implementation:**
 
-**Steps:**
+```python
+# memory/snapshot.py
 
-1. Create `helm-ui/.env` (NOT `.env.local` — this file will be tracked by git):
+class SnapshotService:
+    """Generate .md mirror files from Supabase brain state."""
+
+    def __init__(self, client: SupabaseClient, output_dir: Path):
+        self.client = client
+        self.output_dir = output_dir
+
+    async def generate(self, project: str, agent: str) -> SnapshotResult:
+        """Pull current brain state and render to .md files."""
+        beliefs = await self.client.get("helm_beliefs")
+        personality = await self.client.get("helm_personality")
+        memory = await self.client.get("helm_memory",
+                    params={"project": f"eq.{project}"})
+        entities = await self.client.get("helm_entities")
+
+        # Render via Jinja templates (or string formatting)
+        brain_summary = self._render_brain_summary(beliefs, personality, memory)
+        behavioral_profile = self._render_behavioral_profile(memory)
+        beliefs_summary = self._render_beliefs_summary(beliefs)
+        personality_summary = self._render_personality_summary(personality)
+
+        # Atomic write: .tmp → fsync → rename
+        for filename, content in [
+            ("BRAIN_SUMMARY.md", brain_summary),
+            ("BEHAVIORAL_PROFILE.md", behavioral_profile),
+            ("BELIEFS_SUMMARY.md", beliefs_summary),
+            ("PERSONALITY_SUMMARY.md", personality_summary),
+        ]:
+            await self._atomic_write(self.output_dir / filename, content)
+
+        return SnapshotResult(files_written=4, timestamp=datetime.utcnow())
+
+    async def _atomic_write(self, path: Path, content: str):
+        """Write atomically: tmp file → fsync → rename."""
+        tmp = path.with_suffix(".tmp")
+        async with aiofiles.open(tmp, "w") as f:
+            await f.write(content)
+            await f.flush()
+            os.fsync(f.fileno())
+        tmp.rename(path)
 ```
-VITE_SUPABASE_URL=https://zlcvrfmbtpxlhsqosdqf.supabase.co
-VITE_SUPABASE_ANON_KEY=sb_publishable_9eE4T4FaYVLcYOg_1wok6g_W_nqCue8
+
+**Scheduling:** Use `APScheduler` or a simple `asyncio` loop in `main.py` to run snapshots on Routine 5's cadence (7am/12pm/6pm daily + on-demand via slash command or API call). Replaces the external cron + shell script pattern.
+
+**Snapshot files remain in the repo** as committed artifacts — they are still readable mirrors for humans and agents. The difference is they are now generated by a Python service, not a shell script.
+
+**Deliverable:** One PR — snapshot service + scheduler integration + Jinja templates (or string renderers).
+
+---
+
+### T0.5 — Prompt Management — Replace sync/pull Scripts
+
+**What:** Fold `sync_prompt.sh` and `pull_prompt.sh` into the memory module. Prompt management becomes a Python API, consistent with the "Supabase is canonical" rule from T2.1.
+
+**Implementation:**
+
+```python
+# memory/prompt.py
+
+class PromptManager:
+    """Manage helm_prompt lifecycle — Supabase canonical, .md is cache."""
+
+    async def load(self) -> str:
+        """Load prompt from Supabase. Fall back to .md file.
+           If both fail, raise RuntimeError — refuse to boot."""
+        try:
+            rows = await self.client.get("helm_prompt",
+                        params={"name": "eq.prime_system_prompt", "limit": 1})
+            if rows and rows[0].get("content"):
+                return rows[0]["content"]
+        except Exception as e:
+            logger.warning("prompt.load.supabase_failed", error=str(e))
+
+        # File fallback
+        if self.file_path.exists():
+            logger.warning("prompt.load.using_file_fallback")
+            return self.file_path.read_text(encoding="utf-8")
+
+        raise RuntimeError(
+            "Cannot load prompt from Supabase or file fallback. "
+            "Refusing to start."
+        )
+
+    async def push(self, content: str):
+        """Push .md content to Supabase (sync direction: file → Supabase)."""
+        await self.client.upsert("helm_prompt", {
+            "name": "prime_system_prompt",
+            "content": content,
+            "updated_at": datetime.utcnow().isoformat()
+        })
+        logger.info("prompt.pushed")
+
+    async def pull(self) -> str:
+        """Pull from Supabase, write to .md file (reverse sync)."""
+        content = await self.load()
+        await self._atomic_write(self.file_path, content)
+        logger.info("prompt.pulled", path=str(self.file_path))
+        return content
 ```
 
-2. Verify `.env.local` is in `helm-ui/.gitignore` (it should already be — `.env.local` is for per-machine overrides that should not be committed).
+**Container fail-mode:** If both Supabase and file fallback are unreachable, `load()` raises `RuntimeError`. The runtime refuses to boot. Silent degraded Prime is worse than a clear failure. This is an explicit design decision — document in the PR.
 
-3. Verify `.env` is NOT in `.gitignore` (it should not be — this file is intentionally tracked).
+**Canonical workflow:**
+1. Edit `agents/helm/helm_prompt.md` locally
+2. Run `python -m memory.prompt push` (replaces `sync_prompt.sh`)
+3. Commit the `.md` as a snapshot of what was pushed
 
-4. Key source: Supabase Dashboard → Settings → API → `anon` (public) key. **NOT the service_role key.**
+Or reverse:
+1. Edit via Supabase Studio (emergencies only)
+2. Run `python -m memory.prompt pull` (replaces `pull_prompt.sh`)
+3. Commit the `.md`
 
-**Deliverable:** One PR — `helm-ui/.env` with Supabase URL and anon key. Verify `.gitignore` is correct.
+**The rule:** The `.md` file in git is always a mirror, never the source. Add a comment header to `helm_prompt.md`:
 
----
+```
+<!-- SNAPSHOT — canonical source is Supabase helm_prompt table.
+     Do not edit directly. Use: python -m memory.prompt push (to upload)
+     or python -m memory.prompt pull (to refresh from Supabase).
+     See docs/stage1/schema-reference.md for architecture. -->
+```
 
-### T1.7 — UI Interaction Spec Document
-
-**What:** Write the spec document defining the full contract between UI and runtime. Three layers. This is the reference Helm IDE builds against for T2.4 and the UI team builds against for T3.1-T3.4.
-
-**Owner:** Architect produces this. Not a Helm IDE build task.
-
-**File:** `docs/stage1/ui-interaction-spec.md`
-
-**Layer 1 — Request/Response Contract:**
-
-Endpoints: `POST /invoke/helm_prime` (send message, receive response), `GET /health` (status), `GET /config/agents` (agent roster).
-
-Request schema: `user_message` (string), `session_id` (UUID), `turn_number` (int), `context` (optional dict), `project` (optional string), `agent` (string).
-
-Response: `{text: string, routing: string, ui_directives: array}` JSON. Plain text fallback.
-
-Session management: UI generates UUID on first load, persists in localStorage, sends with every request.
-
-Error handling: "Helm is unreachable" after three consecutive `/health` failures. Messages queue locally.
-
-**Layer 2 — SSE Event Channel:**
-
-Endpoint: `GET /events` — Server-Sent Events stream.
-
-Event schema: `{type, agent, action, timestamp, payload}`
-
-12 event types: `agent_invoked`, `agent_completed`, `agent_error`, `contemplator_pass_started`, `contemplator_pass_completed`, `frame_written`, `frame_migrated`, `belief_updated`, `curiosity_flag`, `personality_read`, `system_health`, `session_started`.
-
-Node state mapping: `agent_invoked` (prime) → blue pulse, `contemplator_pass_started` → amber glow, `agent_completed` (prime) → idle, `agent_error` → red flash (3s decay).
-
-**Layer 3 — UI Directives:**
-
-7 actions: `open_widget`, `close_widget`, `minimize_widget`, `expand_widget`, `highlight_entry`, `open_split`, `close_split`.
-
-7 widget identifiers: `agent_status`, `core_beliefs`, `personality`, `memory`, `entities`, `signals`, `logs`.
-
-Directive decision lives in Prime's reasoning. Most responses have empty `ui_directives`.
-
-**Deliverable:** One PR — `docs/stage1/ui-interaction-spec.md`.
-
----
-
-## Phase 2 — Backend Build
-
-Requires Lane C closed. These tasks modify `main.py`, `helm_prime.py`, Supabase schema, and `helm_prompt.md`.
-
----
-
-### T2.1 — Supabase Prompt Storage
-
-**Priority:** FIRST TASK when Lane C closes.
-
-**What:** Move `helm_prompt.md` from volume-mounted file into Supabase. The prompt becomes brain content — versionable, deployment-agnostic, consistent with canonical brain rule.
-
-**Table schema:**
+**helm_prompt table migration** (from original T2.1 — now part of T0.5):
 
 ```sql
 CREATE TABLE helm_prompt (
@@ -360,68 +451,382 @@ CREATE POLICY "anon_read_helm_prompt" ON helm_prompt
   FOR SELECT TO anon USING (true);
 ```
 
-**Sync script:** `scripts/sync_prompt.sh` — reads `.md` file, pushes content to Supabase via curl PATCH.
+**Post-merge manual step (Maxwell):** Enable Realtime on `helm_prompt` table.
 
-**Handler update:** `_load_base_prompt()` reads from Supabase first, falls back to file. Non-fatal fallback (same pattern as personality loading).
+**Update to helm_prime.py:** `_load_base_prompt()` now calls `PromptManager.load()` instead of reading the file directly. The volume mount in docker-compose.yml remains as the file fallback path.
 
-**Post-merge (Maxwell):** Enable Realtime on `helm_prompt` in Dashboard.
-
-**Deliverable:** One PR — migration + sync script + handler update.
+**Deliverable:** One PR — prompt manager module + migration SQL + helm_prime.py update + .md header comment.
 
 ---
 
-### T2.2 — Schema Reference Doc
+### T0.6 — Shell Deprecation + Cleanup
 
-**What:** Widget Data Map output — documents every table, column, RPC, query pattern, and Realtime/RLS status. The reference for all integration work.
+**What:** Remove or reduce shell scripts that have been replaced by the memory module. Document what remains and why.
 
-**File:** `docs/stage1/schema-reference.md`
+**Scripts to delete:**
+- `scripts/brain.sh` → replaced by `memory.write()` for in-process agents. For external agents (Claude Code), provide `python -m memory.write` CLI entry point or leave `brain.sh` as a thin shim that calls the Python module (one-release deprecation, then delete).
+- `scripts/snapshot.sh` → replaced by `memory.snapshot` service (T0.4)
+- `scripts/sync_prompt.sh` → replaced by `memory.prompt push` (T0.5)
+- `scripts/pull_prompt.sh` → replaced by `memory.prompt pull` (T0.5)
 
-**Write after T2.5-T2.8** so all schema changes are reflected.
+**Scripts that remain (legitimately shell):**
+- `scripts/pull_models.sh` — one-time operator tool for Ollama model pre-pulls. Shell is correct for this.
+
+**Agent prompt updates:** `helm_prompt.md` currently encodes `bash scripts/brain.sh ...` syntax in Routine 4. Update to reference the Python memory API:
+
+```
+# Before (shell)
+bash scripts/brain.sh hammerfall-solutions helm behavioral "Pattern — slug | statement"
+
+# After (Python — in-process)
+memory.write(project="hammerfall-solutions", agent="helm",
+             memory_type="behavioral", content="Pattern — slug | statement")
+```
+
+For Claude Code sessions (external agents), the prompt references `python -m memory.write ...` CLI or, preferably, an MCP tool.
+
+**Decision on brain.sh transition:**
+- **Option A:** Delete `brain.sh` immediately. Claude Code sessions use `python -m memory.write` CLI. Clean break.
+- **Option B:** Leave `brain.sh` as a one-line shim (`exec python -m memory.write "$@"`) for one release. Delete in the next phase. Gentler transition.
+
+**Recommendation:** Option A. Claude Code sessions can call Python directly. The shim adds a maintenance surface for no real benefit. If Helm IDE disagrees, Option B is fine — the shim is trivial.
+
+**Deliverable:** One PR — script deletions + prompt updates + CLI entry point if needed.
+
+---
+
+## T0 Impact on Downstream Phases
+
+T0 changes the substrate that Phase 2 builds on. Here is what changes in every downstream task:
+
+| Original Task | Impact from T0 |
+|---|---|
+| T2.1 (Prompt storage) | **Absorbed into T0.5.** The `helm_prompt` table, sync/pull, handler update, and refuse-to-boot logic are all part of the prompt management module. T2.1 is deleted from Phase 2. |
+| T2.2 (Async handoff) | **Simplified.** The `asyncio.create_task()` wrapper now calls `memory.write()` instead of raw `supabase_client` calls. The outbox pattern (T0.2) provides durability automatically. Archivist drain failures emit SSE `system_health` events via structured logging hooks. |
+| T2.3 (SSE endpoint) | **No change to scope.** SSE is runtime infrastructure, not memory. But emit points in `main.py` now emit via `structlog` events that the SSE layer can subscribe to, rather than manual `emit_event()` calls scattered through the code. Cleaner integration. |
+| T2.5 (Belief slugs) | **Slug utility lives in memory module.** `memory/models.py` includes `generate_slug()` as a classmethod on the `Entry` model or a standalone utility. Both backfill and runtime write path use it. One implementation. |
+| T2.6 (Belief history) | **Writes through memory module.** `memory.write_belief_update(belief_id, previous, new, summary)` handles both the `helm_beliefs` strength update and the `helm_belief_history` insert in a single transactional call. No separate write paths. |
+| T2.7 (Signals) | **Dual-write hook lives in memory module.** `memory.write()` detects pattern entries (content starts with `Pattern —`) and automatically inserts into `helm_signals` alongside `helm_memory`. The hook is in the data layer where it belongs, not in agent code or orchestration. Routine 4 in `helm_prompt.md` does NOT change — Prime keeps writing patterns in the same text format. |
+| T3.3 (Supabase integration) | **No change.** UI reads from Supabase directly via anon key. The memory module is server-side write infrastructure — the UI does not call it. |
+| T3.4 (Runtime integration) | **Simplified.** The runtime's write infrastructure is now unified and reliable. SSE events fire from structured log hooks. Connection status reflects the circuit breaker state. |
+
+---
+
+## Phase 1 — Freestanding UI Tasks
+
+These tasks have zero backend dependency. They can run in parallel with T0. Each is a standalone PR or batchable with `[BATCH]` in the title.
+
+---
+
+### T1.1 — Remove Speaker from mockData.js
+
+**What:** `AGENT_STATUS`, `ACTIVITY`, and `LOGS` arrays in `helm-ui/src/data/mockData.js` still contain Speaker entries. Speaker was killed in PR #78. Mock data must reflect the four-agent architecture.
+
+**Changes:**
+1. `AGENT_STATUS` — remove Speaker entry. Four agents remain: Helm Prime (Anthropic, claude-opus-4-6), Projectionist (Ollama, qwen3:4b), Archivist (Ollama, qwen3:14b), Contemplator (Ollama, qwen3:14b).
+2. `ACTIVITY` — remove entries referencing Speaker. Replace with Helm Prime where routing is referenced.
+3. `LOGS` — update "All 5 agents" → "All 4 agents". Update `routing` fields.
+4. **Rename the mock field** from `routing: "X"` (string) to `subsystems_invoked: [...]` (array). Empty array = pure Prime turn. Canonical values: `"projectionist"`, `"archivist"`, `"contemplator"` (lowercase, matching `/config/agents` keys). **Prime never appears in the array** — he is always the voice, listing him is noise. Set semantics — no duplicates.
+
+**Verification:** Run UI. Agent Status = four agents. Activity tab = no Speaker. No `routing` field anywhere in mocks.
+
+**Deliverable:** One PR. Can batch with T1.2.
+
+---
+
+### T1.2 — Update Mock IDs to UUIDs
+
+**What:** Replace short IDs (`"b1"`, `"e1"`) with 36-character UUIDs across all mock exports. Catches layout breakage before real data arrives.
+
+**Use deterministic fake UUIDs** (e.g., `"00000000-0000-4000-8000-000000000001"`).
+
+**Deliverable:** One PR. Can batch with T1.1.
+
+---
+
+### T1.3 — Hardcode Personality Translations
+
+**What:** Move `translations` mapping from mockData.js into PersonalityWidget as a constant. Lift all 6 dimensions verbatim from current mock data. Add nearest-score lookup function.
 
 **Deliverable:** One PR.
 
 ---
 
-### T2.3 — Contemplator→Archivist Async Handoff
+### T1.4 — Date Formatting Utility
 
-**What:** Wrap Archivist write calls in `asyncio.create_task()` so Contemplator returns immediately. Archivist writes run in the background. Errors logged, not propagated.
+**What:** Create `helm-ui/src/utils/formatDate.js` with `date`, `time`, `datetime`, `relative` formats. Apply across all widgets that display timestamps.
 
-**Why now:** Prevents tech debt that surfaces during Stage 3 Thor deployment.
-
-**Deliverable:** One PR — `main.py` orchestration change.
+**Deliverable:** One PR.
 
 ---
 
-### T2.4 — SSE Endpoint + UI Directive Support
+### T1.5a — Glass Morphism: Define CSS Design Tokens
 
-**What:** The largest task in this spec. Three parts:
+**What:** Create a single CSS custom properties file (or `:root` block) defining all design tokens from the glass morphism spec. Every color, blur amount, border width, font size, border radius, and scrollbar style becomes a named CSS variable.
 
-**Part 1 — `GET /events` SSE endpoint in `main.py`:** Global event bus using `asyncio.Queue` per connected client. Add `sse-starlette` to requirements.txt. Add `emit_event()` calls at 12 locations in `main.py` (before/after each handler dispatch, in exception catches, at session start, on health checks).
+**Token table:**
 
-**Part 2 — Response format change in `helm_prime.py`:** Output becomes `{text, routing, ui_directives}` JSON. Parser attempts to extract structured directives from model output, falls back to wrapping plain text.
+| Token | CSS Variable | Value |
+|---|---|---|
+| Background | `--helm-bg` | `#0a0e1a` |
+| Panel surface | `--helm-panel-bg` | `rgba(10, 20, 40, 0.6)` |
+| Panel surface hover | `--helm-panel-bg-hover` | `rgba(15, 25, 50, 0.8)` |
+| Blur | `--helm-blur` | `blur(20px)` |
+| Border | `--helm-border` | `0.5px solid rgba(80, 140, 220, 0.15)` |
+| Border hover | `--helm-border-hover` | `rgba(80, 140, 220, 0.35)` |
+| Text primary | `--helm-text` | `#c8deff` |
+| Text muted | `--helm-text-muted` | `rgba(120, 160, 210, 0.5)` |
+| Text label | `--helm-text-label` | `#7ab4ff` |
+| Text helm | `--helm-text-helm` | `#a8c8ff` |
+| Text user | `--helm-text-user` | `rgba(160, 200, 240, 0.5)` |
+| Status green | `--helm-green` | `#2aff8a` |
+| Amber | `--helm-amber` | `rgba(220, 160, 80, 0.8)` |
+| Error red | `--helm-red` | `#ff4444` |
+| Interactive | `--helm-blue` | `#3a7aff` |
+| Font | `--helm-font` | `'IBM Plex Mono', 'Space Mono', monospace` |
+| Font label size | `--helm-font-label` | `11px` |
+| Font body size | `--helm-font-body` | `13px` |
+| Border radius | `--helm-radius` | `8px` |
 
-**Part 3 — Directive vocabulary in `helm_prompt.md`:** New section teaching Prime about the 7 directive actions, 7 widget identifiers, when to emit directives, and the JSON response format.
-
-**Deliverable:** One large PR or split into 2 (SSE endpoint + response format change).
+**Deliverable:** One PR — CSS tokens file only. No component changes.
 
 ---
 
-### T2.5 — Add `slug` Column to `helm_beliefs`
+### T1.5b — Glass Morphism: Apply Tokens Across Components
 
-**What:** UI cross-references beliefs by slug. Migration adds column + unique index. Backfill generates slugs from belief text (lowercase, hyphenated, first 5-6 words).
+**What:** Replace all hardcoded color, blur, border, and font values across Console and widget components with the CSS variables from T1.5a.
+
+**Components to update:** Console drawer, docked widgets, canvas widgets, widget content areas, Console input bar, scrollbars.
+
+**What to avoid:** Opaque backgrounds, borders >1px, drop shadows, pure white text, inconsistent border-radius.
+
+**Deliverable:** One PR — component style updates referencing CSS variables.
+
+---
+
+### T1.6 — Commit Supabase Anon Key to Repo
+
+**What:** Create `helm-ui/.env` (committed, not gitignored) with Supabase URL and anon key. The anon key is designed to be public — RLS controls access. The service key must never be committed.
+
+```
+VITE_SUPABASE_URL=https://zlcvrfmbtpxlhsqosdqf.supabase.co
+VITE_SUPABASE_ANON_KEY=<anon key from spec>
+```
+
+Verify `.env.local` is in `.gitignore`. Verify `.env` is NOT in `.gitignore`.
+
+**Deliverable:** One PR.
+
+---
+
+### T1.7 — UI Interaction Spec Document (HARD GATE)
+
+> **⛔ Phase 2 does not open until T1.7 is reviewed and accepted by both Helm IDE and Architect.**
+
+**What:** Write `docs/stage1/ui-interaction-spec.md` defining the full contract between UI and runtime.
+
+**Owner:** Architect produces. Helm IDE reviews and accepts before building T2.3.
+
+**Layer 1 — Request/Response Contract:**
+
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/invoke/helm_prime` | POST | Send message, receive response |
+| `/health` | GET | Runtime health — UI polls at 5s interval, 3 consecutive failures = "unreachable" |
+| `/config/agents` | GET | Agent roster for Agent Status widget |
+
+Request schema: `user_message` (string), `session_id` (UUID), `turn_number` (int), `context` (optional dict), `project` (optional string). **No `agent` field in body** — the URL path `/invoke/helm_prime` is the agent selector.
+
+Response schema:
+```json
+{
+  "text": "Helm's response",
+  "subsystems_invoked": ["projectionist", "archivist"],
+  "ui_directives": []
+}
+```
+
+`subsystems_invoked` — array of lowercase subsystem names that fired during this turn. Set semantics (no duplicates). Canonical values: `"projectionist"`, `"archivist"`, `"contemplator"`. **Prime never appears** — empty array = pure Prime turn.
+
+Session management: UI generates UUID on first load, persists in `localStorage`. Per-device sessions at T1 — known limitation, Stage 2 follow-up for cross-device session identity via Supabase.
+
+**Layer 2 — SSE Event Channel:**
+
+Endpoint: `GET /events` — Server-Sent Events stream.
+
+Event schema: `{type, agent, action, timestamp, payload}`
+
+Event types:
+
+| Event | Agent | When | Payload |
+|---|---|---|---|
+| `agent_invoked` | Any | Handler called | `{}` |
+| `agent_completed` | Any | Handler returned | `{latency_ms}` |
+| `agent_error` | Any | Handler exception | `{error}` |
+| `contemplator_pass_started` | Contemplator | Deep pass begins | `{}` |
+| `contemplator_pass_completed` | Contemplator | Deep pass ends | `{summary}` |
+| `frame_written` | Projectionist | Frame committed | `{frame_id}` |
+| `frame_migrated` | Archivist | Cold drain complete | `{count}` |
+| `belief_updated` | Contemplator | Strength changed | `{belief_id, delta}` |
+| `curiosity_flag` | Contemplator | New curiosity | `{flag}` |
+| `personality_read` | Prime | Scores loaded | `{}` |
+| `system_health` | Runtime | Health result | `{status, details}` |
+| `session_started` | Runtime | New session | `{session_id}` |
+| `archivist_drain_failed` | Runtime | Async drain error | `{error, severity: "error"}` |
+| `client_lagging` | Runtime | Queue overflow | `{missed_count}` |
+
+SSE backpressure: `asyncio.Queue(maxsize=256)`, drop-oldest on overflow. When overflow occurs, emit `client_lagging` with missed count to that client.
+
+Node state mapping:
+- `agent_invoked` (helm_prime) → processing (blue pulse)
+- `contemplator_pass_started` → contemplating (amber glow)
+- `agent_completed` (helm_prime) → idle
+- `agent_error` → error (red flash, 3s decay)
+
+**Layer 3 — UI Directives (Helm's hands):**
+
+7 actions: `open_widget`, `close_widget`, `minimize_widget`, `expand_widget`, `highlight_entry`, `open_split`, `close_split`.
+
+7 widget identifiers: `agent_status`, `core_beliefs`, `personality`, `memory`, `entities`, `signals`, `logs`.
+
+Directive decision lives in Prime's reasoning — not a classifier. Most responses have empty `ui_directives`.
+
+Fallback: plain text responses always work. If JSON parse fails, Console treats the entire response as chat text with no directives.
+
+**Deliverable:** One PR — `docs/stage1/ui-interaction-spec.md`. Must be accepted before Phase 2 opens.
+
+---
+
+## Phase 2 — Backend Build
+
+Requires T0 complete + T1.7 locked. All write operations now go through the memory module from T0.
+
+---
+
+### T2.1 — ABSORBED INTO T0.5
+
+Supabase prompt storage (migration, sync, pull, handler, refuse-to-boot) is now part of T0.5 (Prompt Management). Removed from Phase 2.
+
+---
+
+### T2.2 — Contemplator→Archivist Async Handoff
+
+**What:** Wrap Archivist write calls in `asyncio.create_task()` so Contemplator returns immediately. Archivist writes run in background via the memory module.
+
+**Failure visibility:** Errors are logged via `structlog` AND emit `archivist_drain_failed` SSE event with `severity: "error"`. The Console System tab surfaces it immediately. No silent failures.
+
+**T0 simplification:** The outbox pattern (T0.2) provides automatic durability. If Archivist's async drain fails and the circuit breaker opens, writes buffer in the outbox and drain when connectivity returns. The previous concern about "errors logged, not propagated" is addressed by the outbox — writes are not lost, just deferred.
+
+**Deliverable:** One PR — `main.py` orchestration change. Verify with a Contemplator invocation that Contemplator returns faster while Archivist drains asynchronously.
+
+---
+
+### T2.3 — SSE Endpoint + UI Directive Support + Prompt Caching
+
+**What:** The largest single task. Three parts plus one optimization:
+
+**Part A — `GET /events` SSE endpoint in `main.py`:**
+
+```python
+from sse_starlette.sse import EventSourceResponse
+
+event_clients: list[asyncio.Queue] = []
+
+async def emit_event(event_type, agent, action, payload=None):
+    event = {
+        "type": event_type, "agent": agent, "action": action,
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "payload": payload or {}
+    }
+    for queue in event_clients:
+        if queue.full():
+            try:
+                queue.get_nowait()  # drop-oldest
+            except asyncio.QueueEmpty:
+                pass
+            await emit_event("client_lagging", "runtime", "queue_overflow",
+                             {"missed_count": 1})
+        await queue.put(event)
+```
+
+Queue: `asyncio.Queue(maxsize=256)`. Drop-oldest on overflow. Emit `client_lagging` to the affected client.
+
+Add `sse-starlette` to `requirements.txt`.
+
+12+ emit points in `main.py` — before/after each handler dispatch, in exception catches, at session start, on health checks, on archivist drain failure.
+
+**Part B — Response format change in `helm_prime.py`:**
+
+Output becomes `{text, subsystems_invoked, ui_directives}` JSON.
+
+```python
+def _parse_structured_response(raw: str) -> dict:
+    try:
+        parsed = json.loads(raw)
+        if "text" in parsed:
+            parsed.setdefault("subsystems_invoked", [])
+            parsed.setdefault("ui_directives", [])
+            return parsed
+    except (json.JSONDecodeError, TypeError):
+        pass
+    return {"text": raw, "subsystems_invoked": [], "ui_directives": []}
+```
+
+**Part C — Directive vocabulary in `helm_prompt.md`:**
+
+New section teaching Prime the 7 directive actions, 7 widget identifiers, when to emit, and the JSON response format.
+
+**Part D — Prompt caching (optimization):**
+
+Enable Anthropic prompt caching on the system prompt. Mark the system prompt with the cache control header so tokens are free after the first turn in a session.
+
+```python
+# In helm_prime.py — add cache_control to system message
+messages = [
+    {
+        "role": "system",
+        "content": system_prompt,
+        "cache_control": {"type": "ephemeral"}  # Anthropic caching
+    },
+    {"role": "user", "content": req.user_message},
+]
+
+# Comment:
+# Anthropic prompt caching: cached prefix must be ≥1024 tokens.
+# Current helm_prompt.md is well above this threshold.
+# If future edits slim the prompt below 1024 tokens, caching
+# silently stops. Cache TTL is 5 minutes — long sessions stay
+# warm, one-off turns pay re-compute on first call.
+```
+
+**Verify** that `model_router.py` / LiteLLM supports the `cache_control` header pass-through. If not, this becomes a model_router enhancement in the same PR.
+
+**Deliverable:** Split into 2 PRs: (A) SSE endpoint + backpressure, (B) response format + directives + caching.
+
+---
+
+### T2.4 — Add `slug` Column to `helm_beliefs`
+
+**What:** UI cross-references beliefs by slug. Migration + backfill.
 
 ```sql
 ALTER TABLE helm_beliefs ADD COLUMN slug TEXT;
 CREATE UNIQUE INDEX idx_helm_beliefs_slug ON helm_beliefs(slug) WHERE slug IS NOT NULL;
 ```
 
-**Deliverable:** One PR — migration + backfill.
+**Slug algorithm:** Lowercase, non-alphanumerics → hyphens, collapse runs, trim, first ~50 chars at word boundary. Collision: deterministic suffix `-2`, `-3`, ordered by `created_at` (older keeps bare slug). Written in Python — shared utility in `memory/models.py` used by both backfill script and runtime write path. One implementation, zero divergence.
+
+**Backfill:** Python script (SELECT → compute → UPDATE in batches). NOT PL/pgSQL in the migration.
+
+**Maxwell post-merge checklist:** None — `helm_beliefs` already has RLS and Realtime.
+
+**Deliverable:** One PR — migration SQL + Python backfill script + slug utility in memory module.
 
 ---
 
-### T2.6 — Belief Observation History
+### T2.5 — Belief Observation History
 
-**What:** New `helm_belief_history` table tracking strength deltas. When Contemplator updates a belief, it reads current strength, writes a history row with previous/new/delta/summary, then updates the belief.
+**What:** New `helm_belief_history` table. Contemplator writes history rows through `memory.write_belief_update()` — a single call handles both the `helm_beliefs` strength update and the history insert.
 
 ```sql
 CREATE TABLE helm_belief_history (
@@ -434,79 +839,299 @@ CREATE TABLE helm_belief_history (
   source TEXT DEFAULT 'contemplator',
   created_at TIMESTAMPTZ DEFAULT now()
 );
+
+CREATE INDEX idx_belief_history_belief_id ON helm_belief_history(belief_id);
+
+ALTER TABLE helm_belief_history ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "anon_read_helm_belief_history" ON helm_belief_history
+  FOR SELECT TO anon USING (true);
 ```
 
-**Post-merge (Maxwell):** Enable RLS + Realtime on `helm_belief_history`.
+**Maxwell post-merge checklist:**
+- [ ] Enable Realtime on `helm_belief_history` in Dashboard → Database → Replication
 
-**Deliverable:** One PR — migration + Contemplator write-path update.
-
----
-
-### T2.7 — RPC Function `get_signals()`
-
-**What:** Aggregate pattern entries from `helm_memory` into structured signal objects. Returns slug, statement, domain, first_seen, observation_count. Parsing depends on Routine 4's `Pattern — slug | statement | domain: X` format.
-
-**Deliverable:** One PR — migration with RPC function.
+**Deliverable:** One PR — migration + memory module `write_belief_update()` method.
 
 ---
 
-### T2.8 — RPC Function `get_entities_with_counts()`
+### T2.6 — Signals Table + Dual-Write Hook
 
-**What:** Return entities with relationship counts via LEFT JOIN against `helm_entity_relationships`.
+**What:** Replace the brittle text-parsing RPC with a proper `helm_signals` table. A pre-write hook in the memory module's `write()` method detects pattern entries and automatically inserts into `helm_signals` alongside `helm_memory`.
 
-**Deliverable:** One PR — migration with RPC function.
+**Table:**
+
+```sql
+CREATE TABLE helm_signals (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  slug TEXT NOT NULL,
+  statement TEXT NOT NULL,
+  domain TEXT DEFAULT 'general',
+  first_seen TIMESTAMPTZ DEFAULT now(),
+  observation_count INTEGER DEFAULT 1,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE UNIQUE INDEX idx_helm_signals_slug ON helm_signals(slug);
+
+ALTER TABLE helm_signals ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "anon_read_helm_signals" ON helm_signals
+  FOR SELECT TO anon USING (true);
+```
+
+**Dual-write hook — lives in `memory/writer.py`:**
+
+```python
+async def write(self, project, agent, memory_type, content, **kwargs):
+    entry = Entry(project=project, agent=agent,
+                  memory_type=memory_type, content=content, **kwargs)
+
+    # Dual-write: detect pattern entries and mirror to helm_signals
+    if memory_type == MemoryType.PATTERN or content.startswith("Pattern —"):
+        await self._write_signal(entry)
+
+    # Primary write to helm_memory
+    await self._write_memory(entry)
+    return entry.id
+
+async def _write_signal(self, entry: Entry):
+    """Extract signal from pattern entry and upsert to helm_signals."""
+    slug = self._extract_signal_slug(entry.content)
+    if not slug:
+        return
+    # Upsert: increment observation_count if slug exists
+    existing = await self.client.get("helm_signals",
+                params={"slug": f"eq.{slug}"})
+    if existing:
+        await self.client.update("helm_signals", {
+            "observation_count": existing[0]["observation_count"] + 1,
+            "updated_at": datetime.utcnow().isoformat()
+        }, params={"slug": f"eq.{slug}"})
+    else:
+        statement = self._extract_signal_statement(entry.content)
+        domain = self._extract_signal_domain(entry.content)
+        await self.client.insert("helm_signals", {
+            "slug": slug, "statement": statement, "domain": domain
+        })
+```
+
+**Key design point:** The `Pattern —` prefix detection happens at write time in the memory module — code we author and control. This is NOT the same as parsing in a query path (which would be brittle against Helm's evolving language). At write time, the format is deterministic because Routine 4 specifies it. If Routine 4's format changes, the hook changes in the same PR. One file, one change, no silent drift.
+
+**Routine 4 in `helm_prompt.md` does NOT change.** Prime keeps writing patterns in the same text format. The hook handles structured extraction transparently.
+
+**`get_signals()` becomes trivial:**
+
+```sql
+-- No parsing, no aggregation — just a SELECT
+CREATE OR REPLACE FUNCTION get_signals()
+RETURNS SETOF helm_signals AS $$
+  SELECT * FROM helm_signals ORDER BY observation_count DESC;
+$$ LANGUAGE sql STABLE;
+```
+
+**Maxwell post-merge checklist:**
+- [ ] Enable Realtime on `helm_signals` in Dashboard → Database → Replication
+
+**Deliverable:** 1-2 PRs — migration + hook in memory module + trivial RPC.
+
+---
+
+### T2.7 — RPC Function `get_entities_with_counts()`
+
+**What:** Return entities with relationship counts via LEFT JOIN.
+
+```sql
+CREATE OR REPLACE FUNCTION get_entities_with_counts()
+RETURNS TABLE (
+  id UUID, name TEXT, entity_type TEXT, attributes JSONB,
+  aliases TEXT[], active BOOLEAN, created_at TIMESTAMPTZ,
+  relationship_count BIGINT
+) AS $$
+  SELECT e.id, e.name, e.entity_type, e.attributes, e.aliases,
+         e.active, e.created_at, COUNT(r.id) AS relationship_count
+  FROM helm_entities e
+  LEFT JOIN helm_entity_relationships r
+    ON e.id = r.source_entity_id OR e.id = r.target_entity_id
+  WHERE e.active = true
+  GROUP BY e.id ORDER BY e.name;
+$$ LANGUAGE sql STABLE;
+```
+
+**Deliverable:** One PR — migration with RPC.
+
+---
+
+### T2.8 — Schema Reference Doc (LAST in Phase 2)
+
+**What:** Write `docs/stage1/schema-reference.md` — the Widget Data Map output. Documents every table (including new ones from T0/T2), every column, every RPC, every query pattern, Realtime/RLS status.
+
+**Write this LAST** so all schema changes from T0 and T2 are reflected.
+
+**Tables to document:** `helm_beliefs`, `helm_belief_history`, `helm_memory`, `helm_memory_index`, `helm_entities`, `helm_entity_relationships`, `helm_personality`, `helm_frames`, `helm_prompt`, `helm_signals`
+
+**RPC functions:** `get_signals()`, `get_entities_with_counts()`, `match_memories()`, `match_beliefs()`, `match_entities()`
+
+**Deliverable:** One PR.
 
 ---
 
 ## Phase 3 — Integration + Launch Validation
 
 > **⛔ DO NOT START Phase 3 until Maxwell explicitly clears each task.**
+> Tier at PR-open time: mark `[BATCH]` in title for mechanical PRs.
 >
-> **Wait for:** "T2.4 is merged — proceed with T3.1 and T3.2."
-> **Wait for:** "T2.5-T2.8 are merged — proceed with T3.3."
+> **Wait for:** "T2.3 is merged — proceed with T3.1 and T3.2."
+> **Wait for:** "T2.4-T2.7 are merged — proceed with T3.3."
 > **Wait for:** "T3.3 is merged — proceed with T3.4."
 
 ---
 
 ### T3.1 — JSON + Fallback Response Parser
 
-**Blocked on:** T2.4
+**Blocked on:** T2.3
 
-**What:** Console ChatWidget switches from plain text to structured JSON. Parser attempts JSON parse, extracts `text` for display, `routing` for turn badge, queues `ui_directives`. Falls back to plain text if parse fails. **Fallback is critical** — plain text must always work.
+**What:** Console ChatWidget switches from plain text to structured JSON.
 
-**Deliverable:** One PR — parser + ChatWidget integration.
+Parser logic:
+1. Attempt JSON parse
+2. Valid JSON with `text` → extract `text` for display, `subsystems_invoked` for turn pills, queue `ui_directives`
+3. Plain text (parse fails) → treat as chat text, empty subsystems, no directives
+4. JSON without `text` → log warning, display raw
+
+**Fallback is critical.** Plain text must always work.
+
+Turn badge: display `subsystems_invoked` as small pills beneath the response (e.g., `PROJ` `ARCH`). Empty array = no pills (pure Prime turn).
+
+**Deliverable:** One PR.
 
 ---
 
 ### T3.2 — `executeDirective()` Handler
 
-**Blocked on:** T2.4
+**Blocked on:** T2.3
 
-**What:** Execute UI directives from Helm's responses. Switch on action type, call widget manager methods (open, close, minimize, expand, highlight, openSplit, closeSplit). Unknown actions logged and ignored — forward-compatible.
+**What:** Execute UI directives from Helm's responses. Unknown actions logged and ignored — forward-compatible.
 
-**Deliverable:** One PR — directive handler + ChatWidget integration.
+```javascript
+export function executeDirective(directive, widgetManager) {
+  const { action, widget, target, tab, entry_id } = directive;
+  switch (action) {
+    case 'open_widget': widgetManager.open(widget, target || 'dock'); break;
+    case 'close_widget': widgetManager.close(widget); break;
+    case 'minimize_widget': widgetManager.minimize(widget); break;
+    case 'expand_widget': widgetManager.expand(widget); break;
+    case 'highlight_entry':
+      widgetManager.open(widget, 'dock');
+      widgetManager.highlight(widget, entry_id);
+      break;
+    case 'open_split': widgetManager.openSplit(tab || 'activity'); break;
+    case 'close_split': widgetManager.closeSplit(); break;
+    default: console.warn(`Unknown directive: ${action}`);
+  }
+}
+```
+
+**Deliverable:** One PR.
 
 ---
 
 ### T3.3 — Connect UI to Real Supabase
 
-**Blocked on:** T1.6 + T2.5-T2.8
+**Blocked on:** T1.6 + T2.4-T2.7
 
-**What:** Replace ALL mock imports with Supabase queries. Create `helm-ui/src/lib/supabase.js` with client. Per-widget: Personality → `select *`, Beliefs → `select *` + history, Entities → `rpc('get_entities_with_counts')`, Signals → `rpc('get_signals')`, Memory → `select *` ordered, Agent Status/Logs/Activity → runtime endpoints + SSE.
+**What:** Replace ALL mock imports with Supabase queries. Per-widget feature flags (`VITE_USE_MOCK_PERSONALITY=true` etc.) for safe rollback during T3.5 validation.
 
-Add Realtime subscriptions for live-updating widgets. Add loading states. Add error states.
+**Supabase client:** `helm-ui/src/lib/supabase.js`
 
-**Deliverable:** Multiple PRs — per-widget or grouped.
+```javascript
+import { createClient } from '@supabase/supabase-js';
+export const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
+```
+
+**Per-widget integration:**
+
+| Widget | Query | Realtime? |
+|---|---|---|
+| Personality | `supabase.from('helm_personality').select('*')` | Yes |
+| Core Beliefs | `select *` from `helm_beliefs` + `helm_belief_history` | Yes |
+| Entities | `supabase.rpc('get_entities_with_counts')` | Yes |
+| Signals | `supabase.rpc('get_signals')` | Refresh on demand |
+| Memory | `supabase.from('helm_memory').select('*').order('created_at', {ascending: false})` | Yes |
+| Agent Status | `/config/agents` + `/health` + SSE | Via SSE |
+| Logs | `helm_frames` + SSE | Via SSE |
+| Activity | SSE event stream only | Via SSE |
+
+**Realtime subscription pattern:**
+
+```javascript
+useEffect(() => {
+  const channel = supabase.channel('beliefs_changes')
+    .on('postgres_changes', {event: '*', schema: 'public', table: 'helm_beliefs'},
+      () => { fetchBeliefs(); })
+    .subscribe();
+  return () => { supabase.removeChannel(channel); };
+}, []);
+```
+
+**Loading states + error states** for every widget. Never crash on query failure.
+
+**Feature flags** — each widget checks `import.meta.env.VITE_USE_MOCK_<WIDGET>`:
+
+```javascript
+const useMock = import.meta.env.VITE_USE_MOCK_PERSONALITY === 'true';
+const data = useMock ? MOCK_PERSONALITY : await fetchFromSupabase();
+```
+
+Default: all flags absent (real data). Set individual flags to `'true'` in `.env.local` to fall back to mocks for specific widgets during debugging.
+
+**Deliverable:** Multiple PRs — per-widget or grouped. Each PR includes the feature flag.
 
 ---
 
 ### T3.4 — Connect UI to Real Runtime
 
-**Blocked on:** Lane C + T2.4
+**Blocked on:** T0 complete + T2.3
 
-**What:** Wire Chat to `POST /invoke/helm_prime`. Wire Activity/System tabs to `GET /events` SSE. Wire Helm node state to SSE events. Add connection status indicator (LIVE / DISCONNECTED / MOCKED).
+**What:** Wire Chat to `POST /invoke/helm_prime`. Wire Activity/System to SSE. Wire node state to SSE events. Add connection status indicator.
 
-**Deliverable:** One PR — chat + SSE + node state + connection indicator.
+**Chat:**
+
+```javascript
+async function sendMessage(message, sessionId, turnNumber) {
+  const response = await fetch('http://localhost:8000/invoke/helm_prime', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      user_message: message, session_id: sessionId,
+      turn_number: turnNumber
+    })
+  });
+  const raw = await response.text();
+  return parseHelmResponse(raw);
+}
+```
+
+**SSE:**
+
+```javascript
+const eventSource = new EventSource('http://localhost:8000/events');
+eventSource.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  addActivityEntry(data);
+  if (['system_health', 'session_started', 'archivist_drain_failed'].includes(data.type))
+    addSystemEntry(data);
+  if (data.type === 'agent_completed')
+    updateAgentStatus(data.agent, data.payload.latency_ms);
+  updateNodeState(data);
+};
+```
+
+**Connection indicator:** Console header badge — `LIVE` (green) when SSE connected, `DISCONNECTED` (red) when dropped, `MOCKED` (amber) when on mock data.
+
+**Deliverable:** One PR.
 
 ---
 
@@ -514,50 +1139,100 @@ Add Realtime subscriptions for live-updating widgets. Add loading states. Add er
 
 **Blocked on:** T3.1-T3.4
 
-**What:** End-to-end "Helm cares" test. Validation checklist:
+**What:** End-to-end validation. The "Helm cares" test.
+
+**Test protocol for personality validation:** One dimension varies per test. All other dimensions held at 0.5 baseline. Same input text for both 0.0 and 1.0 runs. Reviewer confirms qualitative difference in the right direction.
+
+| Prompt (same text both runs) | directness = 0.0 expected character | directness = 1.0 expected character |
+|---|---|---|
+| "What do you think of this plan?" | Hedged, diplomatic, leads with positives | Opens with verdict, lists problems first |
+| "Am I wrong about this?" | Gentle exploration, validates reasoning before noting gaps | Direct yes/no, then explains why |
+| "Give me your honest assessment." | Softened: "areas worth revisiting" | Unvarnished: "three things are wrong" |
+
+**Validation checklist:**
 
 - [ ] User talks to Helm, receives coherent response
-- [ ] Response is structured JSON with text + routing
-- [ ] Personality scores visibly affect responses (adjust directness, observe change)
+- [ ] Response is structured JSON with `text` + `subsystems_invoked`
+- [ ] Personality scores visibly affect responses (per test protocol above)
 - [ ] Contemplator curiosity flags surface at session start
-- [ ] All four subsystems fire — visible in Activity tab as live SSE events
-- [ ] Memory writes land in Supabase — visible in Memory widget
-- [ ] Personality slider changes reflect in next response
-- [ ] Belief history entries appear after strength changes
+- [ ] All four subsystems fire — visible in Activity tab as live SSE events with at least 3 distinct event types per turn
+- [ ] Insert a memory during conversation → visible in Supabase Studio AND Memory widget within ~2s via Realtime
+- [ ] Personality slider change in UI → reflected in next Helm response
+- [ ] Belief strength change → history entry visible in Beliefs widget
 - [ ] Entity relationship counts are accurate
-- [ ] Signals aggregate correctly
-- [ ] SSE events stream live (not mocked)
+- [ ] Signals aggregate correctly from pattern entries (counts match)
+- [ ] SSE events visible in browser DevTools Network tab as `text/event-stream` connection
 - [ ] System tab shows real health checks and session IDs
-- [ ] Node state matches activity (blue pulse, amber glow, idle)
-- [ ] Slash commands work (/status, /beliefs, /contemplate)
+- [ ] Node state matches activity (blue pulse → amber glow → idle)
+- [ ] Slash commands: `/status`, `/beliefs`, `/contemplate`
 - [ ] Split view: chat + activity simultaneously
-- [ ] Connection indicator shows LIVE
-- [ ] Runtime stopped → UI shows DISCONNECTED, queued messages send on reconnect
-- [ ] Voice coherence: Helm in UI = Helm in IDE
+- [ ] Connection indicator shows `LIVE`
+- [ ] Runtime stopped → UI shows `DISCONNECTED`, queued messages send on reconnect
+- [ ] Voice coherence: Helm in UI sounds like Helm in IDE
 - [ ] "Show me agent status" → Helm opens widget via directive
+- [ ] Memory module structured logs visible (correlation IDs, write counts)
+- [ ] Outbox drains correctly after simulated Supabase downtime
 
 **Deliverable:** SITREP with pass/fail per item. Failures become fix tasks.
 
 ---
 
-## Sequencing
+## Sequencing Diagram
 
 ```
-NOW:
-  T1.1-T1.5 — UI freestanding (no blocker)
-  T1.6      — Commit anon key to repo (.env)
-  T1.7      — UI Interaction Spec (Architect)
-
-LANE C CLOSES:
-  T2.1      — Supabase prompt storage (first)
-  T2.2      — Schema reference doc
-  T2.3      — Async handoff
-  T2.4      — SSE + directives (largest, unblocks Phase 3)
-  T2.5-T2.8 — Schema gaps + RPCs
-
-PHASE 2 COMPLETE (Maxwell clears):
-  T3.1-T3.2 — Parser + directives (after T2.4)
-  T3.3      — Supabase integration (after T2.5-T2.8)
-  T3.4      — Runtime integration (after T2.4)
-  T3.5      — Launch validation (after all)
+LANE C CLOSES (PR #87 merged)
+    │
+    ├──► T0 — Memory Foundation (sequential, 4-6 PRs)
+    │      T0.1 Core package + models + client
+    │      T0.2 Outbox pattern
+    │      T0.3 Migrate agents
+    │      T0.4 Snapshot service
+    │      T0.5 Prompt management (absorbs old T2.1)
+    │      T0.6 Shell deprecation
+    │
+    │    (Phase 1 runs in PARALLEL with T0)
+    ├──► T1.1-T1.5b — UI freestanding (no backend dependency)
+    │    T1.6 — Commit anon key
+    │    T1.7 — UI Interaction Spec (HARD GATE for Phase 2)
+    │
+    ▼
+T0 COMPLETE + T1.7 LOCKED → Phase 2 opens
+    │
+    ├── T2.2  Async handoff
+    ├── T2.3  SSE + directives + caching (largest, unblocks Phase 3)
+    ├── T2.4  Belief slugs
+    ├── T2.5  Belief history
+    ├── T2.6  Signals table + dual-write hook
+    ├── T2.7  Entities RPC
+    └── T2.8  Schema reference doc (LAST)
+    │
+    ▼
+PHASE 2 COMPLETE → Phase 3 (Maxwell clears each)
+    │
+    ├── T3.1  Response parser (after T2.3)
+    ├── T3.2  Directive handler (after T2.3)
+    ├── T3.3  Supabase integration (after T2.4-T2.7)
+    ├── T3.4  Runtime integration (after T0 + T2.3)
+    └── T3.5  Launch validation (after all)
 ```
+
+---
+
+## STOP Gate Tiers
+
+| Tier | When | Tasks |
+|---|---|---|
+| **Full STOP** (Architect + Max review) | Architectural or high-risk | T0.1, T0.3, T2.3, T2.6, T3.3, T3.4, T3.5 |
+| **Batch-merge** (`[BATCH]` in title, Max reviews in batch) | Mechanical, low regression risk | T1.1-T1.4, T1.5a, T1.5b, T1.6, T2.4, T2.5, T2.7, T2.8, T3.1, T3.2 |
+| Tier decided at PR-open time | If a batch PR discovers unexpected complexity, escalate to full STOP | Any |
+
+---
+
+## Migration Tooling
+
+Schema migrations use `supabase/migrations/` with numbered SQL files (existing pattern from Stage 0). Application method: `supabase db push` if CLI is configured, or manual paste into Supabase SQL Editor. First T0/T2 PR that adds a migration documents which method was used — all subsequent PRs follow.
+
+Every PR that creates a new table includes a **Maxwell post-merge checklist** in the PR description:
+- [ ] Enable RLS on new table
+- [ ] Enable Realtime on new table
+- [ ] Verify with a test query
