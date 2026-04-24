@@ -273,7 +273,7 @@ function getRelativeTime(date) {
 1. Create `helm-ui/.env` (NOT `.env.local` — this file will be tracked by git):
 ```
 VITE_SUPABASE_URL=https://zlcvrfmbtpxlhsqosdqf.supabase.co
-VITE_SUPABASE_ANON_KEY=<paste anon key here>
+VITE_SUPABASE_ANON_KEY=sb_publishable_9eE4T4FaYVLcYOg_1wok6g_W_nqCue8
 ```
 
 2. Verify `.env.local` is in `helm-ui/.gitignore` (it should already be — `.env.local` is for per-machine overrides that should not be committed).
