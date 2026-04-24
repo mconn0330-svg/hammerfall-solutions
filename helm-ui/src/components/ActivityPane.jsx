@@ -49,9 +49,39 @@ const TIME_PRESET_SHORT = {
   custom: 'Custom',
 }
 
+const MONTHS   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+const WEEKDAYS = ['Su','Mo','Tu','We','Th','Fr','Sa']
+
 function formatDuration(ms) {
   if (ms == null) return null
   return ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`
+}
+
+// `datetime-local` format is "YYYY-MM-DDTHH:mm"; we keep that as the canonical
+// wire format so it plugs directly into `new Date(...)` in eventInRange.
+function parseDtLocal(s) {
+  if (!s) return null
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(s)
+  if (!m) return null
+  return { year: +m[1], month: +m[2] - 1, day: +m[3], hour: +m[4], minute: +m[5] }
+}
+
+function formatDtLocal({ year, month, day, hour, minute }) {
+  const pad = n => String(n).padStart(2, '0')
+  return `${year}-${pad(month + 1)}-${pad(day)}T${pad(hour)}:${pad(minute)}`
+}
+
+function formatDisplay(s) {
+  const p = parseDtLocal(s)
+  if (!p) return ''
+  const pad = n => String(n).padStart(2, '0')
+  return `${MONTHS[p.month]} ${p.day}, ${pad(p.hour)}:${pad(p.minute)}`
+}
+
+function sameDay(a, b) {
+  return a.getFullYear() === b.getFullYear()
+      && a.getMonth()    === b.getMonth()
+      && a.getDate()     === b.getDate()
 }
 
 // Events carry timestamps in two shapes:
@@ -273,6 +303,9 @@ function TimeRangeControl({
   active,
 }) {
   const [open, setOpen] = useState(false)
+  // Which of the two fields (from / to) is currently showing its inline
+  // calendar. Only one at a time to keep the popover compact.
+  const [expandedField, setExpandedField] = useState(null)
   const rootRef = useRef(null)
 
   // Close on outside click / Esc while the popover is open.
@@ -287,6 +320,11 @@ function TimeRangeControl({
       window.removeEventListener('keydown',   onKey)
     }
   }, [open])
+
+  // Collapse any expanded calendar when leaving custom mode or closing.
+  useEffect(() => {
+    if (!open || mode !== 'custom') setExpandedField(null)
+  }, [open, mode])
 
   const label = active ? TIME_PRESET_SHORT[mode] || 'Custom' : 'Time'
 
@@ -325,7 +363,7 @@ function TimeRangeControl({
             style={{
               position: 'absolute',
               top: 'calc(100% + 6px)', right: 0,
-              minWidth: 220,
+              width: mode === 'custom' ? 300 : 220,
               background: 'rgba(10, 15, 24, 0.98)',
               border: '1px solid rgba(77,184,255,0.3)',
               borderRadius: 6,
@@ -351,8 +389,8 @@ function TimeRangeControl({
                     width: '100%',
                     padding: '7px 12px',
                     background: selected ? 'rgba(77,184,255,0.1)' : 'transparent',
+                    borderTop: 'none', borderRight: 'none', borderBottom: 'none',
                     borderLeft: selected ? '2px solid var(--node-primary)' : '2px solid transparent',
-                    border: 'none',
                     color: selected ? 'var(--node-primary)' : 'var(--text-primary)',
                     fontFamily: 'var(--sans)', fontSize: 11,
                     cursor: 'pointer', textAlign: 'left',
@@ -376,20 +414,24 @@ function TimeRangeControl({
               <div style={{
                 borderTop: '1px solid var(--border)',
                 padding: '10px 12px',
-                display: 'flex', flexDirection: 'column', gap: 6,
+                display: 'flex', flexDirection: 'column', gap: 8,
               }}>
-                <CustomRangeField
+                <GlassDateTimeField
                   label="From"
                   value={customStart}
                   onChange={setCustomStart}
+                  expanded={expandedField === 'from'}
+                  onToggle={() => setExpandedField(f => f === 'from' ? null : 'from')}
                 />
-                <CustomRangeField
+                <GlassDateTimeField
                   label="To"
                   value={customEnd}
                   onChange={setCustomEnd}
+                  expanded={expandedField === 'to'}
+                  onToggle={() => setExpandedField(f => f === 'to' ? null : 'to')}
                 />
                 <button
-                  onClick={() => { setCustomStart(''); setCustomEnd('') }}
+                  onClick={() => { setCustomStart(''); setCustomEnd(''); setExpandedField(null) }}
                   disabled={!customStart && !customEnd}
                   style={{
                     marginTop: 2,
@@ -444,33 +486,297 @@ function TimeRangeControl({
   )
 }
 
-function CustomRangeField({ label, value, onChange }) {
+// Bounded datetime field styled to match the surrounding glass popover.
+// Collapsed state: a button showing the formatted value (or "Any").
+// Expanded state: a mini calendar + HH:MM time row — all custom-drawn so we
+// never fall back to the browser's native datetime picker.
+function GlassDateTimeField({ label, value, onChange, expanded, onToggle }) {
+  const parsed = parseDtLocal(value)
+  const seed   = parsed || (() => {
+    const n = new Date()
+    return { year: n.getFullYear(), month: n.getMonth(), day: n.getDate(), hour: n.getHours(), minute: n.getMinutes() }
+  })()
+  const [viewYear,  setViewYear]  = useState(seed.year)
+  const [viewMonth, setViewMonth] = useState(seed.month)
+
+  const update = (patch) => {
+    const next = { ...seed, ...patch }
+    onChange(formatDtLocal(next))
+  }
+
+  const clear = (e) => {
+    e.stopPropagation()
+    onChange('')
+  }
+
   return (
-    <label style={{
-      display: 'flex', alignItems: 'center', gap: 8,
-      fontFamily: 'var(--sans)', fontSize: 10,
-      color: 'var(--text-dim)',
-      letterSpacing: '0.06em', textTransform: 'uppercase',
-    }}>
-      <span style={{ width: 32, flexShrink: 0 }}>{label}</span>
-      <input
-        type="datetime-local"
-        value={value}
-        onChange={e => onChange(e.target.value)}
+    <div>
+      <div style={{
+        fontFamily: 'var(--sans)', fontSize: 9,
+        letterSpacing: '0.1em', textTransform: 'uppercase',
+        color: 'var(--text-dim)',
+        marginBottom: 4,
+      }}>
+        {label}
+      </div>
+
+      <button
+        onClick={onToggle}
         style={{
-          flex: 1,
-          background: 'rgba(255,255,255,0.03)',
-          border: '1px solid var(--border)',
+          display: 'flex', alignItems: 'center', gap: 8,
+          width: '100%',
+          padding: '6px 8px',
+          background: expanded ? 'rgba(77,184,255,0.08)' : 'rgba(255,255,255,0.03)',
+          border: `1px solid ${expanded ? 'rgba(77,184,255,0.35)' : 'var(--border)'}`,
           borderRadius: 4,
-          color: 'var(--text-primary)',
-          fontFamily: 'var(--mono, monospace)', fontSize: 10,
-          padding: '4px 6px',
-          colorScheme: 'dark',
-          outline: 'none',
+          color: parsed ? 'var(--text-primary)' : 'var(--text-dim)',
+          fontFamily: 'var(--mono, monospace)', fontSize: 11,
+          cursor: 'pointer', textAlign: 'left',
         }}
-      />
-    </label>
+      >
+        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, opacity: 0.7 }}>
+          <rect x="2" y="3" width="12" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.3"/>
+          <path d="M2 6 H14" stroke="currentColor" strokeWidth="1.3"/>
+          <path d="M6 2 V4 M10 2 V4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+        </svg>
+        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {parsed ? formatDisplay(value) : 'Any'}
+        </span>
+        {parsed && (
+          <span
+            onClick={clear}
+            title="Clear"
+            style={{
+              width: 16, height: 16,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--text-dim)', fontSize: 12,
+              borderRadius: 3,
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+          >
+            ×
+          </span>
+        )}
+        <span style={{ fontSize: 8, opacity: 0.6, flexShrink: 0 }}>▾</span>
+      </button>
+
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.14 }}
+            style={{ overflow: 'hidden' }}
+          >
+            <div style={{
+              marginTop: 6,
+              padding: 8,
+              background: 'rgba(255,255,255,0.02)',
+              border: '1px solid var(--border)',
+              borderRadius: 4,
+            }}>
+              <MiniCalendar
+                viewYear={viewYear}
+                viewMonth={viewMonth}
+                setViewYear={setViewYear}
+                setViewMonth={setViewMonth}
+                selected={parsed ? new Date(parsed.year, parsed.month, parsed.day) : null}
+                onSelect={(d) => update({
+                  year: d.getFullYear(),
+                  month: d.getMonth(),
+                  day: d.getDate(),
+                })}
+              />
+              <TimeInputs
+                hour={seed.hour}
+                minute={seed.minute}
+                onChange={(h, m) => update({ hour: h, minute: m })}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   )
+}
+
+function MiniCalendar({ viewYear, viewMonth, setViewYear, setViewMonth, selected, onSelect }) {
+  const today = new Date()
+  const first = new Date(viewYear, viewMonth, 1)
+  // Roll back to the Sunday that anchors the visible 6-row grid.
+  const gridStart = new Date(first)
+  gridStart.setDate(first.getDate() - first.getDay())
+
+  const cells = []
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(gridStart)
+    d.setDate(gridStart.getDate() + i)
+    cells.push(d)
+  }
+
+  const step = (delta) => {
+    const m = viewMonth + delta
+    if (m < 0)       { setViewMonth(11); setViewYear(viewYear - 1) }
+    else if (m > 11) { setViewMonth(0);  setViewYear(viewYear + 1) }
+    else             { setViewMonth(m) }
+  }
+
+  return (
+    <div>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        marginBottom: 6,
+      }}>
+        <CalendarNavButton onClick={() => step(-1)} label="◀" />
+        <span style={{
+          fontFamily: 'var(--sans)', fontSize: 11,
+          color: 'var(--text-primary)',
+          letterSpacing: '0.04em',
+        }}>
+          {MONTHS[viewMonth]} {viewYear}
+        </span>
+        <CalendarNavButton onClick={() => step(1)} label="▶" />
+      </div>
+
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)',
+        gap: 2, marginBottom: 2,
+      }}>
+        {WEEKDAYS.map(w => (
+          <div key={w} style={{
+            textAlign: 'center',
+            fontFamily: 'var(--sans)', fontSize: 9,
+            color: 'var(--text-dim)',
+            letterSpacing: '0.06em', textTransform: 'uppercase',
+            padding: '2px 0',
+          }}>
+            {w}
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
+        {cells.map((d, i) => {
+          const inMonth = d.getMonth() === viewMonth
+          const isSel   = selected && sameDay(d, selected)
+          const isToday = sameDay(d, today)
+          return (
+            <button
+              key={i}
+              onClick={() => onSelect(d)}
+              style={{
+                padding: '5px 0',
+                fontFamily: 'var(--mono, monospace)', fontSize: 10,
+                background: isSel ? 'rgba(77,184,255,0.22)' : 'transparent',
+                border: isSel
+                  ? '1px solid rgba(77,184,255,0.55)'
+                  : isToday
+                    ? '1px solid rgba(255,255,255,0.18)'
+                    : '1px solid transparent',
+                borderRadius: 3,
+                color: isSel
+                  ? 'var(--node-primary)'
+                  : inMonth
+                    ? 'var(--text-primary)'
+                    : 'var(--text-dim)',
+                opacity: inMonth ? 1 : 0.45,
+                cursor: 'pointer',
+                lineHeight: 1,
+              }}
+              onMouseEnter={e => { if (!isSel) e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
+              onMouseLeave={e => { if (!isSel) e.currentTarget.style.background = 'transparent' }}
+            >
+              {d.getDate()}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function CalendarNavButton({ onClick, label }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        width: 20, height: 20,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'transparent',
+        border: '1px solid var(--border)',
+        borderRadius: 3,
+        color: 'var(--text-secondary)',
+        fontSize: 8,
+        cursor: 'pointer',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+    >
+      {label}
+    </button>
+  )
+}
+
+function TimeInputs({ hour, minute, onChange }) {
+  const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n))
+  const onH = (e) => {
+    const v = parseInt(e.target.value, 10)
+    if (!Number.isNaN(v)) onChange(clamp(v, 0, 23), minute)
+  }
+  const onM = (e) => {
+    const v = parseInt(e.target.value, 10)
+    if (!Number.isNaN(v)) onChange(hour, clamp(v, 0, 59))
+  }
+  const pad = n => String(n).padStart(2, '0')
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 6,
+      marginTop: 8, paddingTop: 8,
+      borderTop: '1px solid var(--border)',
+    }}>
+      <span style={{
+        fontFamily: 'var(--sans)', fontSize: 9,
+        letterSpacing: '0.1em', textTransform: 'uppercase',
+        color: 'var(--text-dim)',
+        flexShrink: 0,
+      }}>
+        Time
+      </span>
+      <input
+        type="number"
+        min={0}
+        max={23}
+        value={pad(hour)}
+        onChange={onH}
+        style={timeInputStyle}
+      />
+      <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>:</span>
+      <input
+        type="number"
+        min={0}
+        max={59}
+        value={pad(minute)}
+        onChange={onM}
+        style={timeInputStyle}
+      />
+    </div>
+  )
+}
+
+const timeInputStyle = {
+  width: 42,
+  background: 'rgba(255,255,255,0.03)',
+  border: '1px solid var(--border)',
+  borderRadius: 3,
+  color: 'var(--text-primary)',
+  fontFamily: 'var(--mono, monospace)', fontSize: 11,
+  padding: '3px 6px',
+  textAlign: 'center',
+  outline: 'none',
+  colorScheme: 'dark',
 }
 
 function EventRow({ event, expanded, onToggle }) {
