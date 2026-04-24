@@ -1,6 +1,6 @@
 # Hammerfall Config
 
-Global configuration read by `bootstrap.sh` and all Helm instances at session start.
+Global configuration read by Helm and the runtime service at session start.
 Maintained by Core Helm. Update this file when account details change.
 
 > **SECURITY RULE:** This file never contains secret values — only environment variable
@@ -25,10 +25,6 @@ supabase_org_id: nninqwpylkzcpffccgvq
 supabase_region: us-east-1
 supabase_brain_project_ref: zlcvrfmbtpxlhsqosdqf
 ```
-
-*Note: Database passwords are generated automatically by bootstrap.sh at project
-creation time using `openssl rand`. No password env var required. Each project
-gets a unique password written to its own `.env.local`.*
 
 ---
 ## Supabase Brain (Memory Store)

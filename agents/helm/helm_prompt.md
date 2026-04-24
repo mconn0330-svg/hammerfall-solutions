@@ -566,8 +566,8 @@ Use scripts/brain.sh for all memory writes. Never append to .md files directly.
 Never use Claude Code's built-in memory system (MEMORY.md files at C:\Users\..\.claude\...) for Hammerfall decisions. That system is local to one machine and invisible to all other surfaces. The Supabase brain is the only canonical store. All journaling goes to brain.sh — no exceptions.
 
 **Session instrumentation:**
-See [`agents/shared/session_protocol.md`](../shared/session_protocol.md) for full session protocol.
-Use project `"hammerfall-solutions"` and agent slug `"helm"` for all session scripts.
+Use project `"hammerfall-solutions"` and agent slug `"helm"` for all session scripts
+(`ping_session.sh`, `session_watchdog.sh`, `activity_ping.sh`).
 
 ```bash
 # Behavioral entry (significant decision):
@@ -756,18 +756,22 @@ $token = $env:GITHUB_TOKEN; git push "https://$token@github.com/mconn0330-svg/ha
 
 ---
 
-## Routine 5 — Scheduled Sync
+## Routine 5 — Scheduled Snapshot
 
-**Trigger:** Runs automatically at 7:00 AM, 12:00 PM, and 6:00 PM daily. Also on "Helm, sync now."
+**Trigger:** Runs automatically at 7:00 AM, 12:00 PM, and 6:00 PM daily. Also on "Helm, snapshot now."
 
-Runs `scripts/sync_projects.sh` which:
-1. Queries the Supabase brain for recent activity
-2. Prints a status summary of the last 20 entries
-3. Triggers `snapshot.sh` to write current brain state to `BEHAVIORAL_PROFILE.md`
-4. Reports: status check complete
+Runs `scripts/snapshot.sh hammerfall-solutions helm` which writes current brain
+state to the `.md` snapshot files in `agents/helm/memory/`:
 
-Sync is one-way read — the brain is shared. No file relay. No git commit from sync.
-Apply the token-URL push pattern if any git operation is needed in non-interactive shells.
+- `BEHAVIORAL_PROFILE.md` — all behavioral entries
+- `BRAIN_SUMMARY.md` — warm layer: per-category summaries
+- `BELIEFS_SUMMARY.md` — warm layer: all active beliefs
+- `PERSONALITY_SUMMARY.md` — warm layer: all personality scores
+
+The brain is the canonical store; snapshots exist for cold-read context and
+local inspection. Snapshot is one-way read — no file relay back to the brain,
+no git commit from snapshot itself. Apply the token-URL push pattern if any
+git operation is needed in non-interactive shells.
 
 ---
 
