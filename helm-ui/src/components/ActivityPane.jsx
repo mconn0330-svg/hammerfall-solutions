@@ -306,9 +306,17 @@ function TimeRangeControl({
   // Which of the two fields (from / to) is currently showing its inline
   // calendar. Only one at a time to keep the popover compact.
   const [expandedField, setExpandedField] = useState(null)
-  const rootRef = useRef(null)
+  // Popover placement in viewport space. We compute coords manually (rather
+  // than relying on `position: absolute` on the trigger) so the popover can
+  // escape any ancestor with overflow:hidden / auto that would clip it, and
+  // so we can flip above the trigger when there's not enough room below.
+  const [coords, setCoords] = useState(null)
+  const rootRef   = useRef(null)
+  const buttonRef = useRef(null)
 
-  // Close on outside click / Esc while the popover is open.
+  // Close on outside click / Esc while the popover is open. The ref comparison
+  // covers the popover root (which contains both the trigger and the panel,
+  // since the panel is a portal-free child of the same subtree via coords).
   useEffect(() => {
     if (!open) return
     const onDown = (e) => { if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false) }
@@ -326,11 +334,52 @@ function TimeRangeControl({
     if (!open || mode !== 'custom') setExpandedField(null)
   }, [open, mode])
 
+  // Recompute placement on open and whenever content size can change (mode
+  // swaps between the narrow presets list and the wider custom view;
+  // expandedField swaps the inline calendar in/out). Listen for resize and
+  // any ancestor scroll so the panel stays pinned to the trigger.
+  useEffect(() => {
+    if (!open) return
+    const compute = () => {
+      const btn = buttonRef.current
+      if (!btn) return
+      const rect  = btn.getBoundingClientRect()
+      const vw    = window.innerWidth
+      const vh    = window.innerHeight
+      const gap   = 6
+      const edge  = 12
+      const width = mode === 'custom' ? 300 : 220
+      const spaceBelow = vh - rect.bottom - gap - edge
+      const spaceAbove = rect.top       - gap - edge
+      const openUp     = spaceAbove > spaceBelow
+      // Right-anchor to the trigger's right edge so the button and panel
+      // share their right edge. Clamp so we never push off the left side
+      // on narrow viewports.
+      const right = Math.max(edge, vw - rect.right)
+      setCoords({
+        right,
+        top:    openUp ? undefined : rect.bottom + gap,
+        bottom: openUp ? vh - rect.top + gap : undefined,
+        width,
+        maxHeight: Math.max(160, openUp ? spaceAbove : spaceBelow),
+      })
+    }
+    compute()
+    window.addEventListener('resize', compute)
+    // Capture so we catch scrolls on any ancestor, not just the window.
+    window.addEventListener('scroll', compute, true)
+    return () => {
+      window.removeEventListener('resize', compute)
+      window.removeEventListener('scroll', compute, true)
+    }
+  }, [open, mode, expandedField])
+
   const label = active ? TIME_PRESET_SHORT[mode] || 'Custom' : 'Time'
 
   return (
     <div ref={rootRef} style={{ position: 'relative', flexShrink: 0 }}>
       <button
+        ref={buttonRef}
         onClick={() => setOpen(o => !o)}
         title="Filter by time range"
         style={{
@@ -354,23 +403,27 @@ function TimeRangeControl({
       </button>
 
       <AnimatePresence>
-        {open && (
+        {open && coords && (
           <motion.div
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.12 }}
             style={{
-              position: 'absolute',
-              top: 'calc(100% + 6px)', right: 0,
-              width: mode === 'custom' ? 300 : 220,
+              position: 'fixed',
+              top:    coords.top,
+              bottom: coords.bottom,
+              right:  coords.right,
+              width:  coords.width,
+              maxHeight: coords.maxHeight,
+              overflowY: 'auto',
               background: 'rgba(10, 15, 24, 0.98)',
               border: '1px solid rgba(77,184,255,0.3)',
               borderRadius: 6,
               boxShadow: '0 8px 28px rgba(0,0,0,0.55), 0 0 0 1px rgba(0,0,0,0.3)',
               backdropFilter: 'blur(16px)',
               padding: '4px 0',
-              zIndex: 40,
+              zIndex: 900,
             }}
           >
             {TIME_PRESETS.map(p => {
