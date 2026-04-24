@@ -5,17 +5,17 @@ Hammerfall is building Helm — an ambient intelligence.
 ## What is Helm?
 
 One mind. Many surfaces. Persistent across time. See
-[founding_docs/Helm_The_Ambient_Turn.md](founding_docs/Helm_The_Ambient_Turn.md)
+[docs/founding_docs/Helm_The_Ambient_Turn.md](docs/founding_docs/Helm_The_Ambient_Turn.md)
 for the full vision.
 
 ## Where are we in building him?
 
-See [founding_docs/Helm_Roadmap.md](founding_docs/Helm_Roadmap.md) for the path
+See [docs/founding_docs/Helm_Roadmap.md](docs/founding_docs/Helm_Roadmap.md) for the path
 from today to ambient JARVIS. We are currently in **Stage 1 — Core Runtime & UI**.
 
 ## Repository structure
 
-- `founding_docs/` — canonical reference documents (vision + roadmap)
+- `docs/founding_docs/` — canonical reference documents (vision + roadmap)
 - `agents/helm/` — Helm's cognitive architecture (Prime prompt + subsystem contracts)
 - `services/helm-runtime/` — the runtime service that hosts Helm
 - `scripts/` — brain tools, seed data, utilities
