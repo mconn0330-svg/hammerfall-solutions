@@ -1,0 +1,79 @@
+# T0.A9 — Migration safety check.
+# Spec: docs/stage1/Helm_T1_Launch_Spec_V2.md §T0.A9
+# Policy: docs/adr/0002-migration-reversibility-policy.md
+#
+# Runs only on PRs that touch supabase/migrations/. Two checks:
+#   1. Reversibility — every migration declares a class per ADR-002
+#      (script enforces; pre-cutoff migrations grandfathered)
+#   2. Apply-and-verify — creates an ephemeral Supabase branch, applies
+#      all migrations against it, captures the schema diff, then deletes
+#      the branch.
+#
+# Prerequisite: SUPABASE_ACCESS_TOKEN repo secret. Branching requires the
+# Supabase project to be on Pro tier; if free-tier, the apply-and-verify
+# job will fail and we'll either upgrade or downscope this check to
+# reversibility-only.
+
+name: Migration Safety
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'scripts/check_migration_reversibility.py'
+      - '.github/workflows/migration-check.yml'
+
+jobs:
+  reversibility:
+    name: reversibility (ADR-002)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run reversibility check
+        run: python3 scripts/check_migration_reversibility.py supabase/migrations/
+
+  apply-and-verify:
+    name: apply-and-verify (ephemeral branch)
+    runs-on: ubuntu-latest
+    # Only run if the Supabase access token is configured.
+    # Without it, branching can't work; reversibility-only is acceptable
+    # for now and will be marked as a soft signal in the PR.
+    if: ${{ vars.SUPABASE_BRANCHING_ENABLED == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Create ephemeral Supabase branch
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase branches create "ci-pr-${{ github.event.pull_request.number }}"
+
+      - name: Apply all migrations to branch
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase db push --linked --branch "ci-pr-${{ github.event.pull_request.number }}"
+
+      - name: Schema diff vs baseline
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase db diff --linked --branch "ci-pr-${{ github.event.pull_request.number }}" \
+            > diff.sql
+          echo "----- Schema diff (informational) -----"
+          cat diff.sql
+
+      - name: Cleanup ephemeral branch
+        if: always()
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase branches delete \
+            "ci-pr-${{ github.event.pull_request.number }}" --force || true
