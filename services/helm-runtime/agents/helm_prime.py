@@ -73,7 +73,9 @@ async def handle(
     response = result.choices[0].message.content.strip()
     logger.info(
         "Helm Prime response received. session=%s turn=%d length=%d",
-        req.session_id, req.turn_number, len(response),
+        req.session_id,
+        req.turn_number,
+        len(response),
     )
     return response
 
@@ -82,11 +84,11 @@ def _load_base_prompt() -> str:
     """Load helm_prompt.md as the base system prompt. Fatal if missing — Prime cannot operate without its prompt."""
     try:
         return PROMPT_PATH.read_text(encoding="utf-8")
-    except FileNotFoundError:
+    except FileNotFoundError as e:
         raise RuntimeError(
             f"helm_prompt.md not found at {PROMPT_PATH}. "
             "Confirm the docker-compose volume mount is in place."
-        )
+        ) from e
 
 
 async def _load_personality_block(supabase: SupabaseClient) -> str:

@@ -11,7 +11,7 @@ Write path: supabase_client.py → Supabase REST → helm_frames table
 import asyncio
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from middleware import InvokeRequest
 from model_router import ModelRouter
@@ -23,8 +23,8 @@ logger = logging.getLogger(__name__)
 # Offload trigger configuration
 # ---------------------------------------------------------------------------
 
-WARM_QUEUE_MAX          = 20    # batch trigger — offload all when warm count hits this
-FRAME_OFFLOAD_INTERVAL  = 10    # interval trigger — every N turns
+WARM_QUEUE_MAX = 20  # batch trigger — offload all when warm count hits this
+FRAME_OFFLOAD_INTERVAL = 10  # interval trigger — every N turns
 FRAME_OFFLOAD_CONSERVATIVE = True  # fire at 80% of interval (turn 8, 16, 24...)
 
 # ---------------------------------------------------------------------------
@@ -85,7 +85,7 @@ async def handle(
     if req.context.get("resolution_pass"):
         return await _resolution_pass(req.session_id, req.turn_number, supabase)
 
-    timestamp = datetime.now(timezone.utc).isoformat()
+    timestamp = datetime.now(UTC).isoformat()
 
     user_prompt = f"""Turn number: {req.turn_number}
 Session ID: {req.session_id}
@@ -126,13 +126,19 @@ Produce the frame JSON now."""
             if attempt < _max_attempts - 1:
                 logger.warning(
                     "Projectionist model call failed (attempt %d/%d): %s — retrying in %.1fs",
-                    attempt + 1, _max_attempts, e, _retry_delay,
+                    attempt + 1,
+                    _max_attempts,
+                    e,
+                    _retry_delay,
                 )
                 await asyncio.sleep(_retry_delay)
             else:
                 logger.error(
                     "Projectionist model call failed after %d attempts: session=%s turn=%d error=%s",
-                    _max_attempts, req.session_id, req.turn_number, e,
+                    _max_attempts,
+                    req.session_id,
+                    req.turn_number,
+                    e,
                 )
                 raise
     else:
@@ -147,9 +153,10 @@ Produce the frame JSON now."""
         frame = json.loads(raw_output)
     except json.JSONDecodeError as e:
         logger.error(
-            "Projectionist JSON parse failed before write. "
-            "session=%s turn=%d raw=%r",
-            req.session_id, req.turn_number, raw_output,
+            "Projectionist JSON parse failed before write. " "session=%s turn=%d raw=%r",
+            req.session_id,
+            req.turn_number,
+            raw_output,
         )
         raise ValueError(f"Projectionist returned invalid JSON: {e}") from e
 
@@ -170,12 +177,16 @@ Produce the frame JSON now."""
         await supabase.insert("helm_frames", payload)
         logger.info(
             "Projectionist wrote frame: session=%s turn=%d topic=%r",
-            req.session_id, req.turn_number, frame.get("topic"),
+            req.session_id,
+            req.turn_number,
+            frame.get("topic"),
         )
     except Exception as e:
         logger.error(
             "Projectionist helm_frames write failed: session=%s turn=%d error=%s",
-            req.session_id, req.turn_number, e,
+            req.session_id,
+            req.turn_number,
+            e,
         )
         raise
 
@@ -183,8 +194,12 @@ Produce the frame JSON now."""
     try:
         await _check_offload_triggers(req.session_id, req.turn_number, supabase)
     except Exception as e:
-        logger.error("Projectionist offload trigger error: session=%s turn=%d error=%s",
-                     req.session_id, req.turn_number, e)
+        logger.error(
+            "Projectionist offload trigger error: session=%s turn=%d error=%s",
+            req.session_id,
+            req.turn_number,
+            e,
+        )
 
     return json.dumps(frame)
 
@@ -192,6 +207,7 @@ Produce the frame JSON now."""
 # ---------------------------------------------------------------------------
 # Offload triggers
 # ---------------------------------------------------------------------------
+
 
 async def _check_offload_triggers(
     session_id: str,
@@ -210,8 +226,8 @@ async def _check_offload_triggers(
         "helm_frames",
         {
             "session_id": f"eq.{session_id}",
-            "layer":      "eq.warm",
-            "select":     "id,turn_number",
+            "layer": "eq.warm",
+            "select": "id,turn_number",
         },
     )
 
@@ -224,7 +240,8 @@ async def _check_offload_triggers(
         )
         logger.info(
             "Projectionist batch offload: %d frames warm→cold. session=%s",
-            len(warm_frames), session_id,
+            len(warm_frames),
+            session_id,
         )
         return
 
@@ -239,10 +256,10 @@ async def _check_offload_triggers(
             "helm_frames",
             {
                 "session_id": f"eq.{session_id}",
-                "layer":      "eq.warm",
-                "order":      "turn_number.asc",
-                "limit":      "1",
-                "select":     "id,turn_number",
+                "layer": "eq.warm",
+                "order": "turn_number.asc",
+                "limit": "1",
+                "select": "id,turn_number",
             },
         )
         if oldest:
@@ -253,13 +270,15 @@ async def _check_offload_triggers(
             )
             logger.info(
                 "Projectionist interval offload: frame turn=%d warm→cold. session=%s",
-                oldest[0]["turn_number"], session_id,
+                oldest[0]["turn_number"],
+                session_id,
             )
 
 
 # ---------------------------------------------------------------------------
 # Session-end resolution pass
 # ---------------------------------------------------------------------------
+
 
 async def _resolution_pass(
     session_id: str,
@@ -280,18 +299,18 @@ async def _resolution_pass(
             "helm_frames",
             {
                 "session_id": f"eq.{session_id}",
-                "select":     "id,turn_number,frame_status,frame_json",
+                "select": "id,turn_number,frame_status,frame_json",
             },
         )
     except Exception as e:
         logger.error("Projectionist resolution pass: failed to fetch frames: %s", e)
         return json.dumps({"status": "resolution_pass_failed", "error": str(e)})
 
-    canonical_count  = 0
+    canonical_count = 0
     filled_reason_count = 0
 
     for frame in frames:
-        fj     = frame.get("frame_json") or {}
+        fj = frame.get("frame_json") or {}
         status = frame.get("frame_status", "active")
 
         if status == "active":
@@ -307,14 +326,18 @@ async def _resolution_pass(
             except Exception as e:
                 logger.error(
                     "Projectionist resolution pass: failed to mark canonical id=%s: %s",
-                    frame["id"], e,
+                    frame["id"],
+                    e,
                 )
 
         elif status == "superseded" and not fj.get("superseded_reason"):
             # NOTE: pivot implementation must set layer='cold' in the same PATCH that sets
             # frame_status='superseded' — otherwise superseded frames stay warm and inflate
             # the warm queue until the next interval trigger fires.
-            updated_fj = {**fj, "superseded_reason": "Resolved at session end — approach not continued"}
+            updated_fj = {
+                **fj,
+                "superseded_reason": "Resolved at session end — approach not continued",
+            }
             try:
                 await supabase.patch(
                     "helm_frames",
@@ -325,7 +348,8 @@ async def _resolution_pass(
             except Exception as e:
                 logger.error(
                     "Projectionist resolution pass: failed to fill superseded_reason id=%s: %s",
-                    frame["id"], e,
+                    frame["id"],
+                    e,
                 )
 
         # canonical frames are already terminal — no action needed
@@ -341,15 +365,20 @@ async def _resolution_pass(
         )
     except Exception as e:
         logger.error(
-            "Projectionist resolution pass: failed to flush warm→cold: %s", e,
+            "Projectionist resolution pass: failed to flush warm→cold: %s",
+            e,
         )
 
     logger.info(
         "Projectionist resolution pass complete: %d canonical, %d superseded_reason filled. session=%s",
-        canonical_count, filled_reason_count, session_id,
+        canonical_count,
+        filled_reason_count,
+        session_id,
     )
-    return json.dumps({
-        "status":               "resolution_pass_complete",
-        "canonical_count":      canonical_count,
-        "filled_reason_count":  filled_reason_count,
-    })
+    return json.dumps(
+        {
+            "status": "resolution_pass_complete",
+            "canonical_count": canonical_count,
+            "filled_reason_count": filled_reason_count,
+        }
+    )
