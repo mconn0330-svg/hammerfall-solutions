@@ -39,55 +39,10 @@ documented there with a pointer here.
 
 ## First batch — addressed immediately after T1 close
 
-These items are queued for the first post-T1 work cycle. Maxwell's standing
-direction (2026-04-24): brain types Tier 2 expansion is **the first thing** we
-address after T1 closes, alongside any other findings accumulated during T1.
-
-### Finding #001 — Brain object types Tier 2 expansion
-
-**Surfaced:** 2026-04-24, during V2 spec architecture review.
-**Owner:** TBD post-T1.
-**Reference:** `docs/founding_docs/Helm_Brain_Object_Types.md` §Tier 2.
-
-**Proposal:** Implement the three Tier 2 brain object types:
-
-1. **`helm_curiosities`** — open questions Helm has formed but not yet
-   answered. Lets Helm carry forward unresolved threads instead of dropping
-   them. Schema sketch in the brain types roadmap doc.
-
-2. **`helm_promises`** — commitments Helm has made to the user (e.g., "I'll
-   check back on X tomorrow"). Lets Helm follow through across sessions
-   without Maxwell having to re-prompt. Schema sketch in the roadmap doc.
-
-3. **`helm_entities` deepening** — current `helm_entities` is a shallow
-   ENTITY MemoryType row. Tier 2 deepens it into a proper entity model with
-   `entity_type` (CHECK constraint), `aliases` (text[]), `attributes` (JSONB),
-   `first_mentioned_at`, `last_mentioned_at`, `salience_decay`, plus a new
-   `helm_entity_relationships` table for typed relationships between entities.
-
-**Why now (immediately post-T1, not in T1):** These types materially deepen
-Helm's coherence (curiosity carryover, promise-keeping, entity-rich
-conversation), but they require T0.B1's memory module to land first so they
-can be added *additively* rather than surgically. The V2 T0.B1 spec is
-already designed to accommodate this — see the forward-pointer in T0.B1 to
-the brain types roadmap doc, which constrains the abstraction so adding
-these three is a migration + enum extension + helper add, not a refactor.
-
-**Why not in T1:** T1's job is to land the runtime + UI + brain
-infrastructure that everything else builds on. Adding three new object types
-inside T1 scope would (a) blow the PR count past the 49–57 budget, (b)
-extend the dual-write / outbox / read-helper test surface significantly, and
-(c) couple the cognitive deepening to runtime-stabilization risk. Cleaner to
-ship T1, prove the memory module's extensibility by *using it* to add these
-three immediately after, and let any T1-discovered abstraction issues
-inform the design.
-
-**Acceptance for this finding (when it eventually ships):**
-- All three types have migrations and pass `T0.A9` migration safety checks
-- `MemoryType` enum extended; existing helpers cover new types without
-  changes (validates the abstraction)
-- Helm prompts updated with write/read instructions for each type
-- Roadmap doc updated to move these from Tier 2 to Tier 1 (or "shipped")
+*(Empty as of 2026-04-24. The original Finding #001 was pulled into T1
+itself as task T0.B7 — see §Resolved below. T1 PRs append new findings to
+§Open below as they surface; at T4.5 the SITREP re-sorts open findings
+into either this section or the open queue for Stage 2 planning.)*
 
 ---
 
@@ -95,15 +50,58 @@ inform the design.
 
 *(Empty at creation. T1 PRs append here.)*
 
-To add a finding, append a `### Finding #NNN — title` block with the same
-structure as Finding #001. SITREPs in `docs/stage1/SITREPs/` can reference
-the finding number for cross-linking.
+To add a finding, append a `### Finding #NNN — title` block. SITREPs in
+`docs/stage1/SITREPs/` can reference the finding number for cross-linking.
+Block structure:
+
+```
+### Finding #NNN — title
+**Surfaced:** date / PR #
+**Owner:** TBD
+**Reference:** (relevant founding doc or spec section)
+**Proposal:** (what to do)
+**Why now / why not now:** (the deferral reasoning)
+**Acceptance:** (how we'll know it's done)
+```
 
 ---
 
 ## Resolved
 
-*(Empty at creation. Findings move here once addressed.)*
+### Finding #001 — Brain object types Tier 2 expansion → pulled into T1 as T0.B7
+
+**Surfaced:** 2026-04-24, during V2 spec architecture review.
+**Resolved:** 2026-04-24 — pulled into T1 as task T0.B7, before T1 execution
+started. Decision recorded in V2 spec Appendix C.5.
+**Reference:** `docs/founding_docs/Helm_Brain_Object_Types.md` §Tier 2,
+V2 spec §T0.B7.
+
+**Original proposal:** Implement the three Tier 2 brain object types
+(`helm_curiosities`, `helm_promises`, `helm_entities` deepening) as the
+first post-T1 work cycle.
+
+**Why pulled into T1:** Two reasons made the deferral cost higher than the
+inclusion cost:
+
+1. **Cost of return.** T0.B1 (memory module abstraction) and T0.B6 (agent
+   prompt rewrite) leave the memory layer fresh in everyone's head.
+   Coming back weeks later to add three more types means re-paging in the
+   abstraction, the agent prompts, and the test surface. Doing it
+   immediately (T0.B7) is genuinely cheaper.
+2. **Hello-world depth.** T3.5 is the first laptop hello-world. Without
+   Tier 2, Helm responds well but doesn't drive ("I'm wondering about X")
+   or follow through ("I said I'd watch for Y"). With Tier 2, the first
+   hello-world meaningfully exercises Helm's ambient cognition.
+
+**Trade-off accepted:** PR count grows from 49–57 to 54–62. Tier 3 work
+becomes the first post-T1 cycle (or whatever findings have accumulated by
+T4.5).
+
+**How T0.B7 is structured (see V2 spec for full detail):**
+- T0.B7a: `helm_entities` deepening (smallest, sets the template)
+- T0.B7b: `helm_curiosities` (first new type, end-to-end pattern)
+- T0.B7c: `helm_promises` (second new type, proves pattern holds)
+- ARCH-tier; STOP gate after the third sub-PR.
 
 ---
 
@@ -111,9 +109,9 @@ the finding number for cross-linking.
 
 - **Numbering:** Finding IDs are sequential and never reused. Resolved
   findings keep their original number when archived.
-- **At T4.5 (T1 close SITREP):** The SITREP enumerates open findings, calls
-  out which the first-batch cycle will tackle, and confirms the brain types
-  Tier 2 expansion (Finding #001) is the lead item.
+- **At T4.5 (T1 close SITREP):** The SITREP enumerates open findings and
+  re-sorts them into either §First batch (immediate post-T1) or §Open
+  (deferred to Stage 2 planning).
 - **At Stage 2 planning:** This doc is reviewed alongside the brain types
   roadmap to scope the first post-T1 cycle.
 - **Pointers:** New findings that are architectural (e.g., new brain types,

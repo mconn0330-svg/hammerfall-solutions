@@ -16,8 +16,8 @@ Helm's brain is not a memory store. It is a **mind** — and minds have many dif
 
 This document catalogs every object type Helm should eventually have, with a clear delineation between:
 
-- **Tier 1 (in T1):** types that exist or are spec'd in V2 today
-- **Tier 2 (early Stage 2 / first batch post-T1):** types that materially deepen Helm's coherence and are cheap-ish to add
+- **Tier 1 (in T1):** types that exist or are spec'd in V2 today, landed in T0.B1–T0.B6
+- **Tier 2 (in T1, T0.B7):** types that materially deepen Helm's coherence and are cheap to add given the T0.B1 abstraction. Originally queued as Finding #001 for the first post-T1 cycle, pulled into T1 on 2026-04-24 as task T0.B7 (right after T0.B6, before T1.x)
 - **Tier 3 (later Stage 2+):** types that require ambient/scheduled infrastructure (T2/T3 work) to be meaningful
 
 The goal is not to add everything. The goal is to make sure the **memory module abstraction (T0.B1)** is designed so that adding any of these later is *additive*, not surgical.
@@ -86,11 +86,10 @@ Derived view — the at-a-glance summary of what's currently active in Helm's aw
 
 People, projects, concepts, places, organizations Helm knows about by name.
 
-- **Current schema:** name, count (shallow — V2 work plan deepens this in Tier 2 below)
+- **Current schema:** name, count (shallow base — deepened in Tier 2 §helm_entities deepened, landing in T0.B7a)
 - **Write triggers:** entity mention extraction during Routine 4
 - **Read patterns:** entity-scoped memory lookup, Prime prompt context for "who/what is X?"
-- **V2 work:** T2.7 (RPC `get_entities_with_counts`)
-- **Note:** the *table* is in T1, but the *model* is shallow. Tier 2 below proposes deepening.
+- **V2 work:** T2.7 (RPC `get_entities_with_counts`), T0.B7a (deepening)
 
 ### `helm_messages`
 
@@ -102,11 +101,21 @@ Chat history — the literal conversation transcript. Distinct from memory (whic
 
 ---
 
-## Tier 2 — First batch post-T1 (Post_T1_Findings.md Finding #001)
+## Tier 2 — In T1, task T0.B7 (originally Finding #001, pulled in 2026-04-24)
 
-These three are explicitly queued as the **first work after T1 closes**. They materially deepen the hello-world experience and are cheap to add given the T0.B1 abstraction.
+These three were originally queued as the first post-T1 cycle. On
+2026-04-24 Maxwell pulled them into T1 as **task T0.B7** (right after
+T0.B6) on the rationale that adding Tier 2 while the memory module is
+fresh costs less than coming back, and the laptop hello-world (T3.5) is
+materially better with curiosity carryover, promise-keeping, and a real
+entity model. T0.B7 is the test that proves T0.B1's abstraction is
+additive.
 
-### `helm_curiosities` (NEW)
+**Sub-task ordering inside T0.B7** — entities first (smallest, sets the
+template), curiosities second (first new type, end-to-end), promises
+third (second new type, proof the pattern holds):
+
+### `helm_curiosities` (NEW — T0.B7b)
 
 A queue of open questions Helm has formed but not resolved. Without curiosity, Helm only responds — he never drives. Curiosity is the substrate that makes T2 (scheduled passes) actually *do* something.
 
@@ -129,7 +138,7 @@ A queue of open questions Helm has formed but not resolved. Without curiosity, H
 - **Read patterns:** Prime prompt ("Helm currently wondering about: ..."), T2 scheduled pass picks one to investigate, UI "Helm's open questions" widget
 - **Examples from this very session:** "What does Maxwell mean by 'Feats'?" "Why did Helm flip the deployment recommendation twice in one session?" "Is Pro Max weekly budget closer to 5M or 50M tokens — should the default change?"
 
-### `helm_promises` (NEW)
+### `helm_promises` (NEW — T0.B7c)
 
 Things Helm explicitly committed to do, with deadlines or check-back conditions. Without a place to live, "I'll watch for over-engineering" is just words. With one, Helm can return to it.
 
@@ -151,7 +160,7 @@ Things Helm explicitly committed to do, with deadlines or check-back conditions.
 - **Read patterns:** Prime prompt ("Open promises: ..."), session-end check ("did I fulfill any promises?"), T3 ambient surfaces them at relevant moments
 - **Why important:** without this, Helm is full of intentions Maxwell has to remember on Helm's behalf. Trust corrodes.
 
-### `helm_entities` deepened (EXTEND existing)
+### `helm_entities` deepened (EXTEND existing — T0.B7a)
 
 Current schema is `name, count`. That's not an entity — that's a tag with a counter. A real entity model:
 
@@ -234,17 +243,17 @@ Recurring patterns in Maxwell's day/week. Substrate for ambient anticipation.
 
 ## Implications for the T0.B1 memory module abstraction
 
-**The memory module shipped in T0.B1 must NOT be hardcoded around the Tier 1 types.** Specifically:
+**The memory module shipped in T0.B1 must NOT be hardcoded around the Tier 1 types.** T0.B7 immediately exercises the abstraction by adding three more types — that's the test. Tier 3 work in Stage 2+ adds many more. Specifically:
 
-1. **`MemoryType` enum should be additive.** Adding `CURIOSITY`, `PROMISE`, `HYPOTHESIS`, `ANTICIPATION`, `SURPRISE`, `TENSION` later should be a one-line enum extension — not a refactor of every write helper.
+1. **`MemoryType` enum should be additive.** Adding `CURIOSITY`, `PROMISE` (in T0.B7) and later `HYPOTHESIS`, `ANTICIPATION`, `SURPRISE`, `TENSION` should be a one-line enum extension — not a refactor of every write helper.
 2. **Per-type write helpers should follow a consistent pattern.** `write_behavioral`, `write_curiosity`, `write_promise` all take similar args, return similar types, emit similar events. Generic via a `write(type, content, **kwargs)` core.
 3. **Per-type read helpers should be discoverable.** `read_recent(type=...)`, `read_open(type=...)` — no per-type custom query API.
 4. **Outbox + dual-write hook patterns should work for any type.** T2.6's signals dual-write is the reference; future types follow the same shape.
 5. **Schema migrations for new types should be a single migration each.** Don't bundle them.
 
-**Concretely for T0.B1:** the memory module's public surface should be wide enough that adding `helm_curiosities` later is a 50-line PR (migration + enum line + write helper + read helper + a few tests), not a 500-line PR.
+**Concretely for T0.B1:** the memory module's public surface should be wide enough that each T0.B7 sub-PR is ~50 lines (migration + enum line + write helper + read helper + a few tests), not 500. If T0.B7's first sub-PR balloons past ~150 lines in the module proper, the abstraction failed and gets revisited before the next sub-PR lands.
 
-This is the load-bearing constraint. Get T0.B1's abstraction right, and the entire roadmap above is additive over years. Get it wrong, and every new brain type is a fight.
+This is the load-bearing constraint. Get T0.B1's abstraction right, T0.B7 is a clean three-PR validation and the roadmap stays additive for years. Get it wrong, and every new brain type is a fight starting with T0.B7.
 
 ---
 
