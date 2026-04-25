@@ -6,7 +6,7 @@
 | **Version** | V2 — comprehensive foundation rewrite |
 | **Authored** | 2026-04-24, Claude Opus 4.7 (Helm IDE) under Maxwell's planning + architecture authority grant |
 | **Purpose** | Land T1 on-demand presence on a production-grade foundation. Memory infrastructure, repo operating contract, test harness, CI, observability, deployment hardening, API auth, cost guardrails, and backup discipline all in place before T1 closes. |
-| **Estimated PRs** | 48–56 |
+| **Estimated PRs** | 49–57 |
 | **Execution model** | Single dev (Helm IDE / me), sequential, methodical. Maxwell reviews. Architect consulted on STOP-gated tasks. |
 | **Exit criteria** | A user opens the UI, talks to Helm, sees live agent activity, experiences a coherent identity — on real data, no mocks — running on a stack that has tests, CI, structured logs, traces, an auth boundary, a backup, and a runbook for every known failure mode. |
 
@@ -155,8 +155,9 @@ Examples:
 | T4.1 | Runbook set — incident response, common failure modes (10+ runbooks) | STOP | 🔵 Queued |
 | T4.2 | Rate limiting on /invoke endpoint (token bucket, per-token) | STOP | 🔵 Queued |
 | T4.3 | SSE session resumption protocol — Last-Event-ID + replay buffer | ARCH | 🔵 Queued |
-| T4.4 | TLS / reverse proxy decision — Caddy for prod-shape, document local-dev path (ADR-003) | STOP | 🔵 Queued |
-| T4.6 | Preview environments per PR (runtime + UI + Supabase branch) | ARCH | 🔵 Queued |
+| T4.4 | Dev deployment decision (ADR-003) — Vercel + Render + Supabase project-column partitioning | STOP | 🔵 Queued |
+| T4.11 | Persistent dev deployment — main → Vercel (UI) + Render (runtime), 24/7 stable URL, warmup cron | ARCH | 🔵 Queued |
+| T4.6 | Preview environments per PR — Vercel native previews + Render per-PR + Supabase project partition | ARCH | 🔵 Queued |
 | T4.7 | Scheduled health checks — cron-driven `/health` + canary `/invoke` | STOP | 🔵 Queued |
 | T4.8 | Performance regression baseline + bench (latency on canned inputs) | STOP | 🔵 Queued |
 | T4.9 | Docs site auto-deploy (GitHub Pages: V2 spec, ADRs, runbooks) | Batch | 🔵 Queued |
@@ -228,16 +229,17 @@ The user-facing task IDs are grouped by phase, but in single-dev sequential mode
 43. T4.1    Runbook set
 44. T4.2    Rate limiting
 45. T4.3    SSE session resumption
-46. T4.4    TLS + reverse proxy decision (ADR-003)
-47. T4.6    Preview environments per PR        [needs T0.A12 image + T4.4 deployment shape]
-48. T4.7    Scheduled health checks            [needs T4.4 deployment]
-49. T4.8    Performance regression baseline    [needs deployed instance to bench against]
-50. T4.9    Docs site auto-deploy
-51. T4.10   Release automation
-52. T4.5    Operational SITREP — T1 close
+46. T4.4    Dev deployment decision (ADR-003)
+47. T4.11   Persistent dev deployment (Vercel + Render, stable URL)  [implements ADR-003]
+48. T4.6    Preview environments per PR        [reuses T4.11 stack, ephemeral instances]
+49. T4.7    Scheduled health checks            [needs T4.11 deployed instance]
+50. T4.8    Performance regression baseline    [needs T4.11 deployed instance to bench against]
+51. T4.9    Docs site auto-deploy
+52. T4.10   Release automation
+53. T4.5    Operational SITREP — T1 close
 ```
 
-52 tasks. Some bundle (T1.1+T1.2 batch, T2.4+T2.7 batch, T4.9+T4.10 batch) — true PR count ~48–56.
+53 tasks. Some bundle (T1.1+T1.2 batch, T2.4+T2.7 batch, T4.9+T4.10 batch) — true PR count ~49–57.
 
 ---
 
@@ -1510,35 +1512,104 @@ async def invoke_agent(...): ...
 
 ---
 
-### T4.4 — TLS / Reverse Proxy Decision (ADR-003)
+### T4.4 — Dev Deployment Decision (ADR-003)
 
-**What:** Document the deployment target. Two paths:
+**What:** Document the T1 deployment target. Three paths considered:
 
-**Path A — Caddy reverse proxy + Let's Encrypt TLS** for any non-localhost deployment. Caddy is single-binary, automatic TLS, simple config.
-**Path B — localhost-only at T1**, deployment is Stage 2 work, document the path forward without implementing.
+**Path A — Localhost-only at T1.** Helm runs via `docker compose` on Maxwell's machine. Deployment beyond localhost is Stage 2 work. Pro: zero hosting cost, zero ops surface. Con: laptop sleep kills Helm; no remote access; cannot reach from phone or other devices; T2 (scheduled) and T3 (ambient) work later requires re-architecting onto a 24/7 host anyway.
 
-**My recommendation:** Path B for T1, with the Caddy config drafted in `docs/runbooks/0011-deployment-caddy.md` so it's ready when Maxwell wants to expose Helm beyond localhost. This is consistent with the single-dev/single-user model at T1.
+**Path B — Persistent dev deployment on free-tier hosts.** Vercel for UI (Maxwell already has account), Render free tier for runtime, existing Supabase free tier with `project` column partitioning for per-PR isolation. Pro: 24/7 stable URL; reachable from any device; future-proofs T2/T3; $0/month cost. Con: Render cold-start (~30s after 15min idle) — mitigated by warmup cron; 750 hrs/mo Render budget tight for always-on.
 
-**ADR-003** records the decision.
+**Path C — Paid isolated stack.** Fly.io ($5/mo runtime) + Supabase Pro ($25/mo branching). Pro: no cold start, fully isolated per-PR DBs. Con: $30/mo at zero users.
+
+**My recommendation:** **Path B** for T1. Cost-controlled while solo-dev; sets up the deployment shape for T2/T3 ambient work; trade-offs (cold start, shared dev Supabase) are acceptable for single-user use. Path C is the Stage 2 upgrade when Helm has users beyond Maxwell.
+
+**ADR-003** records the decision. Path C config and migration path documented in `docs/runbooks/0011-deployment-paid-stack.md` so the upgrade is one PR away when Maxwell decides to spend.
+
+T4.11 implements Path B.
 
 **STOP gate.**
 
 ---
 
+### T4.11 — Persistent Dev Deployment (ARCH)
+
+**Purpose:** Implements Path B from ADR-003. Deploys `main` to a stable, always-on URL so Maxwell can talk to dev Helm from any device, and so T2/T3 (scheduled, ambient) work later has a 24/7 host already in place. This is **where dev Helm lives** between merges.
+
+**Stack (all-free):**
+- **UI:** Vercel — connect `helm-ui/` directory of the repo to Maxwell's existing Vercel account, auto-deploys on push to `main`. Stable URL: `helm.vercel.app` (or chosen subdomain).
+- **Runtime:** Render free tier — `services/helm-runtime/Dockerfile` deployed from `main`, exposed at `helm-dev.onrender.com`. Free tier budget: 750 instance hours/month (24/7 = 720 hrs — fits, with ~30 hrs headroom).
+- **Database:** Supabase free tier (existing project `zlcvrfmbtpxlhsqosdqf`). Dev runtime uses normal `project="hammerfall-solutions"` partition.
+- **Secrets:** Set in Vercel + Render dashboards once. `VITE_HELM_API_URL` (UI → runtime), `VITE_SUPABASE_*`, `HELM_API_TOKEN`, `SUPABASE_BRAIN_SERVICE_KEY`, `ANTHROPIC_API_KEY`, etc.
+
+**Render cold-start mitigation.** Free tier spins down after 15 min idle; cold start ~30s. Mitigation: GitHub Actions warmup cron every 10 min hits `/health`. Cost: ~4,300 cron invocations/month — well under GitHub Actions' 2,000 free minutes (each invocation is <5s).
+
+**`.github/workflows/dev-warmup.yml`:**
+
+```yaml
+name: Dev Warmup
+on:
+  schedule:
+    - cron: '*/10 * * * *'   # every 10 minutes
+  workflow_dispatch:
+
+jobs:
+  warmup:
+    runs-on: ubuntu-latest
+    steps:
+      - run: curl -sf https://helm-dev.onrender.com/health || exit 0
+        # exit 0 even on failure — warmup is best-effort, T4.7 health checks own alerting
+```
+
+**Vercel deploy:** zero workflow code. Connect repo in Vercel dashboard → set root directory to `helm-ui/` → Vercel auto-deploys on push to `main`. PR previews come for free (used by T4.6).
+
+**Render deploy:** `render.yaml` in repo root:
+
+```yaml
+services:
+  - type: web
+    name: helm-dev
+    runtime: docker
+    dockerfilePath: services/helm-runtime/Dockerfile
+    branch: main
+    healthCheckPath: /health
+    plan: free
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false   # set in dashboard
+      - key: SUPABASE_BRAIN_URL
+        value: https://zlcvrfmbtpxlhsqosdqf.supabase.co
+      - key: SUPABASE_BRAIN_SERVICE_KEY
+        sync: false
+      - key: HELM_API_TOKEN
+        sync: false
+```
+
+**Decision points** (handled in T4.11 PR):
+- Vercel project setup (one-time dashboard config; document in runbook for repeatability).
+- Render account creation + GitHub repo connection.
+- Render service plan (free) — confirm 750-hr budget math against T2/T3 future cron load.
+- Subdomain choice for both Vercel and Render — affects what Maxwell types into his phone.
+
+**Out of scope (Stage 2):**
+- Custom domain + Let's Encrypt (Path C, runbook 0011).
+- Render paid plan ($7/mo) if 750-hr budget is exceeded by T2/T3 cron volume.
+- Multi-region deployment.
+
+**ARCH gate.** Adds Vercel + Render as deployment dependencies. Maxwell sign-off needed on subdomain choice and Render account.
+
+---
+
 ### T4.6 — Preview Environments per PR (ARCH)
 
-**Purpose:** Helm changes are hard to evaluate from a diff. T4.6 spins up a per-PR runtime + UI + Supabase branch so Maxwell can talk to the changed Helm before merging. This is the highest-leverage CI/CD investment for a behavior-driven product.
+**Purpose:** Helm changes are hard to evaluate from a diff. T4.6 spins up a per-PR runtime + UI so Maxwell can talk to the changed Helm before merging. This is the highest-leverage CI/CD investment for a behavior-driven product. Reuses the stack from T4.11 (Vercel + Render + Supabase) with ephemeral instances per PR.
 
-**Stack (recommended):**
-- **Runtime:** Fly.io — single binary CLI, app-per-PR, automatic teardown, free tier handles dev volume
-- **UI:** Cloudflare Pages — connect repo, native PR previews with zero workflow code
-- **Database:** Supabase branches — `supabase branches create pr-${{ github.event.pull_request.number }}` per PR; deleted on PR close
+**Stack (all-free, reuses T4.11):**
+- **UI:** Vercel native PR previews — zero workflow code. Vercel auto-creates a preview URL for every PR when the repo is connected (already done in T4.11). URL pattern: `helm-ui-git-<branch>-<account>.vercel.app`. Auto-destroyed on PR close.
+- **Runtime:** Render per-PR services — created via Render API on PR open, destroyed on PR close. URL pattern: `helm-pr-<num>.onrender.com`. Each is its own free-tier instance; cold start applies but acceptable for review use.
+- **Database:** Supabase **project-column partitioning** on the existing free-tier project — no Supabase branching ($25/mo Pro required), no separate DB. The runtime's `project` column is set to `hammerfall-pr-<num>` for the preview env. `helm_memory`, `helm_frames`, `helm_messages` rows for that PR are isolated by query filter. Cleanup: `DELETE FROM helm_memory WHERE project = 'hammerfall-pr-<num>'` on PR close.
 
-**Decision points** (handled in T4.6 PR):
-- Fly account / billing setup (or alternative: Railway, Render)
-- Cloudflare Pages account + repo connection
-- Secrets management for the per-PR env (token rotation cadence)
-- Resource caps (Fly app spec — max 256MB RAM, single instance, scale-to-zero)
+**Open question for T4.6 PR:** Per-table partition policy. Some tables are Helm's identity (shared across all PRs — `helm_personality`, `helm_beliefs`, `helm_entities` if they exist by then). Others are per-conversation (partition by `project` — `helm_memory`, `helm_frames`, `helm_messages`). T4.6 PR enumerates which tables get which treatment, with rationale. Default: anything with a `project` column gets partitioned; identity tables shared.
 
 **`.github/workflows/preview.yml` (sketch):**
 
@@ -1554,38 +1625,55 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-      - run: flyctl deploy --remote-only --app helm-pr-${{ github.event.pull_request.number }}
-        env: { FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }} }
-      - name: Comment PR with URL
+      - name: Create or update Render service for PR
+        run: |
+          curl -X POST https://api.render.com/v1/services \
+            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "type": "web_service",
+              "name": "helm-pr-${{ github.event.pull_request.number }}",
+              "repo": "https://github.com/${{ github.repository }}",
+              "branch": "${{ github.head_ref }}",
+              "plan": "free",
+              "envVars": [
+                {"key": "HELM_PROJECT_PARTITION", "value": "hammerfall-pr-${{ github.event.pull_request.number }}"}
+              ]
+            }'
+      - name: Comment PR with URLs
         uses: thollander/actions-comment-pull-request@v2
         with:
-          message: "Preview runtime: https://helm-pr-${{ github.event.pull_request.number }}.fly.dev"
-
-  create-supabase-branch:
-    if: github.event.action != 'closed'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: supabase/setup-cli@v1
-      - run: supabase branches create pr-${{ github.event.pull_request.number }}
-        env: { SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }} }
+          message: |
+            Preview runtime: https://helm-pr-${{ github.event.pull_request.number }}.onrender.com
+            Preview UI: (Vercel auto-provisions — see Vercel bot comment)
 
   teardown:
     if: github.event.action == 'closed'
     runs-on: ubuntu-latest
     steps:
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-      - run: flyctl apps destroy helm-pr-${{ github.event.pull_request.number }} --yes
-      - uses: supabase/setup-cli@v1
-      - run: supabase branches delete pr-${{ github.event.pull_request.number }} --force
+      - name: Destroy Render service
+        run: |
+          curl -X DELETE \
+            "https://api.render.com/v1/services/helm-pr-${{ github.event.pull_request.number }}" \
+            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}"
+      - name: Clean up Supabase partition data
+        env:
+          SUPABASE_BRAIN_SERVICE_KEY: ${{ secrets.SUPABASE_BRAIN_SERVICE_KEY }}
+        run: |
+          PARTITION="hammerfall-pr-${{ github.event.pull_request.number }}"
+          for table in helm_memory helm_frames helm_messages; do
+            curl -X DELETE \
+              "https://zlcvrfmbtpxlhsqosdqf.supabase.co/rest/v1/${table}?project=eq.${PARTITION}" \
+              -H "apikey: $SUPABASE_BRAIN_SERVICE_KEY" \
+              -H "Authorization: Bearer $SUPABASE_BRAIN_SERVICE_KEY"
+          done
 ```
 
-**Cost considerations:** Each preview env is a Fly app + a Supabase branch. Fly free tier covers ~3 always-on small apps; auto-scale-to-zero brings active cost near $0 for an idle PR. Supabase branches are pay-per-use on their tier — confirm cost model in T4.6 PR.
+**Cost considerations:** Each preview env consumes ~30 hrs/PR if open for a few days (Render free tier shared budget with T4.11 dev deployment — the 750-hr cap is per-account, not per-service). With single-dev sequential execution, 1–2 open PRs at a time means ~60 hrs/month preview load on top of T4.11's 720 hrs persistent — comfortably within budget. Vercel previews and Supabase partition data are free.
 
-**Limit per dev:** With single-dev sequential execution (V2's model), there's at most 1–2 open PRs at a time. Resource ceiling is well within free tiers.
+**Limit per dev:** Single-dev model means at most 1–2 open PRs at a time. If preview cap becomes a constraint, paid Render upgrade ($7/mo) lifts the per-account hour cap.
 
-**ARCH gate.** Adds Fly + Cloudflare + Supabase-branches as deployment dependencies.
+**ARCH gate.** Reuses Vercel + Render + Supabase from T4.11 (no new deployment dependencies). Adds project-column partition convention.
 
 ---
 
@@ -1864,9 +1952,12 @@ T1.1, T1.2, T1.3, T1.4, T1.5a, T1.5b, T1.6 ─► T1.7 (HARD GATE)
                                        T4.1 ─► T4.2 ─► T4.3 ─► T4.4 (ADR-003)
                                                                   │
                                                                   ▼
-                                       T4.6 (preview envs, needs T0.A12 + T4.4)
-                                       T4.7 (health checks, needs T4.4)
-                                       T4.8 (perf bench, needs deployed instance)
+                                       T4.11 (persistent dev deployment, implements ADR-003)
+                                                                  │
+                                                                  ▼
+                                       T4.6 (preview envs, reuses T4.11 stack)
+                                       T4.7 (health checks, needs T4.11 deployed instance)
+                                       T4.8 (perf bench, needs T4.11 deployed instance)
                                        T4.9 (docs site)
                                        T4.10 (release automation)
                                                                   │
@@ -1893,8 +1984,12 @@ T1.1, T1.2, T1.3, T1.4, T1.5a, T1.5b, T1.6 ─► T1.7 (HARD GATE)
 | GHCR container size grows beyond free tier | T0.A12 | Multi-stage Dockerfile already trims; if hit, prune old image tags via scheduled workflow |
 | Gitleaks false positives on Supabase anon key | T0.A13 | `.gitleaks.toml` allowlist with comment-rationale |
 | Dependabot opens too many PRs | T0.A14 | Grouping config + open-pull-requests-limit:5; disable if it becomes noise |
-| Fly.io / Cloudflare Pages signup blocks T4.6 | T4.6 | T4.6 PR description identifies blockers; if accounts not available, T4.6 ships in 2 PRs (config + deferred activation) |
-| Per-PR Supabase branch cost spikes | T4.6 | Auto-teardown on PR close + free-tier monitoring; flip to "preview only on `[preview]` PR label" if spend grows |
+| Render account / Vercel project setup blocks T4.11 | T4.11 | T4.11 PR description identifies blockers; Vercel account already exists (Maxwell). Render signup is free + fast. |
+| Render free-tier 750-hr/month cap exceeded by T4.11 + T4.6 + T2/T3 cron load | T4.11, T4.6 | T4.11 budgets 720 hrs persistent; T4.6 adds ~60 hrs/month at 1–2 open PRs. Headroom is thin. Mitigation: scale-to-zero on preview envs, monitor monthly via Render dashboard. Upgrade to $7/mo paid plan if cap hit. |
+| Render cold-start (~30s after 15min idle) frustrates Maxwell when checking from phone | T4.11 | Warmup cron every 10 min keeps the instance hot during waking hours. Cold start still possible after long idle (overnight); acceptable trade-off vs $7/mo paid. |
+| Supabase project-column partition data orphaned if PR closes without teardown workflow run | T4.6 | Cleanup workflow runs on PR close event; if it fails, scheduled monthly sweep deletes any `project LIKE 'hammerfall-pr-%'` rows older than 30 days. Documented in runbook. |
+| Per-PR partition policy ambiguous for identity tables (helm_personality, helm_beliefs) | T4.6 | T4.6 PR enumerates per-table policy with rationale. Default: shared identity, partitioned conversation. |
+| Vercel project setup tied to Maxwell's account creates bus factor | T4.11 | Documented in runbook: how to re-create Vercel project + reconnect repo if account access lost. Acceptable for solo-dev T1. |
 | Bench results too noisy on shared-runner CI | T4.8 | Run N=20 per input, use median; or self-hosted runner if noise persists |
 | MkDocs build fails on emoji or wide table in markdown | T4.9 | Standard MD-to-HTML; rare. PR catches at first build. |
 | release-please opens unmerged release PRs that pile up | T4.10 | Documented in runbook 0012 (added in T4.10): "merge release PRs at end of work cycle" |
@@ -1922,7 +2017,7 @@ These were considered and explicitly deferred:
 - **GitHub Advanced Security / SAST** — paid GitHub feature, overkill for solo project. T0.A13 (gitleaks) covers the secret-leak risk; CodeQL / Snyk-style SAST is Stage 2 if/when Helm becomes multi-user.
 - **Multi-OS test matrix** — T1 deploys to Linux containers only. CI runs on Linux. Adding Windows/macOS runners adds time and surface area for negative ROI at T1. Stage 2 if Helm gains a desktop-distributed component.
 - **Auto-merge of Dependabot PRs** — T0.A14 ships the config; auto-merge is opt-in per Maxwell's preference. Default is manual review.
-- **Self-hosted CI runners** — GitHub-hosted runners at T1. Self-hosted considered in Stage 2 if Fly.io / Cloudflare egress costs make CI flow expensive.
+- **Self-hosted CI runners** — GitHub-hosted runners at T1. Self-hosted considered in Stage 2 if Render / Vercel egress costs make CI flow expensive.
 - **Per-PR cost reports** — T0.A15 is weekly aggregate. Per-PR cost projection is Stage 2.
 
 ---
@@ -1982,11 +2077,11 @@ ADRs created during V2 execution:
 |---|---|---|---|
 | ADR-001 | helm-ui type discipline (TS conversion vs JSDoc + ESLint strict) | T0.A5 | Pending |
 | ADR-002 | Migration reversibility policy | T0.A9 | Pending |
-| ADR-003 | T1 deployment target (localhost-only vs reverse proxy) | T4.4 | Pending |
+| ADR-003 | T1 deployment target (localhost vs persistent dev free vs paid isolated) | T4.4 | Pending — V2 recommends Path B (Vercel + Render + Supabase project partition) |
 | ADR-004 | Anthropic vs LiteLLM for prompt caching pass-through | T2.3 | Conditional — only if LiteLLM doesn't pass through |
 | ADR-005 | GHCR public vs private image visibility | T0.A12 | Pending |
 | ADR-006 | Dependabot vs Renovate for dependency automation | T0.A14 | Pending — V2 picks Dependabot, ADR records the rejected option |
-| ADR-007 | PR preview stack (Fly.io + Cloudflare Pages + Supabase branches) | T4.6 | Pending |
+| ADR-007 | PR preview stack (Vercel native previews + Render per-PR + Supabase project-column partitioning) | T4.6 | Pending — all-free stack, reuses T4.11 deployment dependencies |
 | ADR-008 | Versioning policy + release-please configuration | T4.10 | Pending |
 | ADR-009 | (placeholder for any architectural decision discovered during execution) | — | — |
 
@@ -2009,12 +2104,13 @@ Runbooks created during V2 execution:
 | 0008 | Cost cap exceeded | T4.1 |
 | 0009 | Outbox dead-letter accumulating | T4.1 |
 | 0010 | Schema migration failure | T4.1 |
-| 0011 | Deployment via Caddy (deferred to Stage 2) | T4.4 |
+| 0011 | Deployment via paid isolated stack — Fly.io + Supabase Pro (deferred to Stage 2) | T4.4 |
 | 0012 | Release PR management (release-please workflow) | T4.10 |
-| 0013 | Preview environment teardown / orphan cleanup | T4.6 |
+| 0013 | Preview environment teardown / Supabase project-partition orphan cleanup | T4.6 |
 | 0014 | Bench baseline reset procedure | T4.8 |
 | 0015 | Container image pruning (GHCR storage management) | T0.A12 |
 | 0016 | Dependabot grouping rules + skip rationale | T0.A14 |
+| 0017 | Persistent dev deployment — Vercel project setup + Render service config + warmup cron management | T4.11 |
 
 ---
 
@@ -2049,7 +2145,8 @@ Direct mapping of v1 issues raised in the comprehensive review to V2 task that r
 | No runbooks | T0.A1 (template) + T4.1 (set) |
 | No rate limiting | T4.2 |
 | No SSE session resumption | T4.3 |
-| Deployment target undecided | T4.4 (ADR-003) |
+| Deployment target undecided | T4.4 (ADR-003 — recommends persistent dev free stack) |
+| No persistent dev deployment for 24/7 access from any device | T4.11 — Vercel + Render + Supabase, stable URL, all-free stack |
 | Dual-write transaction safety unspecified | T2.6 V2 notes — explicit semantics + outbox retry |
 | `subsystems_invoked` semantics underspecified | T1.7 V2 notes — locked in spec + tested in T1.1 |
 | No agent behavior regression net | T2.9 — agent simulation harness with 10 scenarios |
@@ -2057,7 +2154,7 @@ Direct mapping of v1 issues raised in the comprehensive review to V2 task that r
 | No accidental-secret commit protection | T0.A13 — gitleaks on every push |
 | No dependency upgrade discipline | T0.A14 — Dependabot grouped weekly PRs |
 | No spend visibility (only the cap) | T0.A15 — weekly cost summary issue |
-| No ephemeral environment for behavior review | T4.6 — per-PR runtime + UI + Supabase branch |
+| No ephemeral environment for behavior review | T4.6 — per-PR runtime + UI + Supabase project-column partition (all-free) |
 | No external operational signal | T4.7 — scheduled health + canary checks |
 | No latency regression detection | T4.8 — perf bench on PRs that touch runtime / prompt |
 | No browseable docs surface | T4.9 — MkDocs site auto-deployed to GitHub Pages |
@@ -2073,7 +2170,7 @@ By merging this PR, Maxwell agrees:
 - V2 supersedes v1 as the canonical T1 build spec
 - The execution order in §Execution Order is the agreed-upon sequence (changes go through STOP gates)
 - Single-dev (Helm IDE / me) executes; Maxwell reviews at every STOP gate; Architect consulted on ARCH-tier tasks
-- The 48–56 PR count is the realistic shape of "T1 close on a solid foundation with full CI/CD"
+- The 49–57 PR count is the realistic shape of "T1 close on a solid foundation with full CI/CD + persistent dev deployment"
 - T1 close = `T4.5` SITREP merged; not before
 
 V2 is a contract between Maxwell and the dev. Where reality forces deviation, the deviation is documented (PR description or new ADR), not silently absorbed.
