@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any
 
 import structlog
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi import Path as FastAPIPath
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -31,6 +31,7 @@ from agents import archivist as archivist_agent
 from agents import contemplator as contemplator_agent
 from agents import helm_prime as helm_prime_agent
 from agents import projectionist as projectionist_agent
+from auth import require_token
 from embedding_client import EmbeddingClient
 from middleware import InvokeRequest, MiddlewarePipeline, PrimeDirectivesViolation
 from model_router import ConfigError, ModelRouter, UnknownRoleError
@@ -234,7 +235,11 @@ AGENT_HANDLERS = {
 # ---------------------------------------------------------------------------
 
 
-@app.post("/invoke/{agent_role}", response_model=InvokeResponse)
+@app.post(
+    "/invoke/{agent_role}",
+    response_model=InvokeResponse,
+    dependencies=[Depends(require_token)],
+)
 async def invoke(
     body: InvokeRequestBody,
     agent_role: str = FastAPIPath(..., description="Agent role to invoke"),
@@ -350,7 +355,7 @@ async def health() -> JSONResponse:
     return JSONResponse(content={"status": overall, "checks": checks})
 
 
-@app.get("/config/agents")
+@app.get("/config/agents", dependencies=[Depends(require_token)])
 async def config_agents() -> JSONResponse:
     """
     Return the current agent-to-model mapping.

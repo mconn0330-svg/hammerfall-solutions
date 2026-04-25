@@ -9,6 +9,7 @@
 #   ANTHROPIC_API_KEY          — Helm Prime model calls
 #   SUPABASE_BRAIN_URL         — Supabase REST endpoint
 #   SUPABASE_BRAIN_SERVICE_KEY — Archivist writes to helm_memory
+#   HELM_API_TOKEN             — Bearer token for /invoke and /config (T0.A8)
 #
 # Optional:
 #   HELM_RUNTIME_PORT          — Override service port (default: 8000)
@@ -24,6 +25,9 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - SUPABASE_BRAIN_URL=${SUPABASE_BRAIN_URL}
       - SUPABASE_BRAIN_SERVICE_KEY=${SUPABASE_BRAIN_SERVICE_KEY}
+      # T0.A8: bearer-token gate on /invoke and /config. Generate with
+      # `openssl rand -hex 32`. /health stays exempt.
+      - HELM_API_TOKEN=${HELM_API_TOKEN}
       # Ollama runs as a sidecar — use Docker service name, not localhost
       - OLLAMA_BASE_URL=http://ollama:11434
     depends_on:
