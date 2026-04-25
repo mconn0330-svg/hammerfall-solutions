@@ -16,12 +16,13 @@ BA7a: Service skeleton with stubbed agent handlers.
 """
 
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+import structlog
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi import Path as FastAPIPath
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -33,16 +34,15 @@ from agents import projectionist as projectionist_agent
 from embedding_client import EmbeddingClient
 from middleware import InvokeRequest, MiddlewarePipeline, PrimeDirectivesViolation
 from model_router import ConfigError, ModelRouter, UnknownRoleError
+from observability import configure_logging, correlation_id_var, new_correlation_id
 from supabase_client import SupabaseClient
 
 # ---------------------------------------------------------------------------
-# Logging
+# Logging — structured (JSON) via observability.configure_logging() at startup.
+# logger here gets bridged through the same processor pipeline.
 # ---------------------------------------------------------------------------
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
+configure_logging("info")
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -108,6 +108,31 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+
+# ---------------------------------------------------------------------------
+# Correlation ID middleware — every request carries a correlation_id, either
+# from the incoming x-correlation-id header (so callers can stitch logs across
+# services) or a freshly generated UUID. The ID is bound to structlog's
+# contextvars so every log line in the request scope includes it, and echoed
+# back in the response header for client-side log correlation.
+# ---------------------------------------------------------------------------
+
+
+@app.middleware("http")
+async def correlation_middleware(
+    request: Request,
+    call_next: Callable[[Request], Awaitable[Response]],
+) -> Response:
+    cid = request.headers.get("x-correlation-id") or new_correlation_id()
+    correlation_id_var.set(cid)
+    structlog.contextvars.bind_contextvars(correlation_id=cid)
+    try:
+        response = await call_next(request)
+    finally:
+        structlog.contextvars.clear_contextvars()
+    response.headers["x-correlation-id"] = cid
+    return response
 
 
 # ---------------------------------------------------------------------------
