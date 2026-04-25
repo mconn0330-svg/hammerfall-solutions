@@ -1,0 +1,64 @@
+# T0.A2 — pre-commit hooks. Wires the V2 spec's required tools:
+#   ruff, black (Python) — eslint, prettier (JS) — commitlint (commit-msg).
+# Spec: docs/stage1/Helm_T1_Launch_Spec_V2.md §T0.A2
+#
+# Setup:
+#   pip install --user pre-commit
+#   pre-commit install --hook-type pre-commit --hook-type commit-msg
+#
+# Pre-commit only operates on files staged in the current commit. Existing
+# unstaged code is not reformatted; coverage grows progressively as files
+# are touched in future PRs.
+
+repos:
+  # Generic safety nets
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: check-json
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+
+  # Python — ruff (lint + import order, with autofix)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.12
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+        files: ^services/helm-runtime/.*\.py$
+
+  # Python — black (formatter)
+  - repo: https://github.com/psf/black-pre-commit-mirror
+    rev: 26.3.1
+    hooks:
+      - id: black
+        files: ^services/helm-runtime/.*\.py$
+
+  # JS/TS — prettier (formatter)
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v4.0.0-alpha.8
+    hooks:
+      - id: prettier
+        files: \.(js|jsx|ts|tsx|json|css|md|yml|yaml)$
+
+  # JS — eslint (helm-ui has its own config; call its npm script)
+  - repo: local
+    hooks:
+      - id: eslint-helm-ui
+        name: eslint (helm-ui)
+        language: system
+        entry: bash -c 'cd helm-ui && npm run lint'
+        files: ^helm-ui/.*\.(js|jsx)$
+        pass_filenames: false
+
+  # Commit message — commitlint (commit-msg stage)
+  - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
+    rev: v9.24.0
+    hooks:
+      - id: commitlint
+        stages: [commit-msg]
+        additional_dependencies: ['@commitlint/config-conventional@19']
