@@ -35,7 +35,27 @@ jobs:
             services/helm-runtime/requirements-dev.txt
 
       - name: Install
+        # Hashed lockfiles (T0.A7). pip enforces hashes automatically when
+        # they are present in the file.
         run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Verify lockfiles in sync with .in (T0.A7)
+        # pip-compile is in requirements-dev so it's already installed above.
+        # Regenerate over the committed files, then `git diff --exit-code` —
+        # this avoids brittle header-comment comparisons (the auto-generated
+        # header includes the output path, which differs between any two
+        # invocations using a tmp path).
+        # Lockfiles are platform-canonical: Linux Python 3.12 (matches CI +
+        # the runtime Dockerfile base). Local devs on Windows/macOS should
+        # use scripts/compile-deps.sh which runs pip-compile inside the same
+        # base image.
+        run: |
+          python -m piptools compile --generate-hashes --strip-extras --quiet \
+            -o requirements.txt requirements.in
+          python -m piptools compile --generate-hashes --strip-extras --allow-unsafe --quiet \
+            --constraint requirements.txt \
+            -o requirements-dev.txt requirements-dev.in
+          git diff --exit-code requirements.txt requirements-dev.txt
 
       - name: Lint (ruff)
         run: ruff check .
