@@ -25,8 +25,8 @@ BYO model contract:
 import logging
 import os
 import time
-from enum import Enum
-from typing import Any, Optional
+from enum import StrEnum
+from typing import Any
 
 import litellm
 import yaml
@@ -42,7 +42,8 @@ litellm.suppress_debug_info = True
 # Config schema — Pydantic models
 # ---------------------------------------------------------------------------
 
-class Provider(str, Enum):
+
+class Provider(StrEnum):
     anthropic = "anthropic"
     openai = "openai"
     ollama = "ollama"
@@ -51,10 +52,11 @@ class Provider(str, Enum):
 
 class AgentConfigSchema(BaseModel):
     """Schema for a single agent entry in config.yaml."""
+
     provider: Provider
     model: str
-    api_key_env: Optional[str] = None
-    base_url_env: Optional[str] = None
+    api_key_env: str | None = None
+    base_url_env: str | None = None
 
     @model_validator(mode="after")
     def validate_provider_requirements(self) -> "AgentConfigSchema":
@@ -73,18 +75,21 @@ class AgentConfigSchema(BaseModel):
 
 class EmbeddingsConfigSchema(BaseModel):
     """Schema for the optional embeddings block in config.yaml."""
+
     model: str = "text-embedding-3-small"
     api_key_env: str = "OPENAI_API_KEY"
 
 
 class SupabaseConfigSchema(BaseModel):
     """Schema for the supabase block in config.yaml."""
+
     url_env: str = "SUPABASE_BRAIN_URL"
     service_key_env: str = "SUPABASE_BRAIN_SERVICE_KEY"
 
 
 class ServiceConfigSchema(BaseModel):
     """Schema for the service block in config.yaml."""
+
     port: int = 8000
     log_level: str = "info"
 
@@ -99,9 +104,10 @@ class ServiceConfigSchema(BaseModel):
 
 class HelmRuntimeConfig(BaseModel):
     """Root config schema. Validated at service startup."""
+
     service: ServiceConfigSchema = ServiceConfigSchema()
     supabase: SupabaseConfigSchema = SupabaseConfigSchema()
-    embeddings: Optional[EmbeddingsConfigSchema] = None
+    embeddings: EmbeddingsConfigSchema | None = None
     agents: dict[str, AgentConfigSchema]
 
     @field_validator("agents")
@@ -116,6 +122,7 @@ class HelmRuntimeConfig(BaseModel):
 # Exceptions
 # ---------------------------------------------------------------------------
 
+
 class UnknownRoleError(Exception):
     pass
 
@@ -127,6 +134,7 @@ class ConfigError(Exception):
 # ---------------------------------------------------------------------------
 # ModelRouter
 # ---------------------------------------------------------------------------
+
 
 class ModelRouter:
     def __init__(self, config_path: str):
@@ -182,7 +190,10 @@ class ModelRouter:
                         logger.warning(
                             "Agent '%s': env var '%s' not set — defaulting to %s. "
                             "Set %s explicitly for non-local deployments.",
-                            role, cfg.base_url_env, base_url, cfg.base_url_env,
+                            role,
+                            cfg.base_url_env,
+                            base_url,
+                            cfg.base_url_env,
                         )
                     else:
                         # custom provider: no safe default exists
@@ -229,14 +240,15 @@ class ModelRouter:
             logger.warning(
                 "Embeddings configured but '%s' env var is not set — "
                 "embedding generation disabled. Set %s to enable semantic search.",
-                emb.api_key_env, emb.api_key_env,
+                emb.api_key_env,
+                emb.api_key_env,
             )
             return {"model": emb.model}
 
         return {"model": emb.model, "api_key": api_key}
 
     @property
-    def embedding_api_key(self) -> Optional[str]:
+    def embedding_api_key(self) -> str | None:
         return self._embeddings_config.get("api_key")
 
     @property

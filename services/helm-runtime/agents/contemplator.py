@@ -20,7 +20,6 @@ All writes expressed as a structured JSON payload sent to Archivist.
 import asyncio
 import json
 import logging
-from typing import Optional
 
 from middleware import InvokeRequest
 from model_router import ModelRouter
@@ -141,6 +140,7 @@ Rules:
 # Brain snapshot builder
 # ---------------------------------------------------------------------------
 
+
 def _build_snapshot(memories: list, beliefs: list, entities: list, scratchpad: list) -> str:
     mem_lines = "\n".join(
         f"[{i+1}] ({m.get('session_date', '?')}) {m.get('content', '')}"
@@ -166,7 +166,7 @@ def _build_snapshot(memories: list, beliefs: list, entities: list, scratchpad: l
     )
 
 
-def _extract_json(raw: str) -> Optional[dict]:
+def _extract_json(raw: str) -> dict | None:
     """Parse JSON from model output. Handles markdown fences if present."""
     raw = raw.strip()
     try:
@@ -174,6 +174,7 @@ def _extract_json(raw: str) -> Optional[dict]:
     except json.JSONDecodeError:
         pass
     import re
+
     match = re.search(r"```(?:json)?\s*([\s\S]*?)```", raw)
     if match:
         try:
@@ -186,6 +187,7 @@ def _extract_json(raw: str) -> Optional[dict]:
 # ---------------------------------------------------------------------------
 # Public handler
 # ---------------------------------------------------------------------------
+
 
 async def handle(
     req: InvokeRequest,
@@ -208,7 +210,7 @@ async def handle(
     # Dual-mode think routing:
     #   session_start — think=False (lightweight, Pass 1 only, ~10s, non-blocking)
     #   session_end   — think=True  (deep pass, Pass 1 + Pass 2, ~30s, full synthesis)
-    think = (trigger != "session_start")
+    think = trigger != "session_start"
 
     # --- Fetch brain snapshot ---
     memories, beliefs, entities, scratchpad = await _fetch_snapshot(supabase)
@@ -217,8 +219,13 @@ async def handle(
     logger.info(
         "Contemplator snapshot: %d memories, %d beliefs, %d entities, %d scratchpad entries "
         "(%d scratchpad chars, %d total chars) think=%s",
-        len(memories), len(beliefs), len(entities), len(scratchpad),
-        scratch_chars, len(snapshot), think,
+        len(memories),
+        len(beliefs),
+        len(entities),
+        len(scratchpad),
+        scratch_chars,
+        len(snapshot),
+        think,
     )
 
     # --- Pass 1 ---
@@ -229,7 +236,11 @@ async def handle(
             {"role": "user", "content": PASS1_USER_TEMPLATE.format(snapshot=snapshot)},
         ],
         stream=False,
-        extra_kwargs={"format": "json", "options": {"num_predict": PASS1_MAX_TOKENS, "temperature": 0.4}, "think": think},
+        extra_kwargs={
+            "format": "json",
+            "options": {"num_predict": PASS1_MAX_TOKENS, "temperature": 0.4},
+            "think": think,
+        },
     )
     try:
         pass1_raw = await (
@@ -237,10 +248,11 @@ async def handle(
             if trigger == "session_start"
             else _pass1_coro
         )
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning(
             "Contemplator session_start timed out after %.0fs — returning empty curiosity flags. session=%s",
-            SESSION_START_TIMEOUT, req.session_id,
+            SESSION_START_TIMEOUT,
+            req.session_id,
         )
         return json.dumps({"status": "session_start_timeout", "curiosity_flags": []})
 
@@ -250,7 +262,8 @@ async def handle(
     if pass1_data is None:
         logger.warning(
             "Contemplator Pass 1 returned invalid JSON — aborting. session=%s raw=%r",
-            req.session_id, pass1_content[:200],
+            req.session_id,
+            pass1_content[:200],
         )
         return json.dumps({"status": "pass1_failed", "payload": {}})
 
@@ -265,11 +278,13 @@ async def handle(
     if trigger == "session_start":
         curiosity = pass1_data.get("curiosity_candidates", [])[:2]
         logger.info("Contemplator session_start: %d curiosity flags surfaced", len(curiosity))
-        return json.dumps({
-            "status": "session_start_complete",
-            "trigger": "session_start",
-            "curiosity_flags": curiosity,
-        })
+        return json.dumps(
+            {
+                "status": "session_start_complete",
+                "trigger": "session_start",
+                "curiosity_flags": curiosity,
+            }
+        )
 
     # --- Pass 2 (session_end only) — think=True for deep synthesis ---
     pass2_raw = await router.invoke(
@@ -285,7 +300,11 @@ async def handle(
             },
         ],
         stream=False,
-        extra_kwargs={"format": "json", "options": {"num_predict": PASS2_MAX_TOKENS, "temperature": 0.4}, "think": True},
+        extra_kwargs={
+            "format": "json",
+            "options": {"num_predict": PASS2_MAX_TOKENS, "temperature": 0.4},
+            "think": True,
+        },
     )
 
     pass2_content = pass2_raw.choices[0].message.content.strip()
@@ -294,7 +313,8 @@ async def handle(
     if pass2_data is None:
         logger.warning(
             "Contemplator Pass 2 returned invalid JSON — discarding payload. session=%s raw=%r",
-            req.session_id, pass2_content[:200],
+            req.session_id,
+            pass2_content[:200],
         )
         return json.dumps({"status": "pass2_failed", "payload": {}})
 
@@ -306,16 +326,19 @@ async def handle(
         "yes" if pass2_data.get("reflection") else "no",
     )
 
-    return json.dumps({
-        "status": "session_end_complete",
-        "trigger": "session_end",
-        "payload": pass2_data,
-    })
+    return json.dumps(
+        {
+            "status": "session_end_complete",
+            "trigger": "session_end",
+            "payload": pass2_data,
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
 # Brain fetch helpers
 # ---------------------------------------------------------------------------
+
 
 async def _fetch_snapshot(supabase: SupabaseClient) -> tuple[list, list, list, list]:
     """

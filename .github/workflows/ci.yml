@@ -1,0 +1,100 @@
+# T0.A4 — CI pipeline. Enforces the operating contract on every PR.
+# Spec: docs/stage1/Helm_T1_Launch_Spec_V2.md §T0.A4
+#
+# Three parallel jobs: python (helm-runtime), ui (helm-ui), commitlint.
+# All three must pass for branch protection on main to allow merge.
+#
+# Spec deviations (documented in T0.A4 SITREP):
+#   - mypy --strict step deferred to T0.A5 (Type Discipline task that adds
+#     mypy + types every signature). Adding mypy here without T0.A5 would
+#     leave CI red-by-design.
+#   - Lint uses `black --check` to match the formatter installed by T0.A2's
+#     pre-commit hooks (spec yaml said `ruff format --check`; equivalent
+#     output, but matching local toolchain avoids drift).
+
+name: CI
+
+on: [pull_request, push]
+
+jobs:
+  python:
+    name: python (helm-runtime)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/helm-runtime
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: |
+            services/helm-runtime/requirements.txt
+            services/helm-runtime/requirements-dev.txt
+
+      - name: Install
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Format check (black)
+        run: black --check .
+
+      - name: Test
+        run: pytest --cov --cov-report=term
+
+  ui:
+    name: ui (helm-ui)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: helm-ui
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: helm-ui/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test -- --run
+
+      - name: Build
+        run: npm run build
+
+  commitlint:
+    name: commitlint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install commitlint
+        run: npm install --no-save @commitlint/cli @commitlint/config-conventional
+
+      # On pull_request, lint the commits in the PR (base..head).
+      # On push to main, lint just the pushed commit (HEAD~1..HEAD) — first
+      # commit on a fresh repo would have no parent, so guard with `git rev-parse`.
+      - name: Lint commits
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            npx commitlint --from "${{ github.event.pull_request.base.sha }}" --to "${{ github.event.pull_request.head.sha }}"
+          else
+            npx commitlint --from HEAD~1 --to HEAD
+          fi

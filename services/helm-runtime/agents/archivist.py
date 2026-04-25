@@ -23,14 +23,11 @@ Projectionist contract). The column value is written into full_content JSONB.
 import asyncio
 import datetime
 import logging
-from typing import Optional
 
 from embedding_client import EmbeddingClient
 from middleware import InvokeRequest
 from model_router import ModelRouter
 from supabase_client import SupabaseClient, SupabaseError
-
-
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +47,7 @@ async def handle(
     req: InvokeRequest,
     router: ModelRouter,
     supabase: SupabaseClient,
-    embedding_client: Optional[EmbeddingClient] = None,
+    embedding_client: EmbeddingClient | None = None,
 ) -> str:
     """
     Archivist entry point.
@@ -148,20 +145,26 @@ async def handle(
             await supabase.delete("helm_frames", {"id": frame_id})
             logger.info(
                 "Archivist migrated frame: id=%s status=%s topic=%r",
-                frame_id, frame_status, frame_json.get("topic"),
+                frame_id,
+                frame_status,
+                frame_json.get("topic"),
             )
             migrated += 1
         except Exception as e:
             logger.error(
                 "Archivist: helm_frames delete failed for id=%s — frame may be duplicated "
-                "in helm_memory on next run. error=%s", frame_id, e,
+                "in helm_memory on next run. error=%s",
+                frame_id,
+                e,
             )
             # Do not count as failed — the memory write succeeded.
             # The duplicate-on-retry risk is acceptable; helm_memory has no unique constraint
             # on frame content. Log clearly so it can be investigated.
             migrated += 1
 
-    result = f"Archivist migration complete: {migrated} migrated, {failed} failed (left in cold queue)."
+    result = (
+        f"Archivist migration complete: {migrated} migrated, {failed} failed (left in cold queue)."
+    )
     logger.info(result)
     return result
 
@@ -208,14 +211,20 @@ Summarize this turn in 1-3 sentences."""
             if attempt < _max_attempts - 1:
                 logger.warning(
                     "Archivist summary generation failed (attempt %d/%d) for frame=%s: %s — retrying in %.1fs",
-                    attempt + 1, _max_attempts, frame_id, e, _retry_delay,
+                    attempt + 1,
+                    _max_attempts,
+                    frame_id,
+                    e,
+                    _retry_delay,
                 )
                 await asyncio.sleep(_retry_delay)
             else:
                 logger.error(
                     "Archivist summary generation failed after %d attempts for frame=%s: %s — "
                     "frame left in cold queue for retry.",
-                    _max_attempts, frame_id, e,
+                    _max_attempts,
+                    frame_id,
+                    e,
                 )
                 return None
 
@@ -223,7 +232,7 @@ Summarize this turn in 1-3 sentences."""
 async def _execute_contemplator_writes(
     payload: dict,
     supabase: SupabaseClient,
-    embedding_client: Optional[EmbeddingClient] = None,
+    embedding_client: EmbeddingClient | None = None,
 ) -> str:
     """
     Execute the structured write payload produced by Contemplator after a session_end pass.
@@ -276,7 +285,10 @@ async def _execute_contemplator_writes(
             await supabase.patch("helm_beliefs", {"id": belief_id}, {"strength": new_strength})
             logger.info(
                 "Archivist: belief patched id=%s %.4f→%.4f (delta=%.4f)",
-                belief_id, current, new_strength, delta,
+                belief_id,
+                current,
+                new_strength,
+                delta,
             )
             results["belief_patches"] += 1
         except Exception as e:
@@ -302,7 +314,10 @@ async def _execute_contemplator_writes(
             await supabase.patch("helm_personality", {"attribute": attr}, {"score": new_score})
             logger.info(
                 "Archivist: personality patched attribute=%s %.4f→%.4f (delta=%.4f)",
-                attr, current, new_score, delta,
+                attr,
+                current,
+                new_score,
+                delta,
             )
             results["personality_patches"] += 1
         except Exception as e:
@@ -409,12 +424,14 @@ async def _write_to_memory(
     except SupabaseError as e:
         logger.error(
             "Archivist: helm_memory write failed for frame=%s — frame left in cold queue. error=%s",
-            frame_id, e,
+            frame_id,
+            e,
         )
         return False
     except Exception as e:
         logger.error(
             "Archivist: unexpected error writing helm_memory for frame=%s — frame left in cold queue. error=%s",
-            frame_id, e,
+            frame_id,
+            e,
         )
         return False

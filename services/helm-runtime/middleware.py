@@ -19,7 +19,6 @@ Stub hooks (pass-through, not yet implemented):
 
 import json
 import logging
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +26,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Prime Directives violation exception
 # ---------------------------------------------------------------------------
+
 
 class PrimeDirectivesViolation(Exception):
     """
@@ -36,6 +36,7 @@ class PrimeDirectivesViolation(Exception):
     Caught in main.py invoke() — returns HTTP 403 with structured body.
     Guard trips are the system working as designed — log at WARNING, not ERROR.
     """
+
     def __init__(self, directive: str, detail: str):
         self.directive = directive
         self.detail = detail
@@ -153,15 +154,11 @@ _PD5_POST_SIGNALS = [
 
 
 # Required fields in a valid Projectionist frame response
-FRAME_REQUIRED_FIELDS = {
-    "turn", "session_id", "user", "helm", "topic", "domain", "frame_status"
-}
+FRAME_REQUIRED_FIELDS = {"turn", "session_id", "user", "helm", "topic", "domain", "frame_status"}
 
 FRAME_STATUS_VALUES = {"active", "superseded", "canonical"}
 
-DOMAIN_VALUES = {
-    "architecture", "process", "people", "ethics", "decisions", "other"
-}
+DOMAIN_VALUES = {"architecture", "process", "people", "ethics", "decisions", "other"}
 
 
 class InvokeRequest:
@@ -235,23 +232,25 @@ class MiddlewarePipeline:
             frame = json.loads(output)
         except json.JSONDecodeError as e:
             logger.error(
-                "Projectionist output validation failed — not valid JSON. "
-                "Raw output: %r", output
+                "Projectionist output validation failed — not valid JSON. " "Raw output: %r", output
             )
             raise ValueError(f"Projectionist returned invalid JSON: {e}") from e
 
         missing = FRAME_REQUIRED_FIELDS - set(frame.keys())
         if missing:
             logger.error(
-                "Projectionist output validation failed — missing fields: %s. "
-                "Raw output: %r", missing, output
+                "Projectionist output validation failed — missing fields: %s. " "Raw output: %r",
+                missing,
+                output,
             )
             raise ValueError(f"Projectionist frame missing required fields: {missing}")
 
         if frame.get("frame_status") not in FRAME_STATUS_VALUES:
             logger.error(
                 "Projectionist output validation failed — invalid frame_status: %r. "
-                "Raw output: %r", frame.get("frame_status"), output
+                "Raw output: %r",
+                frame.get("frame_status"),
+                output,
             )
             raise ValueError(
                 f"Projectionist frame_status must be one of {FRAME_STATUS_VALUES}, "
@@ -261,14 +260,16 @@ class MiddlewarePipeline:
         if not isinstance(frame.get("entities_mentioned"), list):
             logger.error(
                 "Projectionist output validation failed — entities_mentioned is not "
-                "an array. Raw output: %r", output
+                "an array. Raw output: %r",
+                output,
             )
             raise ValueError("entities_mentioned must be an array, not null")
 
         if not isinstance(frame.get("belief_links"), list):
             logger.error(
                 "Projectionist output validation failed — belief_links is not "
-                "an array. Raw output: %r", output
+                "an array. Raw output: %r",
+                output,
             )
             raise ValueError("belief_links must be an array, not null")
 
@@ -316,8 +317,9 @@ class MiddlewarePipeline:
         for signal in _PD2_SIGNALS:
             if signal in content:
                 logger.warning(
-                    "Prime Directive pre-guard trip — PD2 (Do Not Deceive): "
-                    "role=%s signal=%r", role, signal
+                    "Prime Directive pre-guard trip — PD2 (Do Not Deceive): " "role=%s signal=%r",
+                    role,
+                    signal,
                 )
                 raise PrimeDirectivesViolation(
                     directive="PD2",
@@ -328,18 +330,24 @@ class MiddlewarePipeline:
             if signal in content:
                 logger.warning(
                     "Prime Directive pre-guard trip — PD4 (Human in the Loop): "
-                    "role=%s signal=%r", role, signal
+                    "role=%s signal=%r",
+                    role,
+                    signal,
                 )
                 raise PrimeDirectivesViolation(
                     directive="PD4",
-                    detail=f"Request contains instruction to act without Maxwell approval: {signal!r}",
+                    detail=(
+                        "Request contains instruction to act without Maxwell "
+                        f"approval: {signal!r}"
+                    ),
                 )
 
         for signal in _PD5_SIGNALS:
             if signal in content:
                 logger.warning(
-                    "Prime Directive pre-guard trip — PD5 (Honest Identity): "
-                    "role=%s signal=%r", role, signal
+                    "Prime Directive pre-guard trip — PD5 (Honest Identity): " "role=%s signal=%r",
+                    role,
+                    signal,
                 )
                 raise PrimeDirectivesViolation(
                     directive="PD5",
@@ -369,8 +377,9 @@ class MiddlewarePipeline:
         for signal in _PD1_SIGNALS:
             if signal in content:
                 logger.warning(
-                    "Prime Directive post-guard trip — PD1 (Do Not Harm): "
-                    "role=%s signal=%r", role, signal
+                    "Prime Directive post-guard trip — PD1 (Do Not Harm): " "role=%s signal=%r",
+                    role,
+                    signal,
                 )
                 raise PrimeDirectivesViolation(
                     directive="PD1",
@@ -381,7 +390,9 @@ class MiddlewarePipeline:
             if signal in content:
                 logger.warning(
                     "Prime Directive post-guard trip — PD3 (State Uncertainty): "
-                    "role=%s signal=%r", role, signal
+                    "role=%s signal=%r",
+                    role,
+                    signal,
                 )
                 raise PrimeDirectivesViolation(
                     directive="PD3",
@@ -392,18 +403,24 @@ class MiddlewarePipeline:
             if signal in content:
                 logger.warning(
                     "Prime Directive post-guard trip — PD4 (Human in the Loop): "
-                    "role=%s signal=%r", role, signal
+                    "role=%s signal=%r",
+                    role,
+                    signal,
                 )
                 raise PrimeDirectivesViolation(
                     directive="PD4",
-                    detail=f"Output recommends consequential action without Maxwell approval: {signal!r}",
+                    detail=(
+                        "Output recommends consequential action without Maxwell "
+                        f"approval: {signal!r}"
+                    ),
                 )
 
         for signal in _PD5_POST_SIGNALS:
             if signal in content:
                 logger.warning(
-                    "Prime Directive post-guard trip — PD5 (Honest Identity): "
-                    "role=%s signal=%r", role, signal
+                    "Prime Directive post-guard trip — PD5 (Honest Identity): " "role=%s signal=%r",
+                    role,
+                    signal,
                 )
                 raise PrimeDirectivesViolation(
                     directive="PD5",

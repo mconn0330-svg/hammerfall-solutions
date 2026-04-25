@@ -10,7 +10,6 @@ deferred to Stage 2.
 """
 
 import logging
-from typing import Optional
 
 import openai
 
@@ -22,7 +21,7 @@ class EmbeddingClient:
         self._model = model
         self._client = openai.AsyncOpenAI(api_key=api_key)
 
-    async def generate(self, text: str) -> Optional[list[float]]:
+    async def generate(self, text: str) -> list[float] | None:
         """
         Generate an embedding vector for text.
 
@@ -40,6 +39,7 @@ class EmbeddingClient:
             logger.warning(
                 "EmbeddingClient: generation failed — write will proceed without embedding. "
                 "model=%s error=%s",
-                self._model, e,
+                self._model,
+                e,
             )
             return None

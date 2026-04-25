@@ -11,12 +11,14 @@ Relationship to brain.sh:
   Service. Two contexts, two tools, one Supabase endpoint.
 """
 
-import httpx
 from typing import Any
+
+import httpx
 
 
 class SupabaseError(Exception):
     """Raised when a Supabase REST call returns an error response."""
+
     pass
 
 
