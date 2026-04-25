@@ -1,0 +1,15 @@
+# Build output
+helm-ui/dist/
+helm-ui/.vite/
+**/node_modules/
+
+# Memory snapshots — written by snapshot.sh, not human-edited
+agents/**/memory/
+
+# Historical / archival docs preserved as-authored
+docs/stage0/
+docs/founding_docs/
+
+# Lockfiles and minified artifacts
+**/*.min.js
+**/package-lock.json

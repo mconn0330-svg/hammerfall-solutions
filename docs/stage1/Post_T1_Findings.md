@@ -1,12 +1,12 @@
 # Post-T1 Findings — Queue
 
-| | |
-|---|---|
-| **Status** | 🟢 Living document |
-| **Created** | 2026-04-24 |
-| **Purpose** | Capture findings, deferrals, and "we noticed this during T1 and chose not to do it now" items so they are not lost between T1 close and Stage 2 planning. |
-| **Lifecycle** | Append during T1 PRs. Re-sort at T4.5 (T1 close SITREP). First batch is addressed immediately after T1 close — *before* Stage 2 planning kicks off. |
-| **Related** | `docs/founding_docs/Helm_Brain_Object_Types.md` (architectural reference for brain-type findings), `docs/stage1/Helm_T1_Launch_Spec_V2.md` (the spec these findings sit alongside) |
+|               |                                                                                                                                                                                    |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Status**    | 🟢 Living document                                                                                                                                                                 |
+| **Created**   | 2026-04-24                                                                                                                                                                         |
+| **Purpose**   | Capture findings, deferrals, and "we noticed this during T1 and chose not to do it now" items so they are not lost between T1 close and Stage 2 planning.                          |
+| **Lifecycle** | Append during T1 PRs. Re-sort at T4.5 (T1 close SITREP). First batch is addressed immediately after T1 close — _before_ Stage 2 planning kicks off.                                |
+| **Related**   | `docs/founding_docs/Helm_Brain_Object_Types.md` (architectural reference for brain-type findings), `docs/stage1/Helm_T1_Launch_Spec_V2.md` (the spec these findings sit alongside) |
 
 ---
 
@@ -24,6 +24,7 @@ to add here under one of three sections:
   institutional memory).
 
 Each finding gets:
+
 - An ID (Finding #NNN, sequential)
 - A short title
 - The PR / context where it surfaced
@@ -52,7 +53,7 @@ into this cycle vs. which sit in §Open for later Stage 2 planning.
 
 **Surfaced:** 2026-04-24, during V2 spec gap review.
 **Owner:** TBD post-T1 (sequenced after T4.5 SITREP).
-**Reference:** This finding is a *batch* of related deferrals that cluster
+**Reference:** This finding is a _batch_ of related deferrals that cluster
 around brain expansion + ambient surfacing — work that belongs together,
 not splayed across separate cycles.
 
@@ -63,7 +64,7 @@ not splayed across separate cycles.
    `helm_affinities`, `helm_routines`. Reference:
    `docs/founding_docs/Helm_Brain_Object_Types.md` §Tier 3. Each follows
    the T0.B7 sub-PR template (~50 lines in the module proper). Some of
-   these only become *meaningful* once T2 scheduled passes exist — landing
+   these only become _meaningful_ once T2 scheduled passes exist — landing
    the tables ahead of T2 lets T2 work focus on cognition, not schema.
 
 2. **Local memory cache for Supabase outage.** Outbox protects writes; reads
@@ -91,7 +92,7 @@ not splayed across separate cycles.
    Helm-initiates. Depends on PWA (#4) for the user-facing channel; depends
    on T2 scheduled passes for the trigger source. Lands once both are in.
 
-6. **Voice / multimodal exploration spike.** Not full voice — a *spike* to
+6. **Voice / multimodal exploration spike.** Not full voice — a _spike_ to
    determine what voice-Helm would require (ASR + TTS choices, latency
    envelope, prompt adaptations for spoken output). Probably ~3 days of
    spike → ADR documenting the path before any commitment to build.
@@ -108,19 +109,20 @@ re-sort decision at T4.5 is cleaner than six.
 **Why now (this cycle, not in T1):** each individual item is real ambient
 work, not foundational. Pulling any single one into T1 would push T1 close
 out without changing the runtime's correctness. T0.B7 was the exception
-because the memory module was *literally* hot in everyone's hands during
+because the memory module was _literally_ hot in everyone's hands during
 T0.B1–T0.B6. These items don't have that proximity advantage.
 
 **Why now (this cycle, not Stage 2 proper):** Stage 2 is ambient
 infrastructure (scheduled passes, Contemplator wandering, time-aware
-prompting). These six are the things that have to exist *for that
-infrastructure to feel ambient*. Order matters — building scheduled
+prompting). These six are the things that have to exist _for that
+infrastructure to feel ambient_. Order matters — building scheduled
 Contemplator passes against a brain with no Tier 3 types or no Claude Code
 context is wasted work.
 
 **Acceptance for the cycle as a whole (when it eventually closes):**
+
 - Tier 3 brain types: tables exist, helpers shipped, prompts updated, but
-  not necessarily *exercised* yet (that's Stage 2's job)
+  not necessarily _exercised_ yet (that's Stage 2's job)
 - Local read cache: Helm degrades gracefully on Supabase outage; a runbook
   documents the failure mode
 - Claude Code bridge: at minimum, project-level summary writes from Claude
@@ -134,7 +136,25 @@ context is wasted work.
 
 ## Open findings — surfaced during T1, deferred
 
-*(Empty at creation. T1 PRs append here.)*
+### Finding #003 — Repo lacks root .gitignore
+
+**Surfaced:** 2026-04-25, PR for T0.A2 (pre-commit hooks).
+**Owner:** TBD (small `chore(repo)` PR, Batch tier).
+**Reference:** Only `helm-ui/.gitignore` exists. Root has none.
+**Proposal:** Add a root `.gitignore` covering: `node_modules/`, `__pycache__/`,
+`*.pyc`, `.venv/`, `.cache/`, `supabase/.temp/`, `.vite/`, `dist/`, `*.log`,
+editor temps, OS turds (`.DS_Store`, `Thumbs.db`). Keep helm-ui's existing
+`.gitignore` for its frontend-specific exclusions.
+**Why now / why not now:** T0.A2's `git status` listed six untracked junk
+paths (`$TMPFILE`, `helm-ui/.vite/`, `services/helm-runtime/__pycache__/`,
+`services/helm-runtime/agents/__pycache__/`, `supabase/.temp/`, root
+`node_modules/.cache/` from a hook side-effect). None should ever be
+tracked. Excluded from T0.A2's scope to keep the PR surgical (T0.A2 is "5
+named hooks," nothing more). One small PR resolves it.
+**Acceptance:** `git status --short` on a clean checkout shows no junk.
+The six paths above are silently ignored.
+
+---
 
 To add a finding, append a `### Finding #NNN — title` block. SITREPs in
 `docs/stage1/SITREPs/` can reference the finding number for cross-linking.
@@ -184,6 +204,7 @@ becomes the first post-T1 cycle (or whatever findings have accumulated by
 T4.5).
 
 **How T0.B7 is structured (see V2 spec for full detail):**
+
 - T0.B7a: `helm_entities` deepening (smallest, sets the template)
 - T0.B7b: `helm_curiosities` (first new type, end-to-end pattern)
 - T0.B7c: `helm_promises` (second new type, proves pattern holds)
