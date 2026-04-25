@@ -27,8 +27,8 @@ Hammerfall is the runtime + UI for Helm — an ambient AI presence Maxwell McCon
 - **Single-dev sequential execution.** One PR at a time. No parallel branches without explicit reason.
 - **Each PR opens with a SITREP** in `docs/stage1/SITREPs/`. Cite the matching task ID(s); flag out-of-scope items so they're not lost.
 - **Founding docs stay global.** `docs/founding_docs/` is the canonical reference. Update there before referencing in spec or PR.
-- **Found a problem outside the current task?** Append to `docs/stage1/Post_T1_Findings.md` with a Finding #NNN block. Reference the finding number in the PR's SITREP. Do not balloon the current task.
-- **Don't gold-plate.** V2 is the floor and the ceiling for T1. New scope goes through Maxwell, not into a quiet PR.
+- **Clean adjacent debt as you go.** If you touch a file or area and notice something broken — a typo, a dead variable, a small lint error, a stale comment, an obsolete reference — fix it in the same PR rather than filing a Finding. Accumulated debt is worse than a slightly larger diff; the "I'll come back to it" PR rarely materializes. Two boundaries: (a) the cleanup must be in code you're already editing or directly adjacent — don't go hunting for unrelated dirt across the repo; (b) new _features_ still go through Maxwell — V2 is the floor and ceiling for T1 features. Cleanup of code under your hands is welcomed and expected; new scope is not.
+- **Found a problem outside the current task's adjacency?** If it's _not_ in code you're already touching (a different module, a feature you'd have to go looking for), append to `docs/stage1/Post_T1_Findings.md` with a Finding #NNN block and reference it in the PR's SITREP. The Findings queue is for genuinely-out-of-scope discoveries, not for "I noticed this while I was here" — those get fixed in flight per the rule above.
 
 ## Testing conventions
 

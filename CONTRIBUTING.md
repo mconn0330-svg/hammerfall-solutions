@@ -19,6 +19,7 @@ Allowed scopes: `memory`, `runtime`, `ui`, `agent`, `prompt`, `infra`, `ci`, `do
 Format: `type(scope): subject in lowercase, no trailing period`
 
 Examples (from the spec):
+
 - `feat(memory): add outbox pattern for write durability`
 - `fix(prompt): resolve helm_prompt.md brain.sh references`
 - `chore(repo): add AGENTS.md operating contract`
@@ -37,6 +38,10 @@ Examples (from the spec):
 
 Tier labels are set in the V2 spec at task definition time. They are not relabeled mid-build.
 
-## When you find a problem outside the current task
+## When you find a problem
 
-Append a `### Finding #NNN — title` block to `docs/stage1/Post_T1_Findings.md` and reference it in the PR's SITREP. Don't balloon the current task; the queue is the right place for deferred work.
+**Adjacent to the current task** (same file, same module, code you're already editing): fix it in flight. Accumulated debt is worse than a slightly larger diff. See AGENTS.md "Clean adjacent debt as you go."
+
+**Outside the current task's adjacency** (a different module, something you'd have to go looking for): append a `### Finding #NNN — title` block to `docs/stage1/Post_T1_Findings.md` and reference it in the PR's SITREP. The queue is for genuinely out-of-scope discoveries.
+
+The line: did you notice it because of work you were already doing, or did you go hunting for it? The former gets fixed; the latter gets queued.
