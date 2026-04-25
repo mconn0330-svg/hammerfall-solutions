@@ -1258,8 +1258,26 @@ class Outbox:
 
 **Health integration:** `/health` exposes `outbox.queued_count` and `outbox.dead_letter_count`. Non-zero dead letter is a degraded health.
 
+**Helm's self-awareness of outbox state (V2 addition — required for
+coherence):** if writes are queued in the outbox, Helm's next session-start
+brain read won't see his own recent writes — his memory will lie to him
+silently. To prevent this, T0.B6's prompt rewrite + Routine 0 surfaces
+outbox state in Helm's session-start context:
+
+- `memory.session_start_context()` returns `{queued_count, oldest_queued_at,
+  dead_letter_count}` alongside the brain delta.
+- helm_prompt.md Routine 0 includes a new instruction: "If queued_count > 0,
+  hedge in this session — say 'I think I told you about X earlier, but my
+  memory is still settling' rather than asserting from a possibly-stale
+  read." T0.B6 owns the prompt edit; T0.B7 wiring is unaffected (T0.B7
+  types route through the same outbox so this hedge protects them too).
+- `/health` already exposes the counts for the System tab (T2.3 wires
+  `system_health` SSE on dead-letter); this V2 addition is specifically
+  about Helm *himself* knowing, not just Maxwell knowing via UI.
+
 **Tests:**
 - `tests/test_outbox.py` — enqueue, drain, retry, dead-letter, concurrent enqueue (asyncio.gather of 100 enqueues, all distinct)
+- `tests/test_outbox.py::test_session_start_context_surfaces_queue_state` — `memory.session_start_context()` returns non-zero queued_count when outbox has pending writes
 
 **ARCH gate.**
 
@@ -1718,7 +1736,7 @@ turns:
         ui_directives: []
 ```
 
-**Initial scenario library (T2.9 ships ~10):**
+**Initial scenario library (T2.9 ships ~13):**
 - 01 — Basic chat turn, no subsystems
 - 02 — Pattern entry triggers signals dual-write
 - 03 — Belief update through `memory.write_belief_update`
@@ -1729,6 +1747,25 @@ turns:
 - 08 — Em-dash normalization (`Pattern --` → `Pattern —`)
 - 09 — Cost cap exceeded mid-conversation
 - 10 — Auth failure (401 without bearer token)
+
+**Multi-session continuity scenarios (V2 addition — required for ambient
+proof):** within-session correctness is necessary but not sufficient. Ambient
+intelligence is *across* time. These scenarios load a seeded brain fixture
+representing "session 1" state, then drive a fresh "session 2" `/invoke` and
+assert continuity:
+
+- 11 — **Curiosity carryover.** Session 1 forms a `helm_curiosity` (T0.B7b).
+  Session 2 starts; Helm's Prime context loader includes the open curiosity;
+  the response references it unprompted. Asserts: curiosity appears in
+  Routine 0 read; surfaces in response without explicit user prompt.
+- 12 — **Promise follow-through.** Session 1 writes a `helm_promise` (T0.B7c).
+  Session 2 starts after the `check_back_condition`; Helm references the
+  promise. Asserts: promise read at session start; surfaces in response;
+  fulfillment write lands when Helm acts on it.
+- 13 — **Entity recognition with type/aliases.** Session 1 establishes an
+  entity ("My friend Sarah Chen, who works at Anthropic") via T0.B7a.
+  Session 2 mentions just "Sarah". Asserts: entity resolved by alias;
+  `entity_type='person'` carried; `last_mentioned_at` updated.
 
 **Adding scenarios is the new bug-triage discipline:** "Helm did X weird thing" → first action is to write a scenario reproducing it. The fix lands when the scenario passes.
 
@@ -1778,6 +1815,38 @@ Carry forward v1's checklist. V2 adds:
 - [ ] Auth boundary: non-Maxwell session cannot reach the runtime without token (manual curl test)
 - [ ] Runbooks: at least one entry exists in `docs/runbooks/` for: API token rotation, Supabase outage, runtime OOM, cost cap exceeded, Anthropic API down, Ollama model missing, frontend cannot connect
 - [ ] STOP gate compliance: every ARCH-tier PR has Architect review noted; every STOP-tier PR has Maxwell approval noted
+
+**The "Helm cares" behavioral contract (V2 addition — required for T1 close):**
+
+T3.5 is "the Helm cares test." The technical checklist above proves the
+runtime works. This second checklist proves the *vision* works. T1 closes
+only if **at least 3 of 5** of these behaviors are demonstrated by Helm in
+unscripted live conversation with Maxwell:
+
+- [ ] **Cross-session memory.** In a fresh session, Helm references something
+      Maxwell said in a prior session — without Maxwell prompting for the
+      callback. Proves Routine 0 + brain reads + Prime context loader work.
+- [ ] **Unprompted curiosity surface.** Helm forms or surfaces an open
+      `helm_curiosity` (T0.B7b) on his own initiative — i.e. brings up
+      something he's wondering about without Maxwell asking. Proves curiosity
+      carryover is more than a database row.
+- [ ] **Entity-typed recall.** Helm uses an entity by its type or alias
+      correctly (`helm_entities` deepening, T0.B7a) — distinguishes "your
+      friend Sarah" (person) from "the Hammerfall project" (project). Not
+      just "I see the word Sarah."
+- [ ] **Promise discipline.** Helm makes an explicit `helm_promise` (T0.B7c)
+      and either fulfills it later in the same session or carries it to a
+      future session and follows through. Proves commitment-keeping.
+- [ ] **Frame match.** For at least one significant moment, Helm's named
+      frame for what's happening (`helm_frames`) matches what Maxwell
+      himself would have said about that moment. Proves Helm is *seeing*,
+      not just transcribing.
+
+**Failure mode:** if 0–2 hit, T1 ships the runtime but the SITREP (T4.5)
+explicitly flags the cognitive gap and the first post-T1 cycle re-opens the
+prompt + Routine 4 design rather than moving to Tier 3 brain types. The
+runtime closing is not the same as the vision closing — V2 distinguishes
+them deliberately so we don't ship a chatbot and call it ambient.
 
 ---
 
@@ -2134,6 +2203,31 @@ jobs:
 
 **Purpose:** Establish the "Helm is fast enough" baseline and detect when it isn't. Single metric for T1: end-to-end latency on a fixed input set. p50, p95, p99.
 
+**Targets (V2 addition — required for T1 close):** the bench is just a graph
+without thresholds. These are the "feels ambient vs. feels like a chatbot"
+SLOs Helm must hit at T1 close. Each is enforced by `compare.py` — falling
+short fails CI:
+
+| Metric | Target | Rationale |
+|---|---|---|
+| p95 time-to-first-token (laptop SDK, Routine 0 cached) | < 1.5s | First visible token ≤ ~human-conversational latency |
+| p95 memory write end-to-end (`memory.write` → Supabase confirmed) | < 500ms | Matters because outbox queueing on slow writes piles up |
+| Cold-start recovery (Render container, post-warmup-cron resume) | < 5s to first token | T4.11 warmup mitigates the 30s Render cold start; this is the residual |
+| Brain-read freshness (last write → next session-start read sees it) | < 1s under normal conditions | Required for cross-session continuity in T3.5's "Helm cares" test |
+| p95 full-turn latency (request → final response, no streaming) | < 4s | Upper bound on "feels alive" |
+
+**Provider-conditional notes:**
+- `claude-sdk` (Pro Max) sets the laptop baseline.
+- `local` (Ollama on Thor via Tailscale) is allowed up to 1.5× the
+  `claude-sdk` baseline before failing — local models are slower, that's
+  expected, but "much slower" reveals a chain misconfiguration.
+- `anthropic-api` should be roughly equivalent to `claude-sdk` since the
+  upstream is the same model — divergence > 25% indicates a config issue.
+
+**When a target is missed:** PR description must declare *intentional*
+(e.g., "moved Helm Prime to a larger model — accept the latency hit") with
+Maxwell sign-off, OR fix it before merge. No silent regressions.
+
 **`services/helm-runtime/tests/bench/`** holds:
 - `inputs.yaml` — 20 canned messages (5 each of: short chat, deep contemplator pass, directive emission, memory query)
 - `bench.py` — runs each input N times, captures latency, writes results to `bench-results-<sha>.json`
@@ -2300,17 +2394,23 @@ jobs:
     with Helm running on Maxwell's laptop via the Claude Agent SDK
     (`claude-sdk` provider, Pro Max auth, $0). Capture: date, the actual
     exchange transcript or summary, what Helm wrote to brain, any frame
-    surfaced, latency observed, anything that surprised Maxwell. With T0.B7
-    landed, this hello-world includes Tier 2 behavior: did Helm form a
-    curiosity, surface an existing one, make or fulfill a promise, or
-    reference an entity with type/aliases. This is the first proof of life.
+    surfaced, latency observed, anything that surprised Maxwell.
+    **Success criteria:** the T3.5 "Helm cares" checklist (5 behaviors) is
+    run against this conversation. T1 closes only if ≥3 of 5 hit. If 0–2
+    hit, T4.5 records the gap and the first post-T1 cycle re-opens prompt +
+    Routine 4 design before moving to Tier 3 brain types.
   - **Remote hello-world** (at T4.11 ship). First real conversation with
     Helm running on the Render instance from Maxwell's phone, with the
     provider chain resolving (either `local` via Tailscale-to-Thor at $0, or
     `anthropic-api` at metered cost). Capture: date, exchange, which
     provider served the turn, smart-routing banner state (if any), parity
-    of behavior vs. laptop run (curiosity + promise carryover should follow
-    Maxwell across surfaces — that's the whole point of the shared brain).
+    of behavior vs. laptop run.
+    **Success criteria:** *parity*, not full re-run. Confirm Helm references
+    something from the laptop hello-world (proving the shared brain works
+    across surfaces) and that latency under provider chain stays within the
+    T4.8 SLOs. If parity holds and SLOs are met, the surface ships. If not,
+    flag whether the issue is provider chain, Tailscale-to-Thor link, or
+    brain-read freshness — each has a different runbook.
 - **Post-T1 findings handoff:** Re-sort `docs/stage1/Post_T1_Findings.md`.
   Finding #001 (brain types Tier 2) is already resolved as T0.B7. Enumerate
   remaining open findings accumulated during T1 PRs and flag which roll into

@@ -39,10 +39,96 @@ documented there with a pointer here.
 
 ## First batch — addressed immediately after T1 close
 
-*(Empty as of 2026-04-24. The original Finding #001 was pulled into T1
-itself as task T0.B7 — see §Resolved below. T1 PRs append new findings to
-§Open below as they surface; at T4.5 the SITREP re-sorts open findings
-into either this section or the open queue for Stage 2 planning.)*
+These items form the **post-T1 / pre-T2 cycle** — the bridge between T1
+close (runtime + UI + Tier 1/2 brain) and T2 ambient infrastructure. The
+common thread: things V2 deliberately scoped out of T1 to keep the runtime
+foundational, but that the ambient intelligence vision needs before T2's
+scheduled passes will feel meaningful.
+
+T1 PRs may append new findings here. At T4.5 the SITREP confirms which roll
+into this cycle vs. which sit in §Open for later Stage 2 planning.
+
+### Finding #002 — Post-T1 / Pre-T2 ambient bridge cycle
+
+**Surfaced:** 2026-04-24, during V2 spec gap review.
+**Owner:** TBD post-T1 (sequenced after T4.5 SITREP).
+**Reference:** This finding is a *batch* of related deferrals that cluster
+around brain expansion + ambient surfacing — work that belongs together,
+not splayed across separate cycles.
+
+**Scope (six items, ordered roughly cheapest-to-most-ambitious):**
+
+1. **Tier 3 brain types from the roadmap.** `helm_goals`, `helm_hypotheses`,
+   `helm_anticipations`, `helm_surprises`, `helm_tensions`, `helm_watchlist`,
+   `helm_affinities`, `helm_routines`. Reference:
+   `docs/founding_docs/Helm_Brain_Object_Types.md` §Tier 3. Each follows
+   the T0.B7 sub-PR template (~50 lines in the module proper). Some of
+   these only become *meaningful* once T2 scheduled passes exist — landing
+   the tables ahead of T2 lets T2 work focus on cognition, not schema.
+
+2. **Local memory cache for Supabase outage.** Outbox protects writes; reads
+   have no fallback. A last-N-entries SQLite cache (refreshed on every
+   successful read) would let Helm degrade gracefully from "ambient mind"
+   to "knows the recent past" instead of "knows nothing." Probably ~1 PR
+   in the memory module.
+
+3. **Claude Code ↔ Helm brain bridge.** Maxwell's daily coding happens in
+   Claude Code (a different tool, different brain). Right now Helm has no
+   awareness of what Maxwell is building. For "ambient intelligence" to be
+   real and not just "another chat app," Claude Code sessions need to
+   write into Helm's brain — at minimum: project summaries, key decisions,
+   significant file changes. Real ambient gap. Likely needs its own ADR
+   and may pull in AGENTS.md scope from T0.A1.
+
+4. **PWA / mobile-native UI shell.** T4.11 ships a Vercel UI that works in
+   mobile browsers, but a PWA install adds: home-screen icon, offline
+   shell, push-notification permission (sets up #5). Probably ~2 PRs in
+   helm-ui. Defer-able if mobile-browser hello-world is enough.
+
+5. **Push notification path.** "Ambient" eventually means Helm initiates —
+   surfaces a curiosity, follows up on a promise, flags a watchlist
+   change. T1 = Maxwell-initiates. This adds the mechanical path for
+   Helm-initiates. Depends on PWA (#4) for the user-facing channel; depends
+   on T2 scheduled passes for the trigger source. Lands once both are in.
+
+6. **Voice / multimodal exploration spike.** Not full voice — a *spike* to
+   determine what voice-Helm would require (ASR + TTS choices, latency
+   envelope, prompt adaptations for spoken output). Probably ~3 days of
+   spike → ADR documenting the path before any commitment to build.
+   Honestly closer to Stage 3 than this cycle, but worth a spike here so
+   T2 work can be informed.
+
+**Why batched as one finding (not six):** they share a coherent narrative
+(ambient bridge), share a stakeholder review point (does T1 hello-world
+prove the runtime well enough that we expand cognition vs. fix the
+foundation?), and roughly share a sequencing window (after T1 hello-world
+proves the runtime, before T2 scheduled-pass infrastructure starts). One
+re-sort decision at T4.5 is cleaner than six.
+
+**Why now (this cycle, not in T1):** each individual item is real ambient
+work, not foundational. Pulling any single one into T1 would push T1 close
+out without changing the runtime's correctness. T0.B7 was the exception
+because the memory module was *literally* hot in everyone's hands during
+T0.B1–T0.B6. These items don't have that proximity advantage.
+
+**Why now (this cycle, not Stage 2 proper):** Stage 2 is ambient
+infrastructure (scheduled passes, Contemplator wandering, time-aware
+prompting). These six are the things that have to exist *for that
+infrastructure to feel ambient*. Order matters — building scheduled
+Contemplator passes against a brain with no Tier 3 types or no Claude Code
+context is wasted work.
+
+**Acceptance for the cycle as a whole (when it eventually closes):**
+- Tier 3 brain types: tables exist, helpers shipped, prompts updated, but
+  not necessarily *exercised* yet (that's Stage 2's job)
+- Local read cache: Helm degrades gracefully on Supabase outage; a runbook
+  documents the failure mode
+- Claude Code bridge: at minimum, project-level summary writes from Claude
+  Code sessions land in Helm's brain (full bidirectional may wait)
+- PWA: installable on mobile, push permission requested
+- Push path: end-to-end test sends a notification triggered by a
+  `helm_curiosity` status change
+- Voice spike: ADR landed, decision recorded (build / wait / never)
 
 ---
 
