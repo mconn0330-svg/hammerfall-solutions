@@ -154,6 +154,27 @@ named hooks," nothing more). One small PR resolves it.
 **Acceptance:** `git status --short` on a clean checkout shows no junk.
 The six paths above are silently ignored.
 
+### Finding #004 — 349 pre-existing eslint errors in helm-ui/
+
+**Surfaced:** 2026-04-25, PR for T0.A3 (test harness) — running `npm run lint`
+in helm-ui/ to verify the smoke test was clean revealed 349 errors across the
+existing widgets and components (mostly `no-unused-vars` for `motion` imports
+and a few `no-dupe-keys` in inline styles).
+**Owner:** TBD (`fix(ui)` PR, Batch tier).
+**Reference:** `helm-ui/eslint.config.js` is the rule source; errors live in
+`helm-ui/src/widgets/*.jsx` and `helm-ui/src/components/*.jsx`.
+**Proposal:** Either (a) one sweep `fix(ui)` PR that runs `eslint --fix`
+where possible and removes/uses unused imports manually, or (b) progressive
+cleanup as files are touched (the per-file pre-commit hook will fail on edits
+to dirty files until the file is cleaned). Recommend (a) — single-shot is
+cleaner than dragging the debt across multiple PRs.
+**Why now / why not now:** Pre-existing condition, not introduced by T0.A3.
+Excluding from T0.A3 keeps that PR's diff scoped to "test harness." The
+per-file eslint hook (correct pre-commit pattern) means existing errors don't
+block commits to clean files — only edits to _already-dirty_ files surface
+those errors. So this is non-blocking but worth a sweep.
+**Acceptance:** `cd helm-ui && npm run lint` exits 0 across the whole repo.
+
 ---
 
 To add a finding, append a `### Finding #NNN — title` block. SITREPs in

@@ -30,6 +30,15 @@ Hammerfall is the runtime + UI for Helm — an ambient AI presence Maxwell McCon
 - **Found a problem outside the current task?** Append to `docs/stage1/Post_T1_Findings.md` with a Finding #NNN block. Reference the finding number in the PR's SITREP. Do not balloon the current task.
 - **Don't gold-plate.** V2 is the floor and the ceiling for T1. New scope goes through Maxwell, not into a quiet PR.
 
+## Testing conventions
+
+- **Python tests live in `services/helm-runtime/tests/`** mirroring the module under test (memory module → `tests/test_memory_writer.py`). Run via `pytest` from the service dir. `pytest-asyncio` is in `auto` mode — async test functions need no decorator.
+- **JS/JSX tests are `*.test.jsx` co-located with their components** (e.g. `src/components/HelmNode.jsx` → `src/components/HelmNode.test.jsx`). Bare smoke tests live in `src/__tests__/`. Run via `npm test` from `helm-ui/`.
+- **New code lands with tests.** PR template enforces. Bug fixes land with a regression test that fails before the fix.
+- **One assertion per test where practical.** Multiple assertions are fine when they describe the same observation; split when they describe distinct behaviors.
+- **Tests do not hit external services.** Use the `supabase_stub` fixture from `services/helm-runtime/tests/conftest.py` for any code path that would otherwise call Supabase. Real-Supabase tests belong behind a marker we have not introduced yet.
+- **Coverage targets** (per V2 spec §T0.A3): 80%+ for the memory module + Tier 2 brain types (T0.B1–T0.B7), 60%+ for runtime additions, smoke + critical-path only for UI integration.
+
 ## Where to look for known failures
 
 `docs/runbooks/` — symptom → diagnosis → fix → root cause. If you hit something that should have a runbook and doesn't, add one (template at `docs/runbooks/0000-template.md`).

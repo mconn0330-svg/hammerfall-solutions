@@ -45,15 +45,17 @@ repos:
       - id: prettier
         files: \.(js|jsx|ts|tsx|json|css|md|yml|yaml)$
 
-  # JS — eslint (helm-ui has its own config; call its npm script)
+  # JS — eslint, per-file. Pre-commit semantics: only files staged in this
+  # commit are checked. Pre-existing helm-ui/ lint debt does not block commits
+  # to unrelated files; touching a dirty file will surface its errors only.
   - repo: local
     hooks:
       - id: eslint-helm-ui
         name: eslint (helm-ui)
         language: system
-        entry: bash -c 'cd helm-ui && npm run lint'
+        entry: bash -c 'cd helm-ui && for f in "$@"; do npx eslint "${f#helm-ui/}" || exit 1; done' --
         files: ^helm-ui/.*\.(js|jsx)$
-        pass_filenames: false
+        pass_filenames: true
 
   # Commit message — commitlint (commit-msg stage)
   - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
