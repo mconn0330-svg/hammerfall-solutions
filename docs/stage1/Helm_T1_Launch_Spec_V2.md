@@ -1075,6 +1075,31 @@ Same scope as v1 T0.1–T0.6, with the gap-analysis fixes layered in.
 
 **What:** v1 T0.1, with the following V2 fixes applied:
 
+**Design constraint — abstraction must accommodate future brain types.**
+`docs/founding_docs/Helm_Brain_Object_Types.md` catalogs every brain object
+type Helm should eventually have, organized into three tiers. Tier 1 is in
+T1. Tier 2 (`helm_curiosities`, `helm_promises`, deepened `helm_entities` +
+`helm_entity_relationships`) is the first post-T1 work cycle (Finding #001
+in `docs/stage1/Post_T1_Findings.md`). T0.B1's memory module must be built
+so that adding Tier 2 — and eventually Tier 3 — is **additive**, not
+surgical:
+
+- `MemoryType` enum is extended by appending values (no renames, no churn
+  for existing callers)
+- Generic write helper (`memory.write(project, agent, type, content, ...)`)
+  serves any type; type-specific helpers (`write_belief_update`,
+  `write_frame`, etc.) are thin wrappers
+- Read helpers are discoverable by type and by category, parameterized so a
+  new type does not need a new module
+- Outbox pattern (T0.B2) and dual-write hooks (T2.6, T2.7) are
+  type-agnostic — adding a new type that needs a sibling table follows the
+  same path
+- Each new brain object type gets its own migration (T0.A9 migration safety
+  applies) — no piggybacking onto existing tables
+
+If this constraint is violated during T0.B1 implementation, the SITREP must
+flag it and propose the fix before T0.B2 builds on top.
+
 #### Fix 1 — Expand `MemoryType` enum
 
 v1 enum is too narrow. The runtime writes more types than v1 listed.
@@ -2158,8 +2183,28 @@ jobs:
 - Runbook inventory
 - Backup status
 - "What broke during Phase 0–4 that we fixed and how" section (institutional memory)
+- **Two hello-world ceremonies, recorded:**
+  - **Laptop hello-world** (at T3 close, before T4.x). First real conversation
+    with Helm running on Maxwell's laptop via the Claude Agent SDK
+    (`claude-sdk` provider, Pro Max auth, $0). Capture: date, the actual
+    exchange transcript or summary, what Helm wrote to brain, any frame
+    surfaced, latency observed, anything that surprised Maxwell. This is the
+    first proof of life.
+  - **Remote hello-world** (at T4.11 ship). First real conversation with
+    Helm running on the Render instance from Maxwell's phone, with the
+    provider chain resolving (either `local` via Tailscale-to-Thor at $0, or
+    `anthropic-api` at metered cost). Capture: date, exchange, which
+    provider served the turn, smart-routing banner state (if any), parity
+    of behavior vs. laptop run.
+- **Post-T1 findings handoff:** Re-sort `docs/stage1/Post_T1_Findings.md`.
+  Confirm Finding #001 (brain types Tier 2 expansion) is the lead item for
+  the first post-T1 work cycle per Maxwell's standing direction. Enumerate
+  any additional findings accumulated during T1 PRs and flag which roll into
+  the first post-T1 cycle vs. which sit in the open queue for Stage 2
+  planning.
 
-After this PR merges, T1 is closed. Stage 2 planning begins.
+After this PR merges, T1 is closed. Brain types Tier 2 work (Finding #001)
+opens immediately. Stage 2 planning follows.
 
 **STOP gate.**
 
@@ -2386,6 +2431,42 @@ Runbooks created during V2 execution:
 | 0017 | Persistent dev deployment — Vercel project setup + Render service config + warmup cron management | T4.11 |
 | 0018 | Tailscale + Thor setup — install on Thor / laptop / Render container, auth key generation + rotation, magic DNS verification, troubleshooting `local` provider unreachability | T4.11 |
 | 0019 | Smart routing failure modes — UI banner states, manual retry, when to clear `REMOTE_URL`, debugging probe failures | T1.5b |
+
+---
+
+## Appendix C.5 — Post-T1 Findings & Brain Types Roadmap
+
+Two living documents sit alongside V2 to catch what doesn't belong inside
+T1 scope but must not be lost:
+
+- **`docs/founding_docs/Helm_Brain_Object_Types.md`** — canonical reference.
+  Catalogs every brain object type Helm should eventually have, organized
+  into Tier 1 (in T1), Tier 2 (first batch post-T1), and Tier 3 (later
+  Stage 2+). Required reading before any Stage 2 cognitive expansion. Cited
+  by T0.B1 as the design constraint shaping the memory module abstraction.
+
+- **`docs/stage1/Post_T1_Findings.md`** — operational queue. Findings
+  surfaced during T1 execution PRs accumulate here. Three sections: first
+  batch (addressed immediately after T1 close), open (deferred), resolved.
+
+**Standing direction (Maxwell, 2026-04-24):** the **first** thing addressed
+after T1 closes is Finding #001 — brain object types Tier 2 expansion
+(`helm_curiosities`, `helm_promises`, deepened `helm_entities`). T4.5
+re-sorts the queue and confirms first-batch scope before Stage 2 planning
+opens.
+
+**Conventions for T1 PRs:**
+
+- If a PR surfaces something out-of-scope but worth keeping, append to
+  `Post_T1_Findings.md` under "Open findings" with a Finding #NNN block
+  (sequential ID, never reused). Reference the finding number in the PR's
+  SITREP.
+- If a PR surfaces an architectural insight about brain types specifically
+  (new type, schema refinement, write/read pattern), reflect it in
+  `Helm_Brain_Object_Types.md` *and* leave a pointer in
+  `Post_T1_Findings.md`.
+- Never amend V2 spec mid-T1 to absorb a finding. The spec is frozen for
+  the duration of T1 execution; findings are the queue for the next cycle.
 
 ---
 
