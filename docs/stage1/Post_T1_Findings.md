@@ -136,23 +136,14 @@ context is wasted work.
 
 ## Open findings — surfaced during T1, deferred
 
-### Finding #003 — Repo lacks root .gitignore
+### Finding #003 — Repo lacks root .gitignore — ✅ RESOLVED 2026-04-25
 
 **Surfaced:** 2026-04-25, PR for T0.A2 (pre-commit hooks).
-**Owner:** TBD (small `chore(repo)` PR, Batch tier).
-**Reference:** Only `helm-ui/.gitignore` exists. Root has none.
-**Proposal:** Add a root `.gitignore` covering: `node_modules/`, `__pycache__/`,
-`*.pyc`, `.venv/`, `.cache/`, `supabase/.temp/`, `.vite/`, `dist/`, `*.log`,
-editor temps, OS turds (`.DS_Store`, `Thumbs.db`). Keep helm-ui's existing
-`.gitignore` for its frontend-specific exclusions.
-**Why now / why not now:** T0.A2's `git status` listed six untracked junk
-paths (`$TMPFILE`, `helm-ui/.vite/`, `services/helm-runtime/__pycache__/`,
-`services/helm-runtime/agents/__pycache__/`, `supabase/.temp/`, root
-`node_modules/.cache/` from a hook side-effect). None should ever be
-tracked. Excluded from T0.A2's scope to keep the PR surgical (T0.A2 is "5
-named hooks," nothing more). One small PR resolves it.
-**Acceptance:** `git status --short` on a clean checkout shows no junk.
-The six paths above are silently ignored.
+**Resolved:** 2026-04-25, T0.A7 PR — bundled because it had bitten T0.A6
+and T0.A7 both with accidental `__pycache__` commits via `git add -u`.
+**Outcome:** Root `.gitignore` covers `__pycache__/`, `*.py[cod]`, `.venv/`,
+`node_modules/`, `**/.vite/`, `**/dist/`, OS turds, `.env*`, supabase
+scratch, `$TMPFILE`. `git status --short` on a clean checkout reads cleanly.
 
 ### Finding #004 — 349 pre-existing eslint errors in helm-ui/ — ✅ RESOLVED 2026-04-25
 

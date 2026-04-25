@@ -19,7 +19,7 @@ services:
       context: ./services/helm-runtime
       dockerfile: Dockerfile
     ports:
-      - "${HELM_RUNTIME_PORT:-8000}:8000"
+      - '${HELM_RUNTIME_PORT:-8000}:8000'
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - SUPABASE_BRAIN_URL=${SUPABASE_BRAIN_URL}
@@ -37,12 +37,37 @@ services:
       # PROMPT_PATH without an image rebuild on every prompt edit. Long-term the
       # prompt moves into Supabase alongside helm_personality.
       - ./agents/helm/helm_prompt.md:/app/agents/helm/helm_prompt.md:ro
+      # T0.A7: persistent state volume for the memory-module outbox (T0.B2).
+      # Read-only root means the runtime cannot write outside /tmp + this mount.
+      - helm_state:/home/helm/.helm
+    # T0.A7 — production hardening (architect-approved, see arch_notes).
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    cpus: 1.0
+    healthcheck:
+      # Mirrors the Dockerfile HEALTHCHECK so `docker compose ps` reports
+      # the same health state. urllib avoids needing curl in the slim image.
+      test:
+        - 'CMD'
+        - 'python'
+        - '-c'
+        - "import urllib.request,sys; r=urllib.request.urlopen('http://localhost:8000/health', timeout=5); sys.exit(0 if r.status == 200 else 1)"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     restart: unless-stopped
 
   ollama:
     image: ollama/ollama:latest
     ports:
-      - "11434:11434"
+      - '11434:11434'
     volumes:
       # Persist pulled models — qwen2.5:3b does not re-download on every up
       - ollama_data:/root/.ollama
@@ -62,7 +87,7 @@ services:
       # ollama/ollama image does not include curl, so the previous curl-based
       # check could never pass — leaving the container marked unhealthy and
       # blocking helm-runtime via depends_on.
-      test: ["CMD", "ollama", "list"]
+      test: ['CMD', 'ollama', 'list']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -73,3 +98,8 @@ volumes:
   ollama_data:
     # Named volume — survives docker-compose down, removed only with:
     #   docker-compose down -v
+  helm_state:
+    # T0.A7 — persistent home for the runtime user. Hosts the outbox SQLite
+    # (T0.B2) and any other long-lived state the runtime needs to write.
+    # Outside of /tmp, this is the ONLY location the runtime can write
+    # because read_only is true.

@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.cover
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Node — helm-ui has its own .gitignore for the rest; root catches strays
+node_modules/
+
+# Vite / build output
+**/.vite/
+**/dist/
+
+# Editor / OS turds
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/
+*.code-workspace
+
+# Local env + secrets — never commit
+.env
+.env.local
+.env.*.local
+
+# Supabase CLI scratch
+supabase/.temp/
+
+# Helm runtime local state — outbox lives at ~/.helm/ outside the repo,
+# but in case anyone runs the service with HELM_HOME=. for testing.
+.helm/
+
+# Backup / temp shell artifacts
+$TMPFILE
+*.tmp
+*.bak

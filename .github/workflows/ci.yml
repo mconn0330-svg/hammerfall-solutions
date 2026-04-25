@@ -35,7 +35,22 @@ jobs:
             services/helm-runtime/requirements-dev.txt
 
       - name: Install
+        # Hashed lockfiles (T0.A7). pip enforces hashes automatically when
+        # they are present in the file.
         run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Verify lockfiles in sync with .in (T0.A7)
+        # pip-compile is in requirements-dev so it's already installed above.
+        # Re-runs compile and diffs against the committed lockfiles. Any drift
+        # (someone bumped requirements.in but didn't regenerate) fails CI.
+        run: |
+          python -m piptools compile --generate-hashes --strip-extras --quiet \
+            -o /tmp/requirements.check.txt requirements.in
+          diff requirements.txt /tmp/requirements.check.txt
+          python -m piptools compile --generate-hashes --strip-extras --allow-unsafe --quiet \
+            --constraint requirements.txt \
+            -o /tmp/requirements-dev.check.txt requirements-dev.in
+          diff requirements-dev.txt /tmp/requirements-dev.check.txt
 
       - name: Lint (ruff)
         run: ruff check .
