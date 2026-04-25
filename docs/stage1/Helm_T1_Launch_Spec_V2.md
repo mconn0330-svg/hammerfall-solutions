@@ -6,7 +6,7 @@
 | **Version** | V2 — comprehensive foundation rewrite |
 | **Authored** | 2026-04-24, Claude Opus 4.7 (Helm IDE) under Maxwell's planning + architecture authority grant |
 | **Purpose** | Land T1 on-demand presence on a production-grade foundation. Memory infrastructure, repo operating contract, test harness, CI, observability, deployment hardening, API auth, cost guardrails, and backup discipline all in place before T1 closes. |
-| **Estimated PRs** | 49–57 |
+| **Estimated PRs** | 54–62 |
 | **Execution model** | Single dev (Helm IDE / me), sequential, methodical. Maxwell reviews. Architect consulted on STOP-gated tasks. |
 | **Exit criteria** | A user opens the UI, talks to Helm, sees live agent activity, experiences a coherent identity — on real data, no mocks — running on a stack that has tests, CI, structured logs, traces, an auth boundary, a backup, and a runbook for every known failure mode. |
 
@@ -108,6 +108,7 @@ Examples:
 | T0.B4 | Snapshot service — replace snapshot.sh, atomic writes via os.replace | STOP | 🔵 Queued |
 | T0.B5 | Prompt management — replace sync/pull scripts, refuse-to-boot fallback | STOP | 🔵 Queued |
 | T0.B6 | Shell deprecation + complete prompt/doc rewrite (4 files) | STOP | 🔵 Queued |
+| T0.B7 | Tier 2 brain types — `helm_entities` deepening + `helm_curiosities` + `helm_promises` (proves T0.B1 abstraction is additive) | ARCH | 🔵 Queued |
 
 ### Phase 1 — Freestanding UI (can start in parallel with Phase 0; in single-dev mode, runs interleaved)
 
@@ -205,41 +206,42 @@ The user-facing task IDs are grouped by phase, but in single-dev sequential mode
 19. T0.B4   Snapshot service
 20. T0.B5   Prompt management
 21. T0.B6   Shell deprecation + 4-file rewrite
-22. T1.1    UI: Speaker removal + subsystems_invoked rename
-23. T1.2    UI: UUID mocks
-24. T1.3    UI: hardcode personality translations
-25. T1.4    UI: date formatting utility
-26. T1.5a   UI: CSS design tokens
-27. T1.5b   UI: apply tokens across components
-28. T1.6    UI: commit Supabase anon key
-29. T1.7    UI Interaction Spec [HARD GATE — Architect + Maxwell]
-30. T2.2    Async handoff
-31. T2.3    SSE + directives + caching
-32. T2.9    Agent simulation test harness      [needs T2.3 SSE contract + T0.B5 prompt module]
-33. T2.4    Belief slugs
-34. T2.5    Belief history
-35. T2.6    Signals table + dual-write hook
-36. T2.7    Entities RPC
-37. T2.8    Schema reference doc
-38. T3.1    Response parser
-39. T3.2    Directive handler
-40. T3.3    UI ↔ Supabase
-41. T3.4    UI ↔ runtime
-42. T3.5    Launch validation
-43. T4.1    Runbook set
-44. T4.2    Rate limiting
-45. T4.3    SSE session resumption
-46. T4.4    Dev deployment decision (ADR-003)
-47. T4.11   Persistent dev deployment (Vercel + Render, stable URL)  [implements ADR-003]
-48. T4.6    Preview environments per PR        [reuses T4.11 stack, ephemeral instances]
-49. T4.7    Scheduled health checks            [needs T4.11 deployed instance]
-50. T4.8    Performance regression baseline    [needs T4.11 deployed instance to bench against]
-51. T4.9    Docs site auto-deploy
-52. T4.10   Release automation
-53. T4.5    Operational SITREP — T1 close
+22. T0.B7   Tier 2 brain types — entities deepening + curiosities + promises  [validates T0.B1 abstraction; lands ~3 PRs]
+23. T1.1    UI: Speaker removal + subsystems_invoked rename
+24. T1.2    UI: UUID mocks
+25. T1.3    UI: hardcode personality translations
+26. T1.4    UI: date formatting utility
+27. T1.5a   UI: CSS design tokens
+28. T1.5b   UI: apply tokens across components
+29. T1.6    UI: commit Supabase anon key
+30. T1.7    UI Interaction Spec [HARD GATE — Architect + Maxwell]
+31. T2.2    Async handoff
+32. T2.3    SSE + directives + caching
+33. T2.9    Agent simulation test harness      [needs T2.3 SSE contract + T0.B5 prompt module]
+34. T2.4    Belief slugs
+35. T2.5    Belief history
+36. T2.6    Signals table + dual-write hook
+37. T2.7    Entities RPC                       [now reads enriched entity model from T0.B7]
+38. T2.8    Schema reference doc
+39. T3.1    Response parser
+40. T3.2    Directive handler
+41. T3.3    UI ↔ Supabase
+42. T3.4    UI ↔ runtime
+43. T3.5    Launch validation                  [hello-world #1: laptop SDK; surfaces curiosities + promises]
+44. T4.1    Runbook set
+45. T4.2    Rate limiting
+46. T4.3    SSE session resumption
+47. T4.4    Dev deployment decision (ADR-003)
+48. T4.11   Persistent dev deployment (Vercel + Render, stable URL)  [implements ADR-003; hello-world #2: remote]
+49. T4.6    Preview environments per PR        [reuses T4.11 stack, ephemeral instances]
+50. T4.7    Scheduled health checks            [needs T4.11 deployed instance]
+51. T4.8    Performance regression baseline    [needs T4.11 deployed instance to bench against]
+52. T4.9    Docs site auto-deploy
+53. T4.10   Release automation
+54. T4.5    Operational SITREP — T1 close
 ```
 
-53 tasks. Some bundle (T1.1+T1.2 batch, T2.4+T2.7 batch, T4.9+T4.10 batch) — true PR count ~49–57.
+54 tasks. T0.B7 lands ~3 PRs (one per type). Other bundles (T1.1+T1.2 batch, T2.4+T2.7 batch, T4.9+T4.10 batch) — true PR count ~54–62.
 
 ---
 
@@ -352,7 +354,7 @@ cd helm-ui && npm install --save-dev @commitlint/cli @commitlint/config-conventi
 - One assertion per test where practical
 
 **Coverage targets (V2):**
-- T0.B1–T0.B6 memory module → 80%+ unit coverage (this is the foundation; it has to be solid)
+- T0.B1–T0.B7 memory module + Tier 2 brain types → 80%+ unit coverage (this is the foundation; it has to be solid)
 - T2.x runtime additions → 60%+ coverage
 - T3.x UI integration → smoke + critical-path tests, not full coverage
 - Phase 4 → no coverage requirement, runbooks substitute
@@ -1075,14 +1077,16 @@ Same scope as v1 T0.1–T0.6, with the gap-analysis fixes layered in.
 
 **What:** v1 T0.1, with the following V2 fixes applied:
 
-**Design constraint — abstraction must accommodate future brain types.**
+**Design constraint — abstraction is exercised by T0.B7, must accommodate Tier 3 too.**
 `docs/founding_docs/Helm_Brain_Object_Types.md` catalogs every brain object
-type Helm should eventually have, organized into three tiers. Tier 1 is in
-T1. Tier 2 (`helm_curiosities`, `helm_promises`, deepened `helm_entities` +
-`helm_entity_relationships`) is the first post-T1 work cycle (Finding #001
-in `docs/stage1/Post_T1_Findings.md`). T0.B1's memory module must be built
-so that adding Tier 2 — and eventually Tier 3 — is **additive**, not
-surgical:
+type Helm should eventually have, organized into three tiers. Tier 1 + Tier 2
+both land in T1 — Tier 1 here in T0.B1, Tier 2 in **T0.B7** (right after
+T0.B6). Tier 3 (goals, hypotheses, anticipations, surprises, tensions,
+watchlist, affinities, routines) is post-T1 work, gated on T2/T3 ambient
+infrastructure.
+
+T0.B1's memory module must be built so that T0.B7 can land each new type
+in ~50 lines (migration + enum line + helper + tests) without surgery:
 
 - `MemoryType` enum is extended by appending values (no renames, no churn
   for existing callers)
@@ -1097,8 +1101,9 @@ surgical:
 - Each new brain object type gets its own migration (T0.A9 migration safety
   applies) — no piggybacking onto existing tables
 
-If this constraint is violated during T0.B1 implementation, the SITREP must
-flag it and propose the fix before T0.B2 builds on top.
+If T0.B1 ships an abstraction that turns T0.B7 into a 500-line refactor
+instead of three 50-line PRs, the abstraction failed and gets revisited
+before T0.B7 starts. T0.B7 is the test; T0.B1 is the design.
 
 #### Fix 1 — Expand `MemoryType` enum
 
@@ -1361,6 +1366,113 @@ python -m memory.write hammerfall-solutions helm pattern "Pattern — slug | sta
 **Tests:** Smoke test for the CLI (`python -m memory.write` works end-to-end against a mock Supabase fixture).
 
 **STOP gate.** Architect reviews the rewritten prompts.
+
+---
+
+### T0.B7 — Tier 2 Brain Types (ARCH)
+
+**What:** Land the three Tier 2 brain object types catalogued in
+`docs/founding_docs/Helm_Brain_Object_Types.md` while the memory module
+abstraction (T0.B1) is still hot in everyone's head and the agent prompts
+just got rewritten in T0.B6. Pulled into T1 (was Finding #001) for two
+reasons: (a) it costs less to add them now than to come back, and (b) the
+T3.5 laptop hello-world is materially better with curiosity carryover and
+promise-keeping.
+
+**Three sub-tasks, three PRs (one per type) — landed in this order:**
+
+#### T0.B7a — `helm_entities` deepening (smallest, sets the template)
+
+Pure schema enrichment + helper update. No new table. Validates that
+adding columns to an existing brain type follows the abstraction cleanly.
+
+- **Migration** (single Supabase migration, gated by T0.A9 safety checks):
+  ```sql
+  ALTER TABLE helm_entities ADD COLUMN entity_type TEXT CHECK (
+    entity_type IN ('person', 'project', 'concept', 'place', 'organization', 'tool', 'event')
+  );
+  ALTER TABLE helm_entities ADD COLUMN aliases TEXT[];
+  ALTER TABLE helm_entities ADD COLUMN attributes JSONB;
+  ALTER TABLE helm_entities ADD COLUMN first_mentioned_at TIMESTAMPTZ;
+  ALTER TABLE helm_entities ADD COLUMN last_mentioned_at TIMESTAMPTZ;
+  ALTER TABLE helm_entities ADD COLUMN salience_decay FLOAT DEFAULT 1.0;
+
+  CREATE TABLE helm_entity_relationships (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    from_entity UUID REFERENCES helm_entities(id) ON DELETE CASCADE,
+    to_entity UUID REFERENCES helm_entities(id) ON DELETE CASCADE,
+    relationship TEXT NOT NULL,
+    formed_at TIMESTAMPTZ DEFAULT NOW(),
+    confidence FLOAT
+  );
+  ```
+- **Memory module:** `write_entity()` helper accepts the new optional
+  fields. `read_entities(type=...)` filter. New `write_entity_relationship()`
+  helper. T2.7 (entities RPC) is updated to read enriched columns.
+- **Prompts:** Archivist prompt updated to populate `entity_type` when
+  forming an entity (a sentence like "When the entity is a person, set
+  entity_type='person' and add aliases for nicknames you've heard").
+- **Tests:** ALTER migration applies cleanly + reverses cleanly.
+  `write_entity()` accepts old (no type) and new (with type) signatures
+  for back-compat. Relationship writes round-trip. Salience decay defaults
+  to 1.0.
+
+#### T0.B7b — `helm_curiosities` (new type, end-to-end pattern)
+
+First *new* brain type added via T0.B1's abstraction. The PR proves the
+"50-line cost" target: migration + enum line + helper + read helper +
+prompt section + tests.
+
+- **Migration:** schema sketch from brain types roadmap doc §Tier 2.
+- **Memory module:** `MemoryType.CURIOSITY` enum value. `write_curiosity()`
+  thin wrapper over `memory.write()`. `read_open_curiosities(project)` and
+  `read_curiosity(id)` helpers. Status transitions
+  (open → investigating → resolved/abandoned) via `update_curiosity_status()`.
+- **Prompts:** New section in `helm_prompt.md` Routine 4 — "When you notice
+  a question you can't answer right now, form a curiosity." New section in
+  Prime context loader — "Open curiosities to keep in mind: ..." (top 5 by
+  priority). Contemplator gets a sentence: "When wandering, you may pick
+  an open curiosity to dwell on."
+- **Tests:** Form a curiosity, list opens, transition to resolved with
+  resolution text, confirm Prime context loader includes it, confirm it
+  drops out when resolved.
+
+#### T0.B7c — `helm_promises` (new type, second time through the pattern)
+
+Second new type. Should feel like copy-paste-modify of T0.B7b — that's the
+proof the abstraction holds.
+
+- **Migration:** schema sketch from brain types roadmap doc §Tier 2.
+- **Memory module:** `MemoryType.PROMISE` enum value. `write_promise()`,
+  `read_open_promises(project)`, `update_promise_status()`. Helper for
+  "is this Helm utterance a promise?" detection lives in the agent prompt
+  layer, not the module — module is unopinionated.
+- **Prompts:** Routine 4 — "When you commit to something ('I'll watch for
+  X', 'I'll check back tomorrow'), form a promise with a check_back
+  condition." Prime context loader — "Open promises: ..." (with relative
+  due-times). Session-end Routine — "Did I fulfill any open promises this
+  session? Mark them fulfilled."
+- **Tests:** Form a promise, list opens, mark fulfilled with
+  fulfillment_entry_id link, confirm Prime context loader surfaces with
+  due-time formatting.
+
+**Acceptance for T0.B7 as a whole:**
+
+- Each sub-PR adds ≤ ~80 lines to the memory module proper (migration
+  files separate). If any sub-PR exceeds ~150 lines in the module, the
+  abstraction needs revisiting before the next sub-PR.
+- All three types covered by the agent simulation harness once T2.9 lands
+  — for now (Phase 0B), unit tests in `memory/tests/` are sufficient.
+- `Helm_Brain_Object_Types.md` updated: three types move from §Tier 2 to
+  §Tier 1 with "shipped in T0.B7" links to the migration PRs.
+- `Post_T1_Findings.md` Finding #001 moves to §Resolved.
+
+**Why ARCH-tier:** the patterns established here are the templates for
+every Tier 3 type added in Stage 2+. Architect review on the first new
+type (T0.B7b) is mandatory; subsequent types follow the pattern.
+
+**STOP gate after the third sub-PR.** Maxwell signs off that the laptop
+hello-world will have curiosity + promise context.
 
 ---
 
@@ -2188,23 +2300,25 @@ jobs:
     with Helm running on Maxwell's laptop via the Claude Agent SDK
     (`claude-sdk` provider, Pro Max auth, $0). Capture: date, the actual
     exchange transcript or summary, what Helm wrote to brain, any frame
-    surfaced, latency observed, anything that surprised Maxwell. This is the
-    first proof of life.
+    surfaced, latency observed, anything that surprised Maxwell. With T0.B7
+    landed, this hello-world includes Tier 2 behavior: did Helm form a
+    curiosity, surface an existing one, make or fulfill a promise, or
+    reference an entity with type/aliases. This is the first proof of life.
   - **Remote hello-world** (at T4.11 ship). First real conversation with
     Helm running on the Render instance from Maxwell's phone, with the
     provider chain resolving (either `local` via Tailscale-to-Thor at $0, or
     `anthropic-api` at metered cost). Capture: date, exchange, which
     provider served the turn, smart-routing banner state (if any), parity
-    of behavior vs. laptop run.
+    of behavior vs. laptop run (curiosity + promise carryover should follow
+    Maxwell across surfaces — that's the whole point of the shared brain).
 - **Post-T1 findings handoff:** Re-sort `docs/stage1/Post_T1_Findings.md`.
-  Confirm Finding #001 (brain types Tier 2 expansion) is the lead item for
-  the first post-T1 work cycle per Maxwell's standing direction. Enumerate
-  any additional findings accumulated during T1 PRs and flag which roll into
+  Finding #001 (brain types Tier 2) is already resolved as T0.B7. Enumerate
+  remaining open findings accumulated during T1 PRs and flag which roll into
   the first post-T1 cycle vs. which sit in the open queue for Stage 2
   planning.
 
-After this PR merges, T1 is closed. Brain types Tier 2 work (Finding #001)
-opens immediately. Stage 2 planning follows.
+After this PR merges, T1 is closed. The first post-T1 cycle is shaped by
+whatever findings accumulated during T1 execution; Stage 2 planning follows.
 
 **STOP gate.**
 
@@ -2244,9 +2358,9 @@ T0.A11 ─┬──────────────────────�
         └─► T0.A15 (cost summary, pairs with T0.A11)
                               │
                               ▼
-                    T0.B1 ─► T0.B2 ─► T0.B3 ─► T0.B4 ─► T0.B5 ─► T0.B6
-                              │
-                              ▼
+                    T0.B1 ─► T0.B2 ─► T0.B3 ─► T0.B4 ─► T0.B5 ─► T0.B6 ─► T0.B7
+                                                                          │
+                                                                          ▼
 T1.1, T1.2, T1.3, T1.4, T1.5a, T1.5b, T1.6 ─► T1.7 (HARD GATE)
                                                   │
                                                   ▼
@@ -2441,19 +2555,22 @@ T1 scope but must not be lost:
 
 - **`docs/founding_docs/Helm_Brain_Object_Types.md`** — canonical reference.
   Catalogs every brain object type Helm should eventually have, organized
-  into Tier 1 (in T1), Tier 2 (first batch post-T1), and Tier 3 (later
-  Stage 2+). Required reading before any Stage 2 cognitive expansion. Cited
-  by T0.B1 as the design constraint shaping the memory module abstraction.
+  into Tier 1 + Tier 2 (both in T1 — Tier 1 in T0.B1, Tier 2 in T0.B7) and
+  Tier 3 (later Stage 2+, requires T2/T3 ambient infrastructure). Required
+  reading before any Stage 2 cognitive expansion. Cited by T0.B1 as the
+  design constraint shaping the memory module abstraction; exercised by
+  T0.B7 as proof the abstraction holds.
 
 - **`docs/stage1/Post_T1_Findings.md`** — operational queue. Findings
   surfaced during T1 execution PRs accumulate here. Three sections: first
   batch (addressed immediately after T1 close), open (deferred), resolved.
 
-**Standing direction (Maxwell, 2026-04-24):** the **first** thing addressed
-after T1 closes is Finding #001 — brain object types Tier 2 expansion
-(`helm_curiosities`, `helm_promises`, deepened `helm_entities`). T4.5
-re-sorts the queue and confirms first-batch scope before Stage 2 planning
-opens.
+**Resolved at spec time:** Finding #001 (brain types Tier 2 expansion) was
+originally queued as the first post-T1 work cycle. On 2026-04-24 Maxwell
+pulled it into T1 as **T0.B7**, on the rationale that adding Tier 2 while
+the memory module is fresh costs less than coming back, and the laptop
+hello-world (T3.5) is meaningfully better with Tier 2 active. Finding #001
+moves to §Resolved in the queue doc.
 
 **Conventions for T1 PRs:**
 
@@ -2467,6 +2584,7 @@ opens.
   `Post_T1_Findings.md`.
 - Never amend V2 spec mid-T1 to absorb a finding. The spec is frozen for
   the duration of T1 execution; findings are the queue for the next cycle.
+  (Finding #001 was an exception decided *before* T1 execution started.)
 
 ---
 
@@ -2516,6 +2634,7 @@ Direct mapping of v1 issues raised in the comprehensive review to V2 task that r
 | No browseable docs surface | T4.9 — MkDocs site auto-deployed to GitHub Pages |
 | No version concept / changelog | T4.10 — release-please + Conventional-Commit-driven releases |
 | No CI migration safety net | T0.A9 enhanced — ephemeral Supabase branch + reversibility check |
+| Brain only has Tier 1 types — no curiosity carryover, no promise-keeping, shallow entity model | T0.B7 — pulls Tier 2 (`helm_curiosities`, `helm_promises`, deepened `helm_entities` + relationships) into T1 right after T0.B6 |
 
 ---
 
@@ -2526,7 +2645,7 @@ By merging this PR, Maxwell agrees:
 - V2 supersedes v1 as the canonical T1 build spec
 - The execution order in §Execution Order is the agreed-upon sequence (changes go through STOP gates)
 - Single-dev (Helm IDE / me) executes; Maxwell reviews at every STOP gate; Architect consulted on ARCH-tier tasks
-- The 49–57 PR count is the realistic shape of "T1 close on a solid foundation with full CI/CD + persistent dev deployment"
+- The 54–62 PR count is the realistic shape of "T1 close on a solid foundation with full CI/CD + persistent dev deployment + Tier 2 brain types (T0.B7)"
 - T1 close = `T4.5` SITREP merged; not before
 
 V2 is a contract between Maxwell and the dev. Where reality forces deviation, the deviation is documented (PR description or new ADR), not silently absorbed.
