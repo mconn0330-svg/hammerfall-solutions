@@ -44,6 +44,17 @@ Each one-pager follows the same shape so the architect knows where to look:
 5. **Risks + open questions for architect** — explicit points for review.
 6. **What "done" looks like at the gate** — acceptance criteria.
 
+## Architect review — 2026-04-24
+
+All 10 one-pagers approved. Per-task decisions captured in each one-pager's `## Architect review` section. Cross-cutting observations from the review:
+
+1. **Dependency chain is clean.** T0.A (repo/ops) → T0.B (memory) → T1 (UI) → T2 (backend) → T3 (integration) → T4 (ops readiness). No circular dependencies; no task that depends on something in a later phase.
+2. **The T0.B7 abstraction validation is good engineering practice.** Using the first real consumer (new brain types) to validate the abstraction (memory module) before building more on top of it is the kind of discipline that prevents "we built the wrong abstraction and now everything depends on it."
+3. **Phase 0A is psychologically heavy.** ~15 tasks of repo infrastructure (CI, Docker hardening, API auth, migration discipline, backup runbooks, cost guardrails) before any product-visible Helm behavior change. Correct engineering practice; trust the process. The payoff is that every subsequent PR lands on solid ground.
+4. **Free-tier constraint is well-managed.** Vercel hobby + Render free + Supabase free + GitHub Actions free. The math works for single-dev T1. The $7/mo Render escape hatch is documented. Cost cap (T0.A11) protects against runaway API spend.
+
+**Next:** T0.A1 first, per the V2 spec execution order. ARCH-tier tasks refresh their one-pager immediately before build and cite it in the PR's SITREP.
+
 ## Related
 
 - [Helm_T1_Launch_Spec_V2.md](../Helm_T1_Launch_Spec_V2.md) — the canonical T1 spec these notes elaborate on.
