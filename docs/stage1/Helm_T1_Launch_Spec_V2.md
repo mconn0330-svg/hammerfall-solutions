@@ -6,7 +6,7 @@
 | **Version** | V2 — comprehensive foundation rewrite |
 | **Authored** | 2026-04-24, Claude Opus 4.7 (Helm IDE) under Maxwell's planning + architecture authority grant |
 | **Purpose** | Land T1 on-demand presence on a production-grade foundation. Memory infrastructure, repo operating contract, test harness, CI, observability, deployment hardening, API auth, cost guardrails, and backup discipline all in place before T1 closes. |
-| **Estimated PRs** | 38–44 |
+| **Estimated PRs** | 48–56 |
 | **Execution model** | Single dev (Helm IDE / me), sequential, methodical. Maxwell reviews. Architect consulted on STOP-gated tasks. |
 | **Exit criteria** | A user opens the UI, talks to Helm, sees live agent activity, experiences a coherent identity — on real data, no mocks — running on a stack that has tests, CI, structured logs, traces, an auth boundary, a backup, and a runbook for every known failure mode. |
 
@@ -93,6 +93,10 @@ Examples:
 | T0.A9 | Migration discipline — numbered, idempotent, schema dump baseline, ADR-002 reversibility policy | STOP | 🔵 Queued |
 | T0.A10 | Backup + restore runbook — pg_dump nightly, restore drill | STOP | 🔵 Queued |
 | T0.A11 | Cost guardrails — embedding $/day cap, daily-spend logger, kill switch | STOP | 🔵 Queued |
+| T0.A12 | CI: container build + GHCR publish on merge to main | ARCH | 🔵 Queued |
+| T0.A13 | CI: secrets scanning (gitleaks) on every push | Batch | 🔵 Queued |
+| T0.A14 | CI: dependency automation (Dependabot config, grouped weekly PRs) | STOP | 🔵 Queued |
+| T0.A15 | CI: weekly cost summary issue from `helm.cost` log events | Batch | 🔵 Queued |
 
 #### Sub-phase 0B — Memory Foundation (was v1's T0.1–T0.6)
 
@@ -131,6 +135,7 @@ Examples:
 | T2.5 | Belief observation history (helm_belief_history) | STOP | 🔵 Queued |
 | T2.6 | Signals table + dual-write hook in memory module | ARCH | 🔵 Queued |
 | T2.7 | RPC function get_entities_with_counts() | Batch | 🔵 Queued |
+| T2.9 | Agent simulation test harness (canned conversations, mocked LiteLLM, asserts SSE + memory writes) | ARCH | 🔵 Queued |
 | T2.8 | Schema reference doc (Widget Data Map) — LAST | STOP | 🔵 Queued |
 
 ### Phase 3 — Integration + Launch Validation (⛔ blocked on Phase 2 + Phase 0 complete)
@@ -151,6 +156,11 @@ Examples:
 | T4.2 | Rate limiting on /invoke endpoint (token bucket, per-token) | STOP | 🔵 Queued |
 | T4.3 | SSE session resumption protocol — Last-Event-ID + replay buffer | ARCH | 🔵 Queued |
 | T4.4 | TLS / reverse proxy decision — Caddy for prod-shape, document local-dev path (ADR-003) | STOP | 🔵 Queued |
+| T4.6 | Preview environments per PR (runtime + UI + Supabase branch) | ARCH | 🔵 Queued |
+| T4.7 | Scheduled health checks — cron-driven `/health` + canary `/invoke` | STOP | 🔵 Queued |
+| T4.8 | Performance regression baseline + bench (latency on canned inputs) | STOP | 🔵 Queued |
+| T4.9 | Docs site auto-deploy (GitHub Pages: V2 spec, ADRs, runbooks) | Batch | 🔵 Queued |
+| T4.10 | Release automation (semantic-release, auto-changelog, GitHub releases) | STOP | 🔵 Queued |
 | T4.5 | Operational SITREP — close Stage 1 T1 | STOP | 🔵 Queued |
 
 ### Previously Completed (carry-forward from v1)
@@ -176,48 +186,58 @@ The user-facing task IDs are grouped by phase, but in single-dev sequential mode
 1.  T0.A1   Repo operating contract            [must be FIRST — sets the rules]
 2.  T0.A2   Pre-commit hooks                   [enforce the rules]
 3.  T0.A3   Test harness                       [give CI something to run]
-4.  T0.A4   CI pipeline                        [enforce on every PR from now]
+4.  T0.A4   CI pipeline (lint + test + build)  [enforce on every PR from now]
 5.  T0.A5   Type discipline + ADR-001          [decide JS vs TS for helm-ui]
 6.  T0.A6   Observability foundation           [structlog convention before more code]
 7.  T0.A7   Deployment hardening               [Dockerfile is touched by everything later]
-8.  T0.A9   Migration discipline + baseline    [before any new migration]
-9.  T0.A8   API auth middleware                [before /invoke is a public surface]
-10. T0.A10  Backup + restore runbook           [paranoia before we start moving data around]
-11. T0.A11  Cost guardrails                    [before embedding-heavy work begins]
-12. T0.B1   Memory module — core               [start of memory work]
-13. T0.B2   Memory module — outbox
-14. T0.B3   Migrate agents
-15. T0.B4   Snapshot service
-16. T0.B5   Prompt management
-17. T0.B6   Shell deprecation + 4-file rewrite
-18. T1.1    UI: Speaker removal + subsystems_invoked rename
-19. T1.2    UI: UUID mocks
-20. T1.3    UI: hardcode personality translations
-21. T1.4    UI: date formatting utility
-22. T1.5a   UI: CSS design tokens
-23. T1.5b   UI: apply tokens across components
-24. T1.6    UI: commit Supabase anon key
-25. T1.7    UI Interaction Spec [HARD GATE — Architect + Maxwell]
-26. T2.2    Async handoff
-27. T2.3    SSE + directives + caching
-28. T2.4    Belief slugs
-29. T2.5    Belief history
-30. T2.6    Signals table + dual-write hook
-31. T2.7    Entities RPC
-32. T2.8    Schema reference doc
-33. T3.1    Response parser
-34. T3.2    Directive handler
-35. T3.3    UI ↔ Supabase
-36. T3.4    UI ↔ runtime
-37. T3.5    Launch validation
-38. T4.1    Runbook set
-39. T4.2    Rate limiting
-40. T4.3    SSE session resumption
-41. T4.4    TLS + reverse proxy decision (ADR-003)
-42. T4.5    Operational SITREP — T1 close
+8.  T0.A12  CI: container build + GHCR push    [needs T0.A7 Dockerfile shape]
+9.  T0.A13  CI: secrets scanning (gitleaks)    [cheap, zero-friction add]
+10. T0.A14  CI: dependency automation          [keeps pinned deps current]
+11. T0.A9   Migration discipline + baseline    [before any new migration; includes CI migration safety]
+12. T0.A8   API auth middleware                [before /invoke is a public surface]
+13. T0.A10  Backup + restore runbook           [paranoia before we start moving data around]
+14. T0.A11  Cost guardrails                    [before embedding-heavy work begins]
+15. T0.A15  CI: weekly cost summary issue      [pairs with T0.A11 — visibility on top of cap]
+16. T0.B1   Memory module — core               [start of memory work]
+17. T0.B2   Memory module — outbox
+18. T0.B3   Migrate agents
+19. T0.B4   Snapshot service
+20. T0.B5   Prompt management
+21. T0.B6   Shell deprecation + 4-file rewrite
+22. T1.1    UI: Speaker removal + subsystems_invoked rename
+23. T1.2    UI: UUID mocks
+24. T1.3    UI: hardcode personality translations
+25. T1.4    UI: date formatting utility
+26. T1.5a   UI: CSS design tokens
+27. T1.5b   UI: apply tokens across components
+28. T1.6    UI: commit Supabase anon key
+29. T1.7    UI Interaction Spec [HARD GATE — Architect + Maxwell]
+30. T2.2    Async handoff
+31. T2.3    SSE + directives + caching
+32. T2.9    Agent simulation test harness      [needs T2.3 SSE contract + T0.B5 prompt module]
+33. T2.4    Belief slugs
+34. T2.5    Belief history
+35. T2.6    Signals table + dual-write hook
+36. T2.7    Entities RPC
+37. T2.8    Schema reference doc
+38. T3.1    Response parser
+39. T3.2    Directive handler
+40. T3.3    UI ↔ Supabase
+41. T3.4    UI ↔ runtime
+42. T3.5    Launch validation
+43. T4.1    Runbook set
+44. T4.2    Rate limiting
+45. T4.3    SSE session resumption
+46. T4.4    TLS + reverse proxy decision (ADR-003)
+47. T4.6    Preview environments per PR        [needs T0.A12 image + T4.4 deployment shape]
+48. T4.7    Scheduled health checks            [needs T4.4 deployment]
+49. T4.8    Performance regression baseline    [needs deployed instance to bench against]
+50. T4.9    Docs site auto-deploy
+51. T4.10   Release automation
+52. T4.5    Operational SITREP — T1 close
 ```
 
-42 tasks. Some bundle (T1.1+T1.2 batch, T2.4+T2.7 batch) — true PR count ~38–44.
+52 tasks. Some bundle (T1.1+T1.2 batch, T2.4+T2.7 batch, T4.9+T4.10 batch) — true PR count ~48–56.
 
 ---
 
@@ -656,6 +676,35 @@ case "${1:-push}" in
 esac
 ```
 
+**CI migration safety (`.github/workflows/migration-check.yml`):**
+
+```yaml
+name: Migration Safety
+on:
+  pull_request:
+    paths: ['supabase/migrations/**']
+jobs:
+  apply-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+      - name: Create ephemeral Supabase branch
+        run: supabase branches create ci-pr-${{ github.event.pull_request.number }}
+        env: { SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }} }
+      - name: Apply all migrations to branch
+        run: supabase db push --linked --branch ci-pr-${{ github.event.pull_request.number }}
+      - name: Schema diff vs baseline (sanity check)
+        run: supabase db diff --linked --branch ci-pr-${{ github.event.pull_request.number }} > diff.sql
+      - name: Verify reversibility (DOWN comment present for destructive ops)
+        run: ./scripts/check_migration_reversibility.py supabase/migrations/
+      - name: Cleanup ephemeral branch
+        if: always()
+        run: supabase branches delete ci-pr-${{ github.event.pull_request.number }} --force
+```
+
+The reversibility check parses the `DOWN:` comment block required by ADR-002 — fails if a migration that drops/renames/retypes is missing one.
+
 **STOP gate.**
 
 ---
@@ -735,6 +784,188 @@ class CostCapExceeded(Exception): ...
 **Integration:** Embedding client (`embedding_client.py`) calls `cost_guard.check_and_record()` before every embedding. On `CostCapExceeded`, the call is rejected, the requesting agent gets an error with a clear message, and the runtime continues.
 
 **STOP gate.**
+
+---
+
+### T0.A12 — CI: Container Build + GHCR Publish (ARCH)
+
+**Purpose:** Every merge to `main` builds a Docker image and pushes it to GitHub Container Registry. Eliminates "works on my machine" — deployment becomes "pull a known-good image." Required substrate for T4.6 (preview environments) and T4.7 (deployed health checks).
+
+**`.github/workflows/build-publish.yml`:**
+
+```yaml
+name: Build & Publish
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/helm-runtime/**'
+      - '.github/workflows/build-publish.yml'
+  pull_request:
+    paths:
+      - 'services/helm-runtime/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        if: github.event_name == 'push'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository }}/helm-runtime
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+      - uses: docker/build-push-action@v6
+        with:
+          context: services/helm-runtime
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+```
+
+**Behavior:**
+- PRs build but don't push (catches Dockerfile breakage before merge)
+- Merges to `main` build + push tagged with `latest`, branch name, and short SHA
+- BuildKit cache via GitHub Actions cache backend — second-run builds in seconds
+
+**Image visibility:** Public on GHCR by default. Maxwell flips to private in repo settings if Helm code becomes sensitive (no per-PR action needed; setting persists).
+
+**Vulnerability scanning:** Add `aquasecurity/trivy-action` step on the merged image. Failures don't block merge (Helm doesn't have a security team), but the report is a PR comment for visibility.
+
+**ARCH gate.** Adds GHCR as a deployment dependency.
+
+---
+
+### T0.A13 — CI: Secrets Scanning (Batch)
+
+**Purpose:** Block accidental key commits. Service keys, API tokens, OAuth secrets — gitleaks catches the obvious patterns before they hit the public history.
+
+**`.github/workflows/gitleaks.yml`:**
+
+```yaml
+name: Secrets Scan
+on: [pull_request, push]
+jobs:
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+**`.gitleaks.toml`:** Allowlist for the Supabase anon key (committed by design per T1.6) and any other intentional public values. Comment each entry with the rationale.
+
+**Pre-commit mirror:** Add gitleaks to `.pre-commit-config.yaml` (T0.A2 amended) so devs catch leaks locally before push.
+
+**Batch tier.** Mechanical addition.
+
+---
+
+### T0.A14 — CI: Dependency Automation
+
+**Purpose:** Pinned dependencies (per T0.A7) stay current without manual tracking. Renovate or Dependabot opens grouped weekly PRs; CI validates them; Maxwell merges or skips.
+
+**Choice — Dependabot.** Native to GitHub, zero-cost, no third-party app install. Renovate is more powerful (better grouping, broader ecosystem support) but requires app install and config tuning. T1 picks Dependabot for simplicity; Stage 2 can flip to Renovate if needed.
+
+**`.github/dependabot.yml`:**
+
+```yaml
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /services/helm-runtime
+    schedule: { interval: weekly, day: monday }
+    groups:
+      production:
+        patterns: ['*']
+        exclude-patterns: ['pytest*', 'mypy*', 'ruff*', 'pre-commit*']
+      development:
+        patterns: ['pytest*', 'mypy*', 'ruff*', 'pre-commit*']
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: npm
+    directory: /helm-ui
+    schedule: { interval: weekly, day: monday }
+    groups:
+      production:
+        dependency-type: production
+      development:
+        dependency-type: development
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly, day: monday }
+
+  - package-ecosystem: docker
+    directory: /services/helm-runtime
+    schedule: { interval: weekly, day: monday }
+```
+
+**Auto-merge for patch/minor on dev deps:** Optional GitHub Actions workflow that auto-approves + merges Dependabot PRs that pass CI and only update dev dependencies. T0.A14 ships the config but auto-merge is opt-in (Maxwell decides at PR time).
+
+**STOP gate.**
+
+---
+
+### T0.A15 — CI: Weekly Cost Summary
+
+**Purpose:** T0.A11 caps spend. T0.A15 tells Maxwell what was actually spent. Pairs the guardrail with visibility.
+
+**Source of truth:** `helm.cost` structured log events emitted by `cost_guard` (T0.A11). The runtime ships logs to a queryable destination — for T1, that's container `stdout` captured by Docker logging driver. The CI job pulls last 7 days of log files (or queries log aggregator if Stage 2 wires one) and computes a summary.
+
+**`.github/workflows/cost-summary.yml`:**
+
+```yaml
+name: Weekly Cost Summary
+on:
+  schedule:
+    - cron: '0 14 * * MON'   # Monday 14:00 UTC
+  workflow_dispatch:
+
+jobs:
+  summarize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pull last 7d cost events
+        run: |
+          # Fetch from log destination (S3, Loki, container logs API, etc.)
+          # T1 implementation: fetches from a configured endpoint
+          ./scripts/fetch_cost_events.py --days 7 > cost_events.json
+      - name: Summarize
+        run: ./scripts/cost_summary.py cost_events.json > summary.md
+      - name: Open issue
+        uses: peter-evans/create-issue-from-file@v5
+        with:
+          title: "Weekly cost summary — week of ${{ github.event.schedule }}"
+          content-filepath: summary.md
+          labels: cost,automation
+```
+
+**`scripts/cost_summary.py`** computes: total spend, breakdown by model, top 5 spike days, week-over-week delta, projection of monthly spend at current rate. Markdown output is the issue body.
+
+**Note on log retrieval:** At T1, the runtime runs in one container on one host; logs are local. The fetch script may need a passwordless SSH key or a small read-only HTTP endpoint on the host. T0.A15 PR description picks the mechanism.
+
+**Batch tier.**
 
 ---
 
@@ -1101,6 +1332,65 @@ V2 design:
 
 Document this in the T2.6 PR description.
 
+### T2.9 — Agent Simulation Test Harness (ARCH)
+
+**Purpose:** Helm's behavior IS the product. A prompt edit, a Routine 4 change, a directive parser tweak — any of these can break behavior in ways unit tests don't see. T2.9 is the regression net for behavior.
+
+**Approach:** pytest-driven canned conversations. The harness:
+
+1. Mocks LiteLLM (`responses` library or `pytest-httpx`) so no Anthropic / Ollama calls happen — deterministic, free, fast
+2. Loads a canned conversation script from `services/helm-runtime/tests/simulations/<scenario>.yaml`
+3. Drives the runtime through the script (`/invoke` per turn)
+4. Captures emitted SSE events, memory writes (against in-memory Supabase mock), structured logs
+5. Asserts the captured trace matches the scenario's `expected:` block
+
+**Scenario file shape:**
+
+```yaml
+# tests/simulations/01_basic_pattern_capture.yaml
+name: basic pattern capture triggers signal dual-write
+turns:
+  - user: "I keep over-engineering when I'm excited about a project."
+    mocked_anthropic_response: |
+      {
+        "text": "Heard. I'll watch for that.",
+        "subsystems_invoked": ["contemplator"],
+        "ui_directives": []
+      }
+    expected:
+      sse_events:
+        - {type: agent_invoked, agent: helm_prime}
+        - {type: contemplator_pass_started}
+        - {type: contemplator_pass_completed}
+        - {type: agent_completed, agent: helm_prime}
+      memory_writes:
+        - {agent: contemplator, memory_type: pattern, content_contains: "over-engineer"}
+        - {table: helm_signals, content_contains: "over-engineer"}  # dual-write hook fired
+      response:
+        subsystems_invoked: [contemplator]
+        ui_directives: []
+```
+
+**Initial scenario library (T2.9 ships ~10):**
+- 01 — Basic chat turn, no subsystems
+- 02 — Pattern entry triggers signals dual-write
+- 03 — Belief update through `memory.write_belief_update`
+- 04 — Contemplator deep pass + Archivist async handoff
+- 05 — Directive emission (`open_widget`)
+- 06 — Plain-text fallback when Anthropic returns invalid JSON
+- 07 — Circuit breaker open → outbox enqueue → drain on recovery
+- 08 — Em-dash normalization (`Pattern --` → `Pattern —`)
+- 09 — Cost cap exceeded mid-conversation
+- 10 — Auth failure (401 without bearer token)
+
+**Adding scenarios is the new bug-triage discipline:** "Helm did X weird thing" → first action is to write a scenario reproducing it. The fix lands when the scenario passes.
+
+**Runs in CI** as part of the existing pytest job (T0.A4). New requirement: tests/simulations passes are mandatory for merge.
+
+**ARCH gate.** Sets the behavioral regression contract.
+
+---
+
 ### T2.8 — V2 Note
 
 Schema reference doc explicitly cross-links to ADR-001 (typing), ADR-002 (migration reversibility), ADR-003 (deployment target — written in T4.4) at the top.
@@ -1235,6 +1525,274 @@ async def invoke_agent(...): ...
 
 ---
 
+### T4.6 — Preview Environments per PR (ARCH)
+
+**Purpose:** Helm changes are hard to evaluate from a diff. T4.6 spins up a per-PR runtime + UI + Supabase branch so Maxwell can talk to the changed Helm before merging. This is the highest-leverage CI/CD investment for a behavior-driven product.
+
+**Stack (recommended):**
+- **Runtime:** Fly.io — single binary CLI, app-per-PR, automatic teardown, free tier handles dev volume
+- **UI:** Cloudflare Pages — connect repo, native PR previews with zero workflow code
+- **Database:** Supabase branches — `supabase branches create pr-${{ github.event.pull_request.number }}` per PR; deleted on PR close
+
+**Decision points** (handled in T4.6 PR):
+- Fly account / billing setup (or alternative: Railway, Render)
+- Cloudflare Pages account + repo connection
+- Secrets management for the per-PR env (token rotation cadence)
+- Resource caps (Fly app spec — max 256MB RAM, single instance, scale-to-zero)
+
+**`.github/workflows/preview.yml` (sketch):**
+
+```yaml
+name: PR Preview
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+jobs:
+  deploy-runtime:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - run: flyctl deploy --remote-only --app helm-pr-${{ github.event.pull_request.number }}
+        env: { FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }} }
+      - name: Comment PR with URL
+        uses: thollander/actions-comment-pull-request@v2
+        with:
+          message: "Preview runtime: https://helm-pr-${{ github.event.pull_request.number }}.fly.dev"
+
+  create-supabase-branch:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+      - run: supabase branches create pr-${{ github.event.pull_request.number }}
+        env: { SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }} }
+
+  teardown:
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - run: flyctl apps destroy helm-pr-${{ github.event.pull_request.number }} --yes
+      - uses: supabase/setup-cli@v1
+      - run: supabase branches delete pr-${{ github.event.pull_request.number }} --force
+```
+
+**Cost considerations:** Each preview env is a Fly app + a Supabase branch. Fly free tier covers ~3 always-on small apps; auto-scale-to-zero brings active cost near $0 for an idle PR. Supabase branches are pay-per-use on their tier — confirm cost model in T4.6 PR.
+
+**Limit per dev:** With single-dev sequential execution (V2's model), there's at most 1–2 open PRs at a time. Resource ceiling is well within free tiers.
+
+**ARCH gate.** Adds Fly + Cloudflare + Supabase-branches as deployment dependencies.
+
+---
+
+### T4.7 — Scheduled Health Checks
+
+**Purpose:** Operational eyes when Maxwell isn't looking. Cron-driven workflow hits `/health` and a canary `/invoke`. On failure, opens or comments on a tracking issue with diagnostic details.
+
+**`.github/workflows/health-check.yml`:**
+
+```yaml
+name: Scheduled Health Check
+on:
+  schedule:
+    - cron: '*/15 * * * *'   # every 15 minutes
+  workflow_dispatch:
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    steps:
+      - name: /health probe
+        id: health
+        run: |
+          curl -f -s --max-time 10 \
+            -H "Authorization: Bearer ${{ secrets.HELM_API_TOKEN }}" \
+            ${{ secrets.HELM_BASE_URL }}/health | tee health.json
+        continue-on-error: true
+
+      - name: Canary /invoke probe
+        id: canary
+        run: |
+          curl -f -s --max-time 30 \
+            -H "Authorization: Bearer ${{ secrets.HELM_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"user_message":"healthcheck-canary","session_id":"00000000-0000-4000-8000-000000000001","turn_number":0}' \
+            ${{ secrets.HELM_BASE_URL }}/invoke/helm_prime | tee canary.json
+        continue-on-error: true
+
+      - name: Open / update issue on failure
+        if: steps.health.outcome == 'failure' || steps.canary.outcome == 'failure'
+        uses: jayqi/failed-build-issue-action@v1
+```
+
+**Probe definition:**
+- `/health` must return 200 with `{status: "healthy"}` and all 4 agents reporting healthy
+- Canary `/invoke` must return 200 with parseable JSON in `<30s`
+- Three consecutive failures escalate (issue gets a `urgent` label) — single failures may just be transient network
+
+**Canary message:** Hardcoded `healthcheck-canary` string. Helm's prompt gets a one-line addition (in T4.7 PR): "If you receive `healthcheck-canary` as a user message, respond with `pong` and no subsystems. Do not write to memory." This keeps health checks free of Helm's normal cognitive overhead and zero-cost in memory writes.
+
+**STOP gate.**
+
+---
+
+### T4.8 — Performance Regression Baseline + Bench
+
+**Purpose:** Establish the "Helm is fast enough" baseline and detect when it isn't. Single metric for T1: end-to-end latency on a fixed input set. p50, p95, p99.
+
+**`services/helm-runtime/tests/bench/`** holds:
+- `inputs.yaml` — 20 canned messages (5 each of: short chat, deep contemplator pass, directive emission, memory query)
+- `bench.py` — runs each input N times, captures latency, writes results to `bench-results-<sha>.json`
+- `compare.py` — diffs current run against baseline; fails if p95 regressed >20% on any input class
+
+**Workflow:**
+
+```yaml
+name: Performance Bench
+on:
+  pull_request:
+    paths:
+      - 'services/helm-runtime/**'
+      - 'agents/helm/helm_prompt.md'
+  workflow_dispatch:
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Boot runtime in bench mode
+        run: docker compose -f services/helm-runtime/docker-compose.bench.yml up -d
+      - name: Run bench
+        run: python services/helm-runtime/tests/bench/bench.py --output bench-current.json
+      - name: Compare against baseline
+        run: python services/helm-runtime/tests/bench/compare.py bench-current.json supabase/bench-baseline.json
+      - name: Comment PR with bench delta
+        uses: thollander/actions-comment-pull-request@v2
+        with:
+          message: |
+            Bench results vs baseline:
+            ${{ steps.compare.outputs.summary }}
+```
+
+**Baseline establishment:** First run on `main` after T4.8 lands writes the baseline. Updated periodically (Maxwell's call — typically when an intentional perf optimization or expected regression lands).
+
+**Mocked Anthropic in bench mode** — bench measures Helm's overhead, not Anthropic's response time. Same mocking infrastructure as T2.9.
+
+**STOP gate.**
+
+---
+
+### T4.9 — Docs Site Auto-Deploy
+
+**Purpose:** V2 spec, ADRs, runbooks browseable as a rendered site. Cheap operational visibility for Maxwell ("what's the runbook for X?" → `helm-docs.pages.dev/runbooks/0008`).
+
+**Stack:** [MkDocs Material](https://squidfunk.github.io/mkdocs-material/) — Python-based, dead-simple config, beautiful default theme, live search, deploys static HTML to GitHub Pages.
+
+**`mkdocs.yml`:**
+
+```yaml
+site_name: Helm Docs
+nav:
+  - Home: index.md
+  - V2 Spec: stage1/Helm_T1_Launch_Spec_V2.md
+  - ADRs:
+      - Index: adr/index.md
+  - Runbooks:
+      - Index: runbooks/index.md
+  - Founding:
+      - Vision: founding_docs/Helm_The_Ambient_Turn.md
+      - Roadmap: founding_docs/Helm_Roadmap.md
+theme:
+  name: material
+  features: [navigation.instant, navigation.sections, content.code.copy, search.highlight]
+docs_dir: docs
+```
+
+**`.github/workflows/docs.yml`:**
+
+```yaml
+name: Docs
+on:
+  push:
+    branches: [main]
+    paths: ['docs/**', 'mkdocs.yml']
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: github-pages
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install mkdocs mkdocs-material
+      - run: mkdocs build
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: site/ }
+      - uses: actions/deploy-pages@v4
+```
+
+**No content rewrite required.** MkDocs ingests existing markdown as-is. ADR and runbook indexes are auto-generated from directory listings via a small mkdocs plugin or a hand-maintained `index.md` per directory.
+
+**Privacy:** GitHub Pages is public. The repo is currently public, so this is consistent. If the repo flips private, the docs site flips too (GitHub Pages on private repos requires Pro tier — Maxwell's call at that point).
+
+**Batch tier.** Bundles with T4.10 if both go in the same window.
+
+---
+
+### T4.10 — Release Automation
+
+**Purpose:** When T1 closes (T4.5) and beyond, Helm should have versioned releases. Today there's no concept of "Helm v0.1.0" — every commit is the latest. Releases give:
+- A reference point ("the bug appeared in v0.3.2, last worked in v0.3.1")
+- A trigger for downstream consumers (notifications, image tags)
+- An archival changelog future-Maxwell can read
+
+**Stack:** [release-please](https://github.com/googleapis/release-please) — reads Conventional Commits (already required per T0.A1), generates changelogs, opens release PRs, tags + creates GitHub releases on merge.
+
+**`.github/workflows/release.yml`:**
+
+```yaml
+name: Release Please
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          release-type: simple
+          package-name: helm
+```
+
+**Behavior:**
+- After every merge to `main`, release-please opens or updates a `release-please--branches--main` PR
+- That PR's body contains the auto-generated changelog (grouped by Conventional Commit type)
+- Merging that PR creates a git tag (`v0.X.Y`) and a GitHub release
+- T0.A12's container build workflow tags the resulting image with the version
+
+**Versioning policy:**
+- T1 lands as `v0.1.0`
+- Patch bumps: `fix` commits
+- Minor bumps: `feat` commits
+- Major bump (`v1.0.0`): Stage 1 closure — Maxwell decides when
+
+**STOP gate.** Establishes versioning policy.
+
+---
+
 ### T4.5 — Operational SITREP — T1 Close
 
 **What:** Write `docs/stage1/SITREPs/t1-close-report.md`. Documents:
@@ -1272,33 +1830,48 @@ After this PR merges, T1 is closed. Stage 2 planning begins.
 ## Dependencies & Build Order
 
 ```
-T0.A1 ─────────► T0.A2 ─────► T0.A3 ──► T0.A4
-                                          │
-T0.A5 (ADR-001) ──────────────────────────┤
-T0.A6 ────────────────────────────────────┤
-T0.A7 ────────────────────────────────────┤
-T0.A8 ────────────────────────────────────┤
-T0.A9 ────────────────────────────────────┤
-T0.A10 ───────────────────────────────────┤
-T0.A11 ───────────────────────────────────┘
-                          │
-                          ▼
-                    T0.B1 ──► T0.B2 ──► T0.B3 ──► T0.B4 ──► T0.B5 ──► T0.B6
-                          │
-                          ▼
-T1.1, T1.2, T1.3, T1.4, T1.5a, T1.5b, T1.6 ─────► T1.7 (HARD GATE)
-                                                       │
-                                                       ▼
-                                                 T2.2 ─► T2.3 ─► T2.4 ─► T2.5 ─► T2.6 ─► T2.7 ─► T2.8
-                                                                              │
-                                                                              ▼
-                                                                        T3.1, T3.2 (after T2.3)
-                                                                        T3.3 (after T2.4–T2.7)
-                                                                        T3.4 (after T0.A8 + T2.3)
-                                                                        T3.5 (after T3.1–T3.4)
-                                                                              │
-                                                                              ▼
-                                                                        T4.1 ─► T4.2 ─► T4.3 ─► T4.4 ─► T4.5
+T0.A1 ─► T0.A2 ─► T0.A3 ─► T0.A4
+                              │
+T0.A5 (ADR-001) ──────────────┤
+T0.A6 ────────────────────────┤
+T0.A7 ──┬─────────────────────┤
+        │
+        └─► T0.A12 (container build, needs T0.A7) ──► T0.A13 ─► T0.A14
+                                                                    │
+T0.A9 (incl. CI migration safety) ──────────────────────────────────┤
+T0.A8 ──────────────────────────────────────────────────────────────┤
+T0.A10 ─────────────────────────────────────────────────────────────┤
+T0.A11 ─┬───────────────────────────────────────────────────────────┘
+        │
+        └─► T0.A15 (cost summary, pairs with T0.A11)
+                              │
+                              ▼
+                    T0.B1 ─► T0.B2 ─► T0.B3 ─► T0.B4 ─► T0.B5 ─► T0.B6
+                              │
+                              ▼
+T1.1, T1.2, T1.3, T1.4, T1.5a, T1.5b, T1.6 ─► T1.7 (HARD GATE)
+                                                  │
+                                                  ▼
+                                       T2.2 ─► T2.3 ─► T2.9 (needs T2.3) ─► T2.4 ─► T2.5 ─► T2.6 ─► T2.7 ─► T2.8
+                                                  │
+                                                  ▼
+                                       T3.1, T3.2 (after T2.3)
+                                       T3.3 (after T2.4–T2.7)
+                                       T3.4 (after T0.A8 + T2.3)
+                                       T3.5 (after T3.1–T3.4)
+                                                  │
+                                                  ▼
+                                       T4.1 ─► T4.2 ─► T4.3 ─► T4.4 (ADR-003)
+                                                                  │
+                                                                  ▼
+                                       T4.6 (preview envs, needs T0.A12 + T4.4)
+                                       T4.7 (health checks, needs T4.4)
+                                       T4.8 (perf bench, needs deployed instance)
+                                       T4.9 (docs site)
+                                       T4.10 (release automation)
+                                                                  │
+                                                                  ▼
+                                                              T4.5 (T1 close SITREP)
 ```
 
 ---
@@ -1317,6 +1890,15 @@ T1.1, T1.2, T1.3, T1.4, T1.5a, T1.5b, T1.6 ─────► T1.7 (HARD GATE)
 | `pre-commit install` doesn't run in Windows / WSL transition | T0.A2 | Document in `AGENTS.md`; CI catches what hooks miss |
 | ADR-001 Path A discovers helm-ui is too JSX-coupled to convert cleanly | T0.A5 | ADR captures the discovery; flip to Path B; T1.5b reverts to JSX scope |
 | Memory module 80% coverage target too aggressive for T0.B1 | T0.B1 | Coverage is a target, not a gate. PR can ship at lower coverage with explicit deferred-coverage list. |
+| GHCR container size grows beyond free tier | T0.A12 | Multi-stage Dockerfile already trims; if hit, prune old image tags via scheduled workflow |
+| Gitleaks false positives on Supabase anon key | T0.A13 | `.gitleaks.toml` allowlist with comment-rationale |
+| Dependabot opens too many PRs | T0.A14 | Grouping config + open-pull-requests-limit:5; disable if it becomes noise |
+| Fly.io / Cloudflare Pages signup blocks T4.6 | T4.6 | T4.6 PR description identifies blockers; if accounts not available, T4.6 ships in 2 PRs (config + deferred activation) |
+| Per-PR Supabase branch cost spikes | T4.6 | Auto-teardown on PR close + free-tier monitoring; flip to "preview only on `[preview]` PR label" if spend grows |
+| Bench results too noisy on shared-runner CI | T4.8 | Run N=20 per input, use median; or self-hosted runner if noise persists |
+| MkDocs build fails on emoji or wide table in markdown | T4.9 | Standard MD-to-HTML; rare. PR catches at first build. |
+| release-please opens unmerged release PRs that pile up | T4.10 | Documented in runbook 0012 (added in T4.10): "merge release PRs at end of work cycle" |
+| Agent simulation harness becomes brittle to prompt edits | T2.9 | Scenarios assert behavior shape, not exact text. Prompt edit that doesn't change shape passes. |
 
 ---
 
@@ -1334,9 +1916,14 @@ These were considered and explicitly deferred:
 - **Anthropic cost cap** — only embedding cap at T1; Anthropic spend is logged but not capped.
 - **Automated backup rotation** — manual cron at T1; automation is Stage 2.
 - **Sentry / error aggregation service** — structured logs at T1; aggregation is Stage 2.
-- **Performance profiling / APM** — basic latency logs at T1; APM is Stage 2.
-- **Multi-environment (dev / staging / prod)** — single environment at T1.
+- **Performance profiling / APM beyond latency bench** — T4.8 covers latency regression; full APM (flame graphs, span breakdowns, memory profiling) is Stage 2.
+- **Multi-environment (dev / staging / prod)** — single environment at T1; PR previews (T4.6) are ephemeral, not a staging tier.
 - **Disaster recovery beyond `pg_dump`** — point-in-time recovery via Supabase tier in Stage 2.
+- **GitHub Advanced Security / SAST** — paid GitHub feature, overkill for solo project. T0.A13 (gitleaks) covers the secret-leak risk; CodeQL / Snyk-style SAST is Stage 2 if/when Helm becomes multi-user.
+- **Multi-OS test matrix** — T1 deploys to Linux containers only. CI runs on Linux. Adding Windows/macOS runners adds time and surface area for negative ROI at T1. Stage 2 if Helm gains a desktop-distributed component.
+- **Auto-merge of Dependabot PRs** — T0.A14 ships the config; auto-merge is opt-in per Maxwell's preference. Default is manual review.
+- **Self-hosted CI runners** — GitHub-hosted runners at T1. Self-hosted considered in Stage 2 if Fly.io / Cloudflare egress costs make CI flow expensive.
+- **Per-PR cost reports** — T0.A15 is weekly aggregate. Per-PR cost projection is Stage 2.
 
 ---
 
@@ -1397,7 +1984,11 @@ ADRs created during V2 execution:
 | ADR-002 | Migration reversibility policy | T0.A9 | Pending |
 | ADR-003 | T1 deployment target (localhost-only vs reverse proxy) | T4.4 | Pending |
 | ADR-004 | Anthropic vs LiteLLM for prompt caching pass-through | T2.3 | Conditional — only if LiteLLM doesn't pass through |
-| ADR-005 | (placeholder for any architectural decision discovered during execution) | — | — |
+| ADR-005 | GHCR public vs private image visibility | T0.A12 | Pending |
+| ADR-006 | Dependabot vs Renovate for dependency automation | T0.A14 | Pending — V2 picks Dependabot, ADR records the rejected option |
+| ADR-007 | PR preview stack (Fly.io + Cloudflare Pages + Supabase branches) | T4.6 | Pending |
+| ADR-008 | Versioning policy + release-please configuration | T4.10 | Pending |
+| ADR-009 | (placeholder for any architectural decision discovered during execution) | — | — |
 
 ---
 
@@ -1419,6 +2010,11 @@ Runbooks created during V2 execution:
 | 0009 | Outbox dead-letter accumulating | T4.1 |
 | 0010 | Schema migration failure | T4.1 |
 | 0011 | Deployment via Caddy (deferred to Stage 2) | T4.4 |
+| 0012 | Release PR management (release-please workflow) | T4.10 |
+| 0013 | Preview environment teardown / orphan cleanup | T4.6 |
+| 0014 | Bench baseline reset procedure | T4.8 |
+| 0015 | Container image pruning (GHCR storage management) | T0.A12 |
+| 0016 | Dependabot grouping rules + skip rationale | T0.A14 |
 
 ---
 
@@ -1456,6 +2052,17 @@ Direct mapping of v1 issues raised in the comprehensive review to V2 task that r
 | Deployment target undecided | T4.4 (ADR-003) |
 | Dual-write transaction safety unspecified | T2.6 V2 notes — explicit semantics + outbox retry |
 | `subsystems_invoked` semantics underspecified | T1.7 V2 notes — locked in spec + tested in T1.1 |
+| No agent behavior regression net | T2.9 — agent simulation harness with 10 scenarios |
+| No container artifact pipeline | T0.A12 — GHCR build + publish on every merge |
+| No accidental-secret commit protection | T0.A13 — gitleaks on every push |
+| No dependency upgrade discipline | T0.A14 — Dependabot grouped weekly PRs |
+| No spend visibility (only the cap) | T0.A15 — weekly cost summary issue |
+| No ephemeral environment for behavior review | T4.6 — per-PR runtime + UI + Supabase branch |
+| No external operational signal | T4.7 — scheduled health + canary checks |
+| No latency regression detection | T4.8 — perf bench on PRs that touch runtime / prompt |
+| No browseable docs surface | T4.9 — MkDocs site auto-deployed to GitHub Pages |
+| No version concept / changelog | T4.10 — release-please + Conventional-Commit-driven releases |
+| No CI migration safety net | T0.A9 enhanced — ephemeral Supabase branch + reversibility check |
 
 ---
 
@@ -1466,7 +2073,7 @@ By merging this PR, Maxwell agrees:
 - V2 supersedes v1 as the canonical T1 build spec
 - The execution order in §Execution Order is the agreed-upon sequence (changes go through STOP gates)
 - Single-dev (Helm IDE / me) executes; Maxwell reviews at every STOP gate; Architect consulted on ARCH-tier tasks
-- The 38–44 PR count is the realistic shape of "T1 close on a solid foundation"
+- The 48–56 PR count is the realistic shape of "T1 close on a solid foundation with full CI/CD"
 - T1 close = `T4.5` SITREP merged; not before
 
 V2 is a contract between Maxwell and the dev. Where reality forces deviation, the deviation is documented (PR description or new ADR), not silently absorbed.
