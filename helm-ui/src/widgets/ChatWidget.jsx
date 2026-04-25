@@ -4,11 +4,9 @@ import { CHAT_HISTORY } from '../data/mockData'
 export default function ChatWidget({ onNodeStateChange }) {
   const [messages, setMessages] = useState(CHAT_HISTORY)
   const [input, setInput] = useState('')
-  const [nodeState, setNodeState] = useState('idle')
   const [holdProgress, setHoldProgress] = useState(0)
   const [isHolding, setIsHolding] = useState(false)
   const [contemplating, setContemplating] = useState(false)
-  const holdTimerRef = useRef(null)
   const holdStartRef = useRef(null)
   const holdRafRef = useRef(null)
   const bottomRef = useRef(null)
@@ -48,26 +46,33 @@ export default function ChatWidget({ onNodeStateChange }) {
     setContemplating(true)
     onNodeStateChange?.('contemplating')
 
-    setMessages(prev => [...prev, {
-      id: Date.now(),
-      role: 'helm',
-      content: 'Thinking.',
-      timestamp: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-      routing: 'HELM_PRIME',
-      isContemplating: true,
-    }])
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: Date.now(),
+        role: 'helm',
+        content: 'Thinking.',
+        timestamp: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+        routing: 'HELM_PRIME',
+        isContemplating: true,
+      },
+    ])
 
     // Simulate deep pass completion (~4s)
     setTimeout(() => {
       setContemplating(false)
       onNodeStateChange?.('idle')
-      setMessages(prev => [...prev, {
-        id: Date.now() + 1,
-        role: 'helm',
-        content: "Deep pass complete. Two observations worth noting:\n\nFirst, the pattern-synthesis pass flagged a growing tension between small-PR preference and the BA3 bundle decision. I've logged it as a curiosity flag for next session — the resolution you gave me was partial.\n\nSecond, I updated the cost-asymmetry-routing belief by +0.10. The imperative-directive regression was the clearest evidence yet for that principle. It's now at 0.85.",
-        timestamp: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-        routing: 'HELM_PRIME',
-      }])
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 1,
+          role: 'helm',
+          content:
+            "Deep pass complete. Two observations worth noting:\n\nFirst, the pattern-synthesis pass flagged a growing tension between small-PR preference and the BA3 bundle decision. I've logged it as a curiosity flag for next session — the resolution you gave me was partial.\n\nSecond, I updated the cost-asymmetry-routing belief by +0.10. The imperative-directive regression was the clearest evidence yet for that principle. It's now at 0.85.",
+          timestamp: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+          routing: 'HELM_PRIME',
+        },
+      ])
     }, 4000)
   }
 
@@ -81,36 +86,44 @@ export default function ChatWidget({ onNodeStateChange }) {
       content: input.trim(),
       timestamp: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
     }
-    setMessages(prev => [...prev, userMsg])
+    setMessages((prev) => [...prev, userMsg])
     setInput('')
     onNodeStateChange?.('processing')
 
     // Simulate response delay
     setTimeout(() => {
       onNodeStateChange?.('idle')
-      setMessages(prev => [...prev, {
-        id: Date.now() + 1,
-        role: 'helm',
-        content: "Noted. That's on the board for BA4 scope — I'll flag it when we get to the full spec.",
-        timestamp: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-        routing: 'HELM_PRIME',
-      }])
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 1,
+          role: 'helm',
+          content:
+            "Noted. That's on the board for BA4 scope — I'll flag it when we get to the full spec.",
+          timestamp: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+          routing: 'HELM_PRIME',
+        },
+      ])
     }, 1800)
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-
       {/* Session open banner */}
-      <div style={{
-        padding: '12px 18px',
-        borderBottom: '1px solid var(--border)',
-        background: 'rgba(77, 184, 255, 0.04)',
-      }}>
-        <p className="body-text-sm" style={{
-          color: 'var(--text-accent)',
-          fontStyle: 'italic',
-        }}>
+      <div
+        style={{
+          padding: '12px 18px',
+          borderBottom: '1px solid var(--border)',
+          background: 'rgba(77, 184, 255, 0.04)',
+        }}
+      >
+        <p
+          className="body-text-sm"
+          style={{
+            color: 'var(--text-accent)',
+            fontStyle: 'italic',
+          }}
+        >
           Before we get into it — I've been thinking about a couple of things since we last spoke.
           The Contemplator inner-life loop was broken, and the write path was missing embeddings.
           Both fixed in PR #69. Worth knowing before we move forward.
@@ -118,13 +131,25 @@ export default function ChatWidget({ onNodeStateChange }) {
       </div>
 
       {/* Message list */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 20 }}>
-        {messages.map(msg => (
-          <div key={msg.id} style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start',
-          }}>
+      <div
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '16px 18px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 20,
+        }}
+      >
+        {messages.map((msg) => (
+          <div
+            key={msg.id}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start',
+            }}
+          >
             {/* Routing badge — always "Helm" regardless of internal routing */}
             {msg.routing && (
               <span style={{ marginBottom: 4 }} className="badge badge-blue">
@@ -132,17 +157,22 @@ export default function ChatWidget({ onNodeStateChange }) {
               </span>
             )}
 
-            <div style={{
-              maxWidth: '88%',
-              padding: '10px 0',
-              borderBottom: '1px solid rgba(255,255,255,0.04)',
-            }}>
+            <div
+              style={{
+                maxWidth: '88%',
+                padding: '10px 0',
+                borderBottom: '1px solid rgba(255,255,255,0.04)',
+              }}
+            >
               {msg.role === 'helm' ? (
-                <p className="body-text" style={{
-                  whiteSpace: 'pre-wrap',
-                  color: msg.isContemplating ? 'var(--amber)' : undefined,
-                  opacity: msg.isContemplating ? 0.8 : 1,
-                }}>
+                <p
+                  className="body-text"
+                  style={{
+                    whiteSpace: 'pre-wrap',
+                    color: msg.isContemplating ? 'var(--amber)' : undefined,
+                    opacity: msg.isContemplating ? 0.8 : 1,
+                  }}
+                >
                   {msg.content}
                 </p>
               ) : (
@@ -152,7 +182,14 @@ export default function ChatWidget({ onNodeStateChange }) {
               )}
             </div>
 
-            <span style={{ fontFamily: 'var(--sans)', fontSize: 10, color: 'var(--text-dim)', marginTop: 4 }}>
+            <span
+              style={{
+                fontFamily: 'var(--sans)',
+                fontSize: 10,
+                color: 'var(--text-dim)',
+                marginTop: 4,
+              }}
+            >
               {msg.timestamp}
             </span>
           </div>
@@ -165,8 +202,13 @@ export default function ChatWidget({ onNodeStateChange }) {
         <form onSubmit={sendMessage} style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
           <textarea
             value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(e) } }}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                sendMessage(e)
+              }
+            }}
             placeholder="Message Helm…"
             rows={2}
             disabled={contemplating}
@@ -210,8 +252,8 @@ export default function ChatWidget({ onNodeStateChange }) {
             }}
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <circle cx="7" cy="7" r="5" stroke="rgba(245,158,11,0.8)" strokeWidth="1.2"/>
-              <circle cx="7" cy="7" r="2" fill="rgba(245,158,11,0.6)"/>
+              <circle cx="7" cy="7" r="5" stroke="rgba(245,158,11,0.8)" strokeWidth="1.2" />
+              <circle cx="7" cy="7" r="2" fill="rgba(245,158,11,0.6)" />
             </svg>
           </button>
 
