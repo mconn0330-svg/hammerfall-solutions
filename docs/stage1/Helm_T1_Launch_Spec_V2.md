@@ -17,7 +17,7 @@
 The v1 spec was correct in shape: T0 memory foundation, freestanding UI work in parallel, Phase 2 backend, Phase 3 integration. Reviewing it after the T0 architecture pivot surfaced a deeper class of issues that v1 did not address:
 
 1. **Spec gaps in T0 itself** — JSONL outbox concurrency race, narrow `MemoryType` enum, dual-write transaction safety, em-dash unicode coupling, missing observability on circuit breaker state changes, four prompt/doc files (`agents/helm/helm_prompt.md`, `archivist.md`, `contemplator.md`, `management/COMPANY_BEHAVIOR.md`) and the docstring at `services/helm-runtime/supabase_client.py:7-11` all encoded the brain.sh paradigm and were not in T0.6's deletion scope.
-2. **No repo operating contract** — no CLAUDE.md, no Conventional Commits enforcement, no ADR template, no runbook directory. The spec v2.0 itself was committed under the message "Update print statement from 'Hello' to 'Goodbye'" (commit `7e771b0`). That is a process failure in the substrate, not a typo.
+2. **No repo operating contract** — no `AGENTS.md`, no Conventional Commits enforcement, no ADR template, no runbook directory. The spec v2.0 itself was committed under the message "Update print statement from 'Hello' to 'Goodbye'" (commit `7e771b0`). That is a process failure in the substrate, not a typo.
 3. **No test foundation** — zero pytest/vitest config in repo. T1.7 is a hard contract gate that no test will catch when it drifts.
 4. **No CI** — every PR relies on Maxwell's manual review. With 35+ PRs ahead and a single dev driving them, that's not sustainable.
 5. **No observability beyond `print`** — no structured logging convention, no trace IDs, no correlation IDs across the SSE-runtime-Supabase chain. Debug surface is bash + grep + read the screen.
@@ -70,7 +70,7 @@ Examples:
 - `feat(memory): add outbox pattern for write durability` — T0.B2
 - `fix(prompt): resolve helm_prompt.md brain.sh references` — T0.B6
 - `docs(spec): create T1 Launch Spec V2` — this PR
-- `chore(repo): add CLAUDE.md operating contract` — T0.A1
+- `chore(repo): add AGENTS.md operating contract` — T0.A1
 
 ---
 
@@ -82,7 +82,7 @@ Examples:
 
 | Task | Description | Tier | Status |
 |---|---|---|---|
-| T0.A1 | Repo operating contract — CLAUDE.md, Conventional Commits, ADR template, runbook template | STOP | 🔵 Queued |
+| T0.A1 | Repo operating contract — AGENTS.md (vendor-neutral), Conventional Commits, ADR template, runbook template | STOP | 🔵 Queued |
 | T0.A2 | Pre-commit hooks — ruff, black, eslint, prettier, commitlint | Batch | 🔵 Queued |
 | T0.A3 | Test harness — pytest (Python) + vitest (JS) skeletons | STOP | 🔵 Queued |
 | T0.A4 | CI pipeline — GitHub Actions: lint + typecheck + test on every PR | STOP | 🔵 Queued |
@@ -227,9 +227,11 @@ The user-facing task IDs are grouped by phase, but in single-dev sequential mode
 
 **Purpose:** Establish the rules of engagement before any code is written under V2. This is the operating contract for me, for Architect, and for any future contributor.
 
+**Helm is model-agnostic.** The operating contract is authored in `AGENTS.md` — the emerging vendor-neutral convention picked up by Claude Code, Cursor, Aider, Codex, and other agentic coding tools. No Claude branding in the canonical file. Where a tool requires its own filename (e.g., legacy Claude Code installations expecting `CLAUDE.md`, Cursor expecting `.cursorrules`), a one-line shim file points at `AGENTS.md`. Shims are disposable as the agent landscape converges.
+
 **Deliverables:**
 
-1. **CLAUDE.md** at repo root — instructions to me about how to behave in this repo. Contents:
+1. **`AGENTS.md`** at repo root — vendor-neutral instructions to any agent working in this repo. Contents:
     - V2 spec is canonical for T1 work
     - Conventional Commits required
     - All non-trivial work goes through STOP gates
@@ -238,10 +240,11 @@ The user-facing task IDs are grouped by phase, but in single-dev sequential mode
     - Memory writes go through `memory.write()` — never raw `supabase_client` or shell
     - Don't claim a PR is ready until CI passes
     - Reference to `docs/runbooks/` for known failure modes
-2. **`docs/adr/` directory** with ADR template (`docs/adr/0000-template.md`) following the [Michael Nygard ADR format](https://github.com/joelparkerhenderson/architecture-decision-record/tree/main/locales/en/templates/decision-record-template-by-michael-nygard).
-3. **`docs/runbooks/` directory** with runbook template (`docs/runbooks/0000-template.md`) — symptom, diagnosis, fix, root cause links.
-4. **`commitlint.config.js`** at repo root with the allowed types and scopes from the V2 spec.
-5. **`CONTRIBUTING.md`** — short, points to CLAUDE.md, V2 spec, and the ADR + runbook directories. Solo project, but the discipline is for future-me as much as a contributor.
+2. **Optional vendor shims** at repo root if a tool in active use doesn't auto-discover `AGENTS.md`. Each is one line: `See AGENTS.md`. None added speculatively — only when a real tool needs one. Initial set: empty (Claude Code is the only agent in active use, and it reads `AGENTS.md` natively).
+3. **`docs/adr/` directory** with ADR template (`docs/adr/0000-template.md`) following the [Michael Nygard ADR format](https://github.com/joelparkerhenderson/architecture-decision-record/tree/main/locales/en/templates/decision-record-template-by-michael-nygard).
+4. **`docs/runbooks/` directory** with runbook template (`docs/runbooks/0000-template.md`) — symptom, diagnosis, fix, root cause links.
+5. **`commitlint.config.js`** at repo root with the allowed types and scopes from the V2 spec.
+6. **`CONTRIBUTING.md`** — short, points to `AGENTS.md`, V2 spec, and the ADR + runbook directories. Solo project, but the discipline is for future-me as much as a contributor.
 
 **Out of scope (deferred to T0.A2):** Pre-commit hook installation. T0.A1 only adds the configs; T0.A2 wires them into git.
 
@@ -292,7 +295,7 @@ repos:
         pass_filenames: false
 ```
 
-**Setup steps documented in CLAUDE.md:**
+**Setup steps documented in `AGENTS.md`:**
 
 ```bash
 pip install pre-commit
@@ -320,7 +323,7 @@ cd helm-ui && npm install --save-dev @commitlint/cli @commitlint/config-conventi
 - Create `helm-ui/src/__tests__/smoke.test.jsx` with one passing test
 - Add `npm test` script
 
-**Conventions documented in CLAUDE.md:**
+**Conventions documented in `AGENTS.md`:**
 - Python tests live next to subjects (memory module → `tests/test_memory_writer.py`)
 - JS tests use `*.test.jsx` co-located with components
 - New code must include tests (PR template enforces)
@@ -496,7 +499,7 @@ async def write(self, ...):
 
 No exporter (no Jaeger, no OTLP collector) lands in T1. Spans are just structured. T4 / Stage 2 wires an exporter when there's a place to send them.
 
-**Logging convention (committed in CLAUDE.md):**
+**Logging convention (committed in `AGENTS.md`):**
 - Logger name: `helm.<module>` — `helm.memory`, `helm.runtime`, `helm.agent.contemplator`
 - Event names: `dotted.snake_case` — `memory.write`, `memory.write.failed`, `agent.invoked`
 - Every event includes `correlation_id` (auto-bound)
@@ -1311,7 +1314,7 @@ T1.1, T1.2, T1.3, T1.4, T1.5a, T1.5b, T1.6 ─────► T1.7 (HARD GATE)
 | Anthropic prompt cache TTL (5 min) doesn't help one-off turns | T2.3 | Acceptable. T2 scheduled work + T3 ambient work will keep sessions warm. |
 | Cost cap of $5/day is too low for normal use | T0.A11 | Configurable; raise after first week of observation. Initial cap is paranoia, not policy. |
 | Backup runbook drill reveals Supabase tier doesn't allow `pg_dump` | T0.A10 | Use Supabase Dashboard backup feature instead; document the alternate path in the runbook |
-| `pre-commit install` doesn't run in Windows / WSL transition | T0.A2 | Document in CLAUDE.md; CI catches what hooks miss |
+| `pre-commit install` doesn't run in Windows / WSL transition | T0.A2 | Document in `AGENTS.md`; CI catches what hooks miss |
 | ADR-001 Path A discovers helm-ui is too JSX-coupled to convert cleanly | T0.A5 | ADR captures the discovery; flip to Path B; T1.5b reverts to JSX scope |
 | Memory module 80% coverage target too aggressive for T0.B1 | T0.B1 | Coverage is a target, not a gate. PR can ship at lower coverage with explicit deferred-coverage list. |
 
@@ -1436,7 +1439,7 @@ Direct mapping of v1 issues raised in the comprehensive review to V2 task that r
 | `/tmp` outbox path not portable | T0.B1 — `Path.home() / .helm` default |
 | `datetime.utcnow()` deprecated | T0.B1 — UTC-aware `utc_now()` helper |
 | Four prompt/doc files still encode brain.sh paradigm | T0.B6 expanded scope to all four |
-| No CLAUDE.md | T0.A1 |
+| No vendor-neutral agent operating contract | T0.A1 — `AGENTS.md` |
 | No tests directory | T0.A3 |
 | No CI | T0.A4 |
 | No type checking | T0.A5 |
