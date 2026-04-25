@@ -5,12 +5,12 @@
 # All three must pass for branch protection on main to allow merge.
 #
 # Spec deviations (documented in T0.A4 SITREP):
-#   - mypy --strict step deferred to T0.A5 (Type Discipline task that adds
-#     mypy + types every signature). Adding mypy here without T0.A5 would
-#     leave CI red-by-design.
 #   - Lint uses `black --check` to match the formatter installed by T0.A2's
 #     pre-commit hooks (spec yaml said `ruff format --check`; equivalent
 #     output, but matching local toolchain avoids drift).
+#
+# T0.A5 added the mypy --strict type-check step. Every helm-runtime source
+# file is typed; mypy plugins/overrides are configured in pyproject.toml.
 
 name: CI
 
@@ -42,6 +42,9 @@ jobs:
 
       - name: Format check (black)
         run: black --check .
+
+      - name: Type check (mypy --strict)
+        run: mypy .
 
       - name: Test
         run: pytest --cov --cov-report=term

@@ -16,27 +16,29 @@ class _SupabaseStub:
     """
 
     def __init__(self) -> None:
-        self.calls: list[tuple[str, tuple, dict]] = []
+        self.calls: list[tuple[str, tuple[Any, ...], dict[str, Any]]] = []
 
-    def _record(self, name: str, args: tuple, kwargs: dict) -> None:
+    def _record(self, name: str, args: tuple[Any, ...], kwargs: dict[str, Any]) -> None:
         self.calls.append((name, args, kwargs))
 
-    async def insert(self, table: str, payload: dict) -> dict:
+    async def insert(self, table: str, payload: dict[str, Any]) -> dict[str, Any]:
         self._record("insert", (table, payload), {})
         return payload
 
-    async def patch(self, table: str, filters: dict, payload: dict) -> list:
+    async def patch(
+        self, table: str, filters: dict[str, Any], payload: dict[str, Any]
+    ) -> list[dict[str, Any]]:
         self._record("patch", (table, filters, payload), {})
         return [payload]
 
-    async def delete(self, table: str, filters: dict) -> None:
+    async def delete(self, table: str, filters: dict[str, Any]) -> None:
         self._record("delete", (table, filters), {})
 
-    async def select(self, table: str, params: dict) -> list:
+    async def select(self, table: str, params: dict[str, Any]) -> list[dict[str, Any]]:
         self._record("select", (table, params), {})
         return []
 
-    async def rpc(self, function_name: str, params: dict) -> Any:
+    async def rpc(self, function_name: str, params: dict[str, Any]) -> Any:
         self._record("rpc", (function_name, params), {})
         return None
 

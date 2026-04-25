@@ -16,6 +16,7 @@ BA7a: Service skeleton with stubbed agent handlers.
 """
 
 import logging
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -50,14 +51,14 @@ logger = logging.getLogger(__name__)
 
 CONFIG_PATH = Path(__file__).parent / "config.yaml"
 
-router: ModelRouter = None
-supabase: SupabaseClient = None
-pipeline: MiddlewarePipeline = None
-embedding_client: EmbeddingClient = None
+router: ModelRouter | None = None
+supabase: SupabaseClient | None = None
+pipeline: MiddlewarePipeline | None = None
+embedding_client: EmbeddingClient | None = None
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Initialize service globals at startup. Fail fast on config errors."""
     global router, supabase, pipeline, embedding_client
 
@@ -119,7 +120,7 @@ class InvokeRequestBody(BaseModel):
     turn_number: int = Field(..., ge=0, description="Turn counter from TURN_COUNT")
     user_message: str = Field(..., description="Verbatim user message — no truncation")
     helm_response: str = Field(..., description="Verbatim Helm Prime response — no truncation")
-    context: dict = Field(
+    context: dict[str, Any] = Field(
         default_factory=lambda: {"project": "hammerfall-solutions", "agent": "helm"},
         description="Project and agent scope for brain writes",
     )
@@ -140,11 +141,13 @@ class InvokeResponse(BaseModel):
 
 async def _handle_projectionist(req: InvokeRequest) -> str:
     """Route to Projectionist handler — frame creation via qwen3:4b on Ollama."""
+    assert router is not None and supabase is not None, "service not initialized"
     return await projectionist_agent.handle(req, router, supabase)
 
 
 async def _handle_archivist(req: InvokeRequest) -> str:
     """Route to Archivist handler — frame migration with embedding via qwen3:14b on Ollama."""
+    assert router is not None and supabase is not None, "service not initialized"
     return await archivist_agent.handle(req, router, supabase, embedding_client)
 
 
@@ -161,6 +164,8 @@ async def _handle_contemplator(req: InvokeRequest) -> str:
     Trigger is read from req.context["trigger"]. Defaults to "session_end".
     """
     import json as _json
+
+    assert router is not None and supabase is not None, "service not initialized"
 
     result_str = await contemplator_agent.handle(req, router, supabase)
     result = _json.loads(result_str)
@@ -187,6 +192,7 @@ async def _handle_helm_prime(req: InvokeRequest) -> str:
     Helm Prime invocation via runtime.
     See agents/helm_prime.py for full implementation.
     """
+    assert router is not None and supabase is not None, "service not initialized"
     return await helm_prime_agent.handle(req, router, supabase)
 
 
@@ -205,13 +211,15 @@ AGENT_HANDLERS = {
 
 @app.post("/invoke/{agent_role}", response_model=InvokeResponse)
 async def invoke(
+    body: InvokeRequestBody,
     agent_role: str = FastAPIPath(..., description="Agent role to invoke"),
-    body: InvokeRequestBody = ...,
-) -> InvokeResponse:
+) -> InvokeResponse | JSONResponse:
     """
     Route a request to the model configured for agent_role.
     Runs the full middleware pipeline (pre → handler → post).
     """
+    assert router is not None and pipeline is not None, "service not initialized"
+
     # Confirm the role is configured
     try:
         router.get_agent_config(agent_role)
@@ -287,6 +295,8 @@ async def health() -> JSONResponse:
     Returns HTTP 200 in all cases — status field indicates healthy/degraded.
     HTTP 500 is reserved for the health endpoint itself failing (runtime crash).
     """
+    assert router is not None and supabase is not None, "service not initialized"
+
     checks: dict[str, Any] = {"service": "ok", "models": {}, "supabase": {}}
     overall = "healthy"
 
@@ -322,4 +332,5 @@ async def config_agents() -> JSONResponse:
     No secrets exposed — provider type, model name, and base URL only.
     API keys are intentionally omitted.
     """
+    assert router is not None, "service not initialized"
     return JSONResponse(content={"agents": router.config_summary()})

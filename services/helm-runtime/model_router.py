@@ -112,7 +112,7 @@ class HelmRuntimeConfig(BaseModel):
 
     @field_validator("agents")
     @classmethod
-    def agents_not_empty(cls, v: dict) -> dict:
+    def agents_not_empty(cls, v: dict[str, AgentConfigSchema]) -> dict[str, AgentConfigSchema]:
         if not v:
             raise ValueError("agents block must define at least one agent role.")
         return v
@@ -154,13 +154,13 @@ class ModelRouter:
 
         logger.info("ModelRouter initialized. Agents: %s", list(self._agent_configs.keys()))
 
-    def _resolve_env_vars(self) -> dict:
+    def _resolve_env_vars(self) -> dict[str, dict[str, Any]]:
         """
         Resolve all env var values from the validated config schema.
         Raises ConfigError immediately if a required env var is missing.
         Returns a dict of role → resolved runtime config (provider, model, api_key, base_url).
         """
-        resolved = {}
+        resolved: dict[str, dict[str, Any]] = {}
 
         for role, cfg in self._config.agents.items():
             entry: dict[str, Any] = {
@@ -207,7 +207,7 @@ class ModelRouter:
 
         return resolved
 
-    def _resolve_supabase(self) -> dict:
+    def _resolve_supabase(self) -> dict[str, str]:
         """Resolve Supabase connection details from validated config schema."""
         sb = self._config.supabase
         url = os.environ.get(sb.url_env)
@@ -226,7 +226,7 @@ class ModelRouter:
 
         return {"url": url, "service_key": key}
 
-    def _resolve_embeddings(self) -> dict:
+    def _resolve_embeddings(self) -> dict[str, str]:
         """
         Resolve embedding config. Optional — returns empty dict if no embeddings block.
         Warns (does not fail) if api_key_env is set but env var is missing.
@@ -263,7 +263,7 @@ class ModelRouter:
     def supabase_service_key(self) -> str:
         return self._supabase_config["service_key"]
 
-    def get_agent_config(self, role: str) -> dict:
+    def get_agent_config(self, role: str) -> dict[str, Any]:
         """Return resolved config for a role. Raises UnknownRoleError if not found."""
         cfg = self._agent_configs.get(role)
         if not cfg:
@@ -273,14 +273,14 @@ class ModelRouter:
             )
         return cfg
 
-    def config_summary(self) -> dict:
+    def config_summary(self) -> dict[str, dict[str, Any]]:
         """
         Return agent config summary with no secrets exposed.
         Used by GET /config/agents.
         """
-        summary = {}
+        summary: dict[str, dict[str, Any]] = {}
         for role, cfg in self._agent_configs.items():
-            entry = {"provider": cfg["provider"], "model": cfg["model"]}
+            entry: dict[str, Any] = {"provider": cfg["provider"], "model": cfg["model"]}
             if cfg.get("base_url"):
                 entry["base_url"] = cfg["base_url"]
             # api_key intentionally omitted
@@ -290,9 +290,9 @@ class ModelRouter:
     async def invoke(
         self,
         role: str,
-        messages: list,
+        messages: list[dict[str, Any]],
         stream: bool = False,
-        extra_kwargs: dict = None,
+        extra_kwargs: dict[str, Any] | None = None,
     ) -> Any:
         """
         Route a request to the model configured for role via LiteLLM.
@@ -335,10 +335,10 @@ class ModelRouter:
     # Health check cache: role → {"result": dict, "checked_at": float}
     # TTL of 60s prevents repeated API calls to paid providers (Anthropic, OpenAI)
     # on every /health invocation (monitoring loops, smoke tests, external pollers).
-    _health_cache: dict = {}
+    _health_cache: dict[str, dict[str, Any]] = {}
     _health_cache_ttl: int = 60  # seconds
 
-    async def check_model_health(self, role: str) -> dict:
+    async def check_model_health(self, role: str) -> dict[str, Any]:
         """
         Check if a model endpoint is reachable for a given role.
         Results cached for _health_cache_ttl seconds — paid provider endpoints
@@ -350,7 +350,8 @@ class ModelRouter:
 
         cached = self._health_cache.get(role)
         if cached and (time.monotonic() - cached["checked_at"]) < self._health_cache_ttl:
-            return cached["result"]
+            cached_result: dict[str, Any] = cached["result"]
+            return cached_result
 
         try:
             await self.invoke(

@@ -20,6 +20,7 @@ All writes expressed as a structured JSON payload sent to Archivist.
 import asyncio
 import json
 import logging
+from typing import Any
 
 from middleware import InvokeRequest
 from model_router import ModelRouter
@@ -141,7 +142,12 @@ Rules:
 # ---------------------------------------------------------------------------
 
 
-def _build_snapshot(memories: list, beliefs: list, entities: list, scratchpad: list) -> str:
+def _build_snapshot(
+    memories: list[dict[str, Any]],
+    beliefs: list[dict[str, Any]],
+    entities: list[dict[str, Any]],
+    scratchpad: list[dict[str, Any]],
+) -> str:
     mem_lines = "\n".join(
         f"[{i+1}] ({m.get('session_date', '?')}) {m.get('content', '')}"
         for i, m in enumerate(memories[:MAX_MEMORIES])
@@ -166,11 +172,12 @@ def _build_snapshot(memories: list, beliefs: list, entities: list, scratchpad: l
     )
 
 
-def _extract_json(raw: str) -> dict | None:
+def _extract_json(raw: str) -> dict[str, Any] | None:
     """Parse JSON from model output. Handles markdown fences if present."""
     raw = raw.strip()
     try:
-        return json.loads(raw)
+        parsed: dict[str, Any] = json.loads(raw)
+        return parsed
     except json.JSONDecodeError:
         pass
     import re
@@ -178,7 +185,8 @@ def _extract_json(raw: str) -> dict | None:
     match = re.search(r"```(?:json)?\s*([\s\S]*?)```", raw)
     if match:
         try:
-            return json.loads(match.group(1))
+            parsed_fenced: dict[str, Any] = json.loads(match.group(1))
+            return parsed_fenced
         except json.JSONDecodeError:
             pass
     return None
@@ -340,7 +348,9 @@ async def handle(
 # ---------------------------------------------------------------------------
 
 
-async def _fetch_snapshot(supabase: SupabaseClient) -> tuple[list, list, list, list]:
+async def _fetch_snapshot(
+    supabase: SupabaseClient,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     """
     Fetch memories, beliefs, entities, and scratchpad entries for the brain snapshot.
 

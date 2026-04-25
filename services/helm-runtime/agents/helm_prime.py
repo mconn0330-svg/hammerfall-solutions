@@ -70,7 +70,7 @@ async def handle(
         stream=False,
     )
 
-    response = result.choices[0].message.content.strip()
+    response: str = result.choices[0].message.content.strip()
     logger.info(
         "Helm Prime response received. session=%s turn=%d length=%d",
         req.session_id,

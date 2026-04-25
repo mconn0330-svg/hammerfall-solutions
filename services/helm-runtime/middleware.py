@@ -19,6 +19,7 @@ Stub hooks (pass-through, not yet implemented):
 
 import json
 import logging
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -168,9 +169,9 @@ class InvokeRequest:
         turn_number: int,
         user_message: str,
         helm_response: str,
-        context: dict,
+        context: dict[str, Any],
         system_prompt: str = "",
-        messages: list = None,
+        messages: list[dict[str, Any]] | None = None,
     ):
         self.session_id = session_id
         self.turn_number = turn_number
@@ -178,7 +179,7 @@ class InvokeRequest:
         self.helm_response = helm_response
         self.context = context
         self.system_prompt = system_prompt
-        self.messages: list = messages or []
+        self.messages: list[dict[str, Any]] = messages or []
 
 
 class MiddlewarePipeline:

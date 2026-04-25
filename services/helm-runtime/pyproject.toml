@@ -38,3 +38,16 @@ ignore = []
 [tool.black]
 line-length = 100
 target-version = ["py311"]
+
+# T0.A5 — mypy strict mode. Every function signature is typed, including return
+# types. External libraries without stubs are listed in [[tool.mypy.overrides]]
+# below so unresolved-import errors don't bury real findings.
+[tool.mypy]
+python_version = "3.12"
+strict = true
+exclude = ["__pycache__"]
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["litellm", "litellm.*"]
+ignore_missing_imports = true
