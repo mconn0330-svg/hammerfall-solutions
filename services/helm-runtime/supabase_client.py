@@ -47,7 +47,7 @@ class SupabaseClient:
             )
         return data
 
-    async def insert(self, table: str, payload: dict) -> dict:
+    async def insert(self, table: str, payload: dict[str, Any]) -> dict[str, Any]:
         """POST a new row. Returns the inserted row."""
         async with httpx.AsyncClient() as client:
             response = await client.post(
@@ -56,9 +56,12 @@ class SupabaseClient:
                 headers=self._headers,
                 timeout=10.0,
             )
-            return self._check_response(response)
+            result: dict[str, Any] = self._check_response(response)
+            return result
 
-    async def patch(self, table: str, filters: dict, payload: dict) -> list:
+    async def patch(
+        self, table: str, filters: dict[str, Any], payload: dict[str, Any]
+    ) -> list[dict[str, Any]]:
         """PATCH rows matching filters. Returns updated rows."""
         query = "&".join(f"{k}=eq.{v}" for k, v in filters.items())
         async with httpx.AsyncClient() as client:
@@ -68,9 +71,10 @@ class SupabaseClient:
                 headers=self._headers,
                 timeout=10.0,
             )
-            return self._check_response(response)
+            result: list[dict[str, Any]] = self._check_response(response)
+            return result
 
-    async def delete(self, table: str, filters: dict) -> None:
+    async def delete(self, table: str, filters: dict[str, Any]) -> None:
         """DELETE rows matching filters."""
         query = "&".join(f"{k}=eq.{v}" for k, v in filters.items())
         async with httpx.AsyncClient() as client:
@@ -81,7 +85,7 @@ class SupabaseClient:
             )
             response.raise_for_status()
 
-    async def select(self, table: str, params: dict) -> list:
+    async def select(self, table: str, params: dict[str, Any]) -> list[dict[str, Any]]:
         """GET rows with query params. Returns list of rows."""
         query = "&".join(f"{k}={v}" for k, v in params.items())
         async with httpx.AsyncClient() as client:
@@ -90,9 +94,10 @@ class SupabaseClient:
                 headers=self._headers,
                 timeout=10.0,
             )
-            return self._check_response(response)
+            result: list[dict[str, Any]] = self._check_response(response)
+            return result
 
-    async def rpc(self, function_name: str, params: dict) -> Any:
+    async def rpc(self, function_name: str, params: dict[str, Any]) -> Any:
         """Call a Supabase RPC (stored function). Returns the function's response."""
         async with httpx.AsyncClient() as client:
             response = await client.post(
@@ -105,12 +110,12 @@ class SupabaseClient:
 
     async def match_memories(
         self,
-        query_embedding: list,
+        query_embedding: list[float],
         project: str = "hammerfall-solutions",
         agent: str = "helm",
         threshold: float = 0.7,
         count: int = 10,
-    ) -> list:
+    ) -> list[dict[str, Any]]:
         """
         Semantic similarity search via match_memories() Supabase RPC.
 
@@ -119,7 +124,7 @@ class SupabaseClient:
                   created_at, similarity.
         Returns [] if no matches exceed the threshold.
         """
-        return await self.rpc(
+        result: list[dict[str, Any]] = await self.rpc(
             "match_memories",
             {
                 "query_embedding": query_embedding,
@@ -129,20 +134,21 @@ class SupabaseClient:
                 "filter_agent": agent,
             },
         )
+        return result
 
     async def match_beliefs(
         self,
-        query_embedding: list,
+        query_embedding: list[float],
         threshold: float = 0.7,
         count: int = 10,
-    ) -> list:
+    ) -> list[dict[str, Any]]:
         """
         Semantic similarity search via match_beliefs() Supabase RPC.
 
         Searches active beliefs only. Returns rows ordered by cosine similarity descending.
         Each row: id, domain, belief, strength, active, created_at, similarity.
         """
-        return await self.rpc(
+        result: list[dict[str, Any]] = await self.rpc(
             "match_beliefs",
             {
                 "query_embedding": query_embedding,
@@ -150,20 +156,21 @@ class SupabaseClient:
                 "match_count": count,
             },
         )
+        return result
 
     async def match_entities(
         self,
-        query_embedding: list,
+        query_embedding: list[float],
         threshold: float = 0.7,
         count: int = 10,
-    ) -> list:
+    ) -> list[dict[str, Any]]:
         """
         Semantic similarity search via match_entities() Supabase RPC.
 
         Searches active entities only. Returns rows ordered by cosine similarity descending.
         Each row: id, entity_type, name, summary, attributes, first_seen, similarity.
         """
-        return await self.rpc(
+        result: list[dict[str, Any]] = await self.rpc(
             "match_entities",
             {
                 "query_embedding": query_embedding,
@@ -171,6 +178,7 @@ class SupabaseClient:
                 "match_count": count,
             },
         )
+        return result
 
     async def health_check(self) -> bool:
         """

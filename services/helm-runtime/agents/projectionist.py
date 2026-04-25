@@ -110,7 +110,7 @@ Produce the frame JSON now."""
     # Only the model call is retried — Supabase write is not retried here.
     _max_attempts = 3
     _retry_delay = 0.5  # seconds between attempts
-    last_exc: Exception = None
+    last_exc: Exception | None = None
 
     for attempt in range(_max_attempts):
         try:

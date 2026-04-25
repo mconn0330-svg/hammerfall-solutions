@@ -23,6 +23,7 @@ Projectionist contract). The column value is written into full_content JSONB.
 import asyncio
 import datetime
 import logging
+from typing import Any
 
 from embedding_client import EmbeddingClient
 from middleware import InvokeRequest
@@ -203,7 +204,7 @@ Summarize this turn in 1-3 sentences."""
                 messages=messages,
                 stream=False,
             )
-            summary = response.choices[0].message.content.strip()
+            summary: str = response.choices[0].message.content.strip()
             if not summary:
                 raise ValueError("Model returned empty summary")
             return summary
@@ -227,10 +228,11 @@ Summarize this turn in 1-3 sentences."""
                     e,
                 )
                 return None
+    return None  # unreachable; satisfies mypy's missing-return analysis
 
 
 async def _execute_contemplator_writes(
-    payload: dict,
+    payload: dict[str, Any],
     supabase: SupabaseClient,
     embedding_client: EmbeddingClient | None = None,
 ) -> str:
@@ -259,7 +261,7 @@ async def _execute_contemplator_writes(
     not abort remaining writes — all writes are attempted regardless of failures.
     """
     today = datetime.date.today().isoformat()
-    results = {
+    results: dict[str, Any] = {
         "belief_patches": 0,
         "personality_patches": 0,
         "pattern_entries": 0,
@@ -411,7 +413,7 @@ async def _execute_contemplator_writes(
 
 async def _write_to_memory(
     supabase: SupabaseClient,
-    payload: dict,
+    payload: dict[str, Any],
     frame_id: str,
 ) -> bool:
     """
