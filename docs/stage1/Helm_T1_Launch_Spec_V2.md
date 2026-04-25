@@ -120,7 +120,7 @@ Examples:
 | T1.5a | Glass morphism — define CSS design tokens | Batch | 🔵 Ready |
 | T1.5b | Glass morphism — apply tokens across components | STOP | 🔵 Ready |
 | T1.6 | Commit Supabase anon key to repo (.env) | Batch | 🔵 Ready |
-| T1.7 | UI Interaction Spec document (HARD GATE) | ARCH | 🔵 Ready |
+| T1.7 | UI Interaction Spec document — incl. smart routing per ADR-011 (HARD GATE) | ARCH | 🔵 Ready |
 
 > **T1.7 is a hard gate.** Phase 2 does not open until T1.7 is reviewed and accepted by Architect + Maxwell. T1.7 defines the contracts T2.3 builds against.
 
@@ -135,7 +135,7 @@ Examples:
 | T2.5 | Belief observation history (helm_belief_history) | STOP | 🔵 Queued |
 | T2.6 | Signals table + dual-write hook in memory module | ARCH | 🔵 Queued |
 | T2.7 | RPC function get_entities_with_counts() | Batch | 🔵 Queued |
-| T2.9 | Agent simulation test harness (canned conversations, mocked LiteLLM, asserts SSE + memory writes) | ARCH | 🔵 Queued |
+| T2.9 | Agent simulation test harness (canned conversations, mocked provider chain, asserts SSE + memory writes) | ARCH | 🔵 Queued |
 | T2.8 | Schema reference doc (Widget Data Map) — LAST | STOP | 🔵 Queued |
 
 ### Phase 3 — Integration + Launch Validation (⛔ blocked on Phase 2 + Phase 0 complete)
@@ -156,7 +156,7 @@ Examples:
 | T4.2 | Rate limiting on /invoke endpoint (token bucket, per-token) | STOP | 🔵 Queued |
 | T4.3 | SSE session resumption protocol — Last-Event-ID + replay buffer | ARCH | 🔵 Queued |
 | T4.4 | Dev deployment decision (ADR-003) — Vercel + Render + Supabase project-column partitioning | STOP | 🔵 Queued |
-| T4.11 | Persistent dev deployment — main → Vercel (UI) + Render (runtime), 24/7 stable URL, warmup cron | ARCH | 🔵 Queued |
+| T4.11 | Persistent dev deployment — Vercel (UI) + Render (runtime) + Tailscale (Render→Thor for `local` provider), provider chain config, warmup cron | ARCH | 🔵 Queued |
 | T4.6 | Preview environments per PR — Vercel native previews + Render per-PR + Supabase project partition | ARCH | 🔵 Queued |
 | T4.7 | Scheduled health checks — cron-driven `/health` + canary `/invoke` | STOP | 🔵 Queued |
 | T4.8 | Performance regression baseline + bench (latency on canned inputs) | STOP | 🔵 Queued |
@@ -728,62 +728,156 @@ The reversibility check parses the `DOWN:` comment block required by ADR-002 —
 
 ---
 
-### T0.A11 — Cost Guardrails
+### T0.A11 — Runtime Guardrails (Rate Alarm + Conditional Dollar Cap + Pro Max Tracker)
 
-**Purpose:** Prevent silent cost overruns. T1 doesn't have many embedding calls yet, but T2.6 (signals) and Contemplator passes will increase volume. Establish the cap and the meter before the volume rises.
+**Purpose:** Catch runaway behavior and silent cost overruns regardless of which provider backend is active. Three layers, each provider-aware:
 
-**Implementation:**
+1. **Rate alarm — always on.** Provider-agnostic. Catches runaway loops (any agent calling its LLM 100x/min is a bug, regardless of cost).
+2. **Pro Max weekly tracker — engaged when `claude-sdk` provider invoked.** Warns before your runtime locks you out of Claude.ai by burning your Pro Max weekly budget.
+3. **Dollar cap — engaged when `anthropic-api` provider invoked.** Tracks per-day API spend on Render or other paid-API environments. Dormant when no agent is configured for `anthropic-api`.
+
+All three thresholds user-overridable via env vars. All three engage independently — the Render runtime might trip rate alarm + dollar cap simultaneously; the laptop runtime might trip rate alarm + Pro Max tracker.
+
+**Why split:** at T1 with Pro Max + local models, the v1 "$5/day embedding cap" was solving a problem you didn't have. The rate alarm is the always-on tripwire that catches *bug-shaped* events (loops, accidental fan-out) at zero dollar cost. The other two engage only when their backend is real. See ADR-010 for the provider abstraction this depends on.
+
+**Implementation sketch:**
 
 ```python
-# cost_guard.py
-import asyncio
-from datetime import date
-from collections import defaultdict
+# guardrails.py
+import asyncio, time
+from datetime import date, datetime, timedelta
+from collections import defaultdict, deque
 from observability import get_logger
 
-logger = get_logger("helm.cost")
+logger = get_logger("helm.guardrails")
 
-class CostGuard:
-    """Tracks daily embedding spend; raises if cap exceeded."""
-    
-    EMBEDDING_COST_PER_1K_TOKENS = 0.00013  # OpenAI text-embedding-3-small
-    
-    def __init__(self, daily_cap_usd: float = 5.0):
+# ─── Layer 1: Rate alarm (always on, provider-agnostic) ──────────────────────
+
+class RateAlarm:
+    """Tracks LLM calls per minute / hour across all providers. Raises on threshold."""
+
+    def __init__(
+        self,
+        calls_per_min_warn: int = 30,    # HELM_RATE_WARN_PER_MIN
+        calls_per_min_block: int = 60,   # HELM_RATE_BLOCK_PER_MIN
+        calls_per_hour_warn: int = 600,  # HELM_RATE_WARN_PER_HOUR
+        calls_per_hour_block: int = 1500,# HELM_RATE_BLOCK_PER_HOUR
+    ):
+        self.calls_per_min_warn = calls_per_min_warn
+        self.calls_per_min_block = calls_per_min_block
+        self.calls_per_hour_warn = calls_per_hour_warn
+        self.calls_per_hour_block = calls_per_hour_block
+        self._calls: deque[float] = deque()  # timestamps, sliding window
+        self._lock = asyncio.Lock()
+
+    async def check_and_record(self, agent: str, provider: str) -> None:
+        now = time.time()
+        async with self._lock:
+            # Drop entries older than 1 hour
+            while self._calls and self._calls[0] < now - 3600:
+                self._calls.popleft()
+            calls_last_min = sum(1 for t in self._calls if t > now - 60)
+            calls_last_hour = len(self._calls)
+
+            if calls_last_min >= self.calls_per_min_block or calls_last_hour >= self.calls_per_hour_block:
+                logger.critical("rate.blocked", agent=agent, provider=provider,
+                                last_min=calls_last_min, last_hour=calls_last_hour)
+                raise RateAlarmExceeded(
+                    f"Rate block: {calls_last_min} calls/min, {calls_last_hour} calls/hour"
+                )
+            if calls_last_min >= self.calls_per_min_warn or calls_last_hour >= self.calls_per_hour_warn:
+                logger.warning("rate.warn", agent=agent, provider=provider,
+                               last_min=calls_last_min, last_hour=calls_last_hour)
+            self._calls.append(now)
+
+
+# ─── Layer 2: Pro Max weekly budget tracker (claude-sdk only) ─────────────────
+
+class ProMaxBudgetTracker:
+    """Estimates cumulative Pro Max usage so the runtime doesn't lock Maxwell out of Claude.ai.
+
+    Pro Max has a rolling 5-hour and weekly limit. We approximate by counting tokens
+    consumed via the SDK and warning at 70% / blocking at 95% of the configured weekly budget.
+    """
+
+    def __init__(self, weekly_token_budget: int = 5_000_000):  # HELM_PROMAX_WEEKLY_BUDGET
+        self.weekly_token_budget = weekly_token_budget
+        self._tokens_by_week: dict[str, int] = defaultdict(int)
+        self._lock = asyncio.Lock()
+
+    async def check_and_record(self, input_tokens: int, output_tokens: int) -> None:
+        week_key = datetime.utcnow().strftime("%Y-W%V")
+        total = input_tokens + output_tokens
+        async with self._lock:
+            spent = self._tokens_by_week[week_key]
+            pct = (spent + total) / self.weekly_token_budget
+            if pct >= 0.95:
+                logger.critical("promax.weekly_blocked", spent=spent, budget=self.weekly_token_budget)
+                raise ProMaxWeeklyExceeded("Pro Max weekly budget at 95% — backing off to protect Claude.ai access")
+            if pct >= 0.70:
+                logger.warning("promax.weekly_warn", spent=spent, budget=self.weekly_token_budget, pct=pct)
+            self._tokens_by_week[week_key] += total
+
+
+# ─── Layer 3: Dollar cap (anthropic-api only, dormant otherwise) ──────────────
+
+class DollarCap:
+    """Tracks daily Anthropic API spend. Engaged only when an agent slot uses anthropic-api."""
+
+    # Pricing constants — verified at T2.3 implementation; pin in code with comment + URL.
+    PRICING = {
+        "claude-opus-4-7":   {"input": 15.00 / 1_000_000, "output": 75.00 / 1_000_000},
+        "claude-sonnet-4-6": {"input":  3.00 / 1_000_000, "output": 15.00 / 1_000_000},
+    }
+
+    def __init__(self, daily_cap_usd: float = 5.0):  # HELM_DAILY_COST_CAP_USD; 0 = disabled
         self.daily_cap_usd = daily_cap_usd
         self._spend_by_day: dict[date, float] = defaultdict(float)
         self._lock = asyncio.Lock()
-    
-    async def check_and_record(self, tokens: int, model: str = "embedding") -> None:
-        cost = (tokens / 1000) * self.EMBEDDING_COST_PER_1K_TOKENS
+
+    async def check_and_record(self, model: str, input_tokens: int, output_tokens: int) -> None:
+        if self.daily_cap_usd == 0:
+            return  # User-disabled
+        price = self.PRICING.get(model)
+        if not price:
+            logger.warning("dollar_cap.unknown_model", model=model)
+            return
+        cost = price["input"] * input_tokens + price["output"] * output_tokens
         today = date.today()
         async with self._lock:
             if self._spend_by_day[today] + cost > self.daily_cap_usd:
-                logger.critical(
-                    "cost.cap_exceeded",
-                    spent_today=self._spend_by_day[today],
-                    cap=self.daily_cap_usd,
-                    blocked_call_cost=cost,
-                )
-                raise CostCapExceeded(
-                    f"Daily embedding cap ${self.daily_cap_usd} would be exceeded"
-                )
+                logger.critical("cost.cap_exceeded", spent=self._spend_by_day[today],
+                                cap=self.daily_cap_usd, blocked_cost=cost)
+                raise DollarCapExceeded(f"Daily API cap ${self.daily_cap_usd} would be exceeded")
             self._spend_by_day[today] += cost
-            logger.info(
-                "cost.recorded",
-                model=model,
-                tokens=tokens,
-                cost=cost,
-                day_total=self._spend_by_day[today],
-            )
+            logger.info("cost.recorded", model=model, cost=cost, day_total=self._spend_by_day[today])
 
-class CostCapExceeded(Exception): ...
+
+class RateAlarmExceeded(Exception): ...
+class ProMaxWeeklyExceeded(Exception): ...
+class DollarCapExceeded(Exception): ...
 ```
 
-**Initial cap:** `$5.00/day` for embeddings. Configurable via `HELM_COST_DAILY_CAP_USD`. Maxwell can raise/lower based on observed usage.
+**Integration (per-provider in T2.3's provider chain):**
+- Every provider call wrapped in `rate_alarm.check_and_record(agent, provider)` first
+- `claude-sdk` provider also wraps in `promax_tracker.check_and_record(in, out)` after response
+- `anthropic-api` provider also wraps in `dollar_cap.check_and_record(model, in, out)` after response
+- `local` provider only sees rate alarm — no cost or quota concern
 
-**Anthropic call cost** is harder to meter precisely (input + output tokens, prompt caching discounts) — V2 logs every Anthropic call's `usage` block but does not impose a per-day cap on Anthropic in T1. ADR-noted, deferred.
+**Configuration (all user-overridable):**
 
-**Integration:** Embedding client (`embedding_client.py`) calls `cost_guard.check_and_record()` before every embedding. On `CostCapExceeded`, the call is rejected, the requesting agent gets an error with a clear message, and the runtime continues.
+| Env var | Default | Set to 0 | Notes |
+|---|---|---|---|
+| `HELM_RATE_WARN_PER_MIN` | 30 | disabled | Logged warning at threshold |
+| `HELM_RATE_BLOCK_PER_MIN` | 60 | disabled | Hard block at threshold |
+| `HELM_RATE_WARN_PER_HOUR` | 600 | disabled | |
+| `HELM_RATE_BLOCK_PER_HOUR` | 1500 | disabled | |
+| `HELM_PROMAX_WEEKLY_BUDGET` | 5,000,000 tokens | disabled | Adjust based on observed Pro Max throttle behavior |
+| `HELM_DAILY_COST_CAP_USD` | 5.00 | disabled | Auto-set to higher in Render env if user funds prepaid |
+
+**On exception:** the requesting agent gets a structured error response (`429`-style with retry hint), the runtime continues serving other agents. Errors emit SSE `system_health` event with `severity: "warning"` so the UI can surface them.
+
+**Runbook 0008** documents how to read each guardrail's logs, raise/lower thresholds, and respond to a triggered cap (incident pattern: identify the agent that caused the burst, kill the loop, raise the cap if legitimate).
 
 **STOP gate.**
 
@@ -1269,6 +1363,14 @@ Rename `routing` → `subsystems_invoked` in mocks. Add a vitest test that asser
 
 If ADR-001 Path A: this task does TS conversion + token application in one PR. The TS conversion is the larger surface; bundle reduces churn.
 
+**V2 addition — Smart Routing implementation:** T1.5b also lands the smart-routing state machine spec'd in T1.7 (per ADR-011). This includes:
+- A new `runtimeClient.ts` module that owns the URL selection, probe, and failover logic
+- The banner component (amber / red, with manual retry button)
+- vitest tests covering all six state-machine transitions from T1.7
+- A storybook entry for each banner state
+
+This is bundled with T1.5b because both touch the API client surface — splitting risks two PRs editing the same files.
+
 ### T1.6 — V2 Note
 
 `helm-ui/.env` also gains `VITE_HELM_API_TOKEN=<token>`. Document in PR that this is a coarse boundary token, not a user-auth token.
@@ -1280,8 +1382,32 @@ Spec is updated to include:
 - Correlation ID header convention (`x-correlation-id` — server echoes back; UI propagates per session)
 - Rate-limit response shape (T4.2 formalizes; T1.7 just notes 429 + `Retry-After` will exist)
 - SSE reconnection strategy (T4.3 formalizes; T1.7 documents `Last-Event-ID` will be supported)
+- **Smart Routing requirement (per ADR-011)** — see below
 
-**Architect + Maxwell hard gate.** Phase 2 does not open until T1.7 is signed.
+**V2 addition — Smart Routing (per ADR-011):**
+
+The UI client supports two configured runtime URLs and picks the active one via a probe-and-fallback state machine:
+
+| Env var | Purpose |
+|---|---|
+| `VITE_HELM_LOCAL_URL` | Default: `http://localhost:8000` — laptop runtime |
+| `VITE_HELM_REMOTE_URL` | Default: empty — set to Render URL when T4.11 is up |
+
+**State machine (canonical, codified as test cases in T1.5b):**
+
+1. **Startup probe.** UI hits `${LOCAL_URL}/health` with 2s timeout. If 200 OK → use local. Else if `REMOTE_URL` configured → probe remote, use it on success. Else → show "no Helm reachable" error screen.
+2. **Active session, request fails (timeout, 5xx, network error).** If currently on local + `REMOTE_URL` configured → auto-failover to remote. Show banner: *"Couldn't reach laptop Helm — switched to cloud Helm."* If currently on remote → show error banner with retry button. If `REMOTE_URL` not configured → show error banner: *"Laptop Helm unreachable and no fallback configured. Wake your laptop or set up cloud Helm."*
+3. **After failover, re-probe local every turn for next 3 turns.** If local returns within those 3 attempts → silent switch home, banner: *"Back on laptop Helm."* If still unreachable after 3 attempts → prominent banner: *"Still on cloud Helm — laptop hasn't come back."* Stops auto-re-probing until user clicks the manual retry button in the banner.
+4. **Per-session stickiness.** Once a runtime is chosen (and any failovers resolved), the UI sticks with it for the SSE session. New chat session = new probe.
+
+**Banner UX requirements:**
+- Banners are non-modal (don't interrupt the conversation).
+- Banner color: amber for "switched to cloud" (informational), red for "no Helm reachable" or "still on cloud after 3 retries" (action needed).
+- Banners include a manual retry button that immediately re-probes local.
+
+**Architect + Maxwell hard gate.** Phase 2 does not open until T1.7 is signed. The smart-routing state machine specifically needs Architect sign-off — UX edge cases here are easy to get wrong.
+
+**Implementation lands in T1.5b** (UI build) — see V2 note on T1.5b.
 
 ---
 
@@ -1304,7 +1430,89 @@ The v1 Phase 2 task content stands. V2 fixes layered in:
 
 **Part C (directives):** stands.
 
-**Part D (prompt caching):** stands. Add a comment in `helm_prime.py` next to the `cache_control` block explaining that LiteLLM's Anthropic provider passes through `cache_control` as of LiteLLM v1.x — verify exact version at implementation time and pin in `requirements.txt`.
+**Part D (prompt caching) — REWRITTEN under ADR-010:** the v1 design was LiteLLM-centric. V2 replaces this with a three-backend **provider chain** abstraction (see ADR-010 in Appendix B). Prompt caching applies only to the `claude-sdk` and `anthropic-api` backends; `local` providers don't use it.
+
+**V2 addition — Provider Chain (per ADR-010):**
+
+Each agent slot is configured with an *ordered* list of providers. The runtime tries each in order, falling back on auth failure or network unreachability. Same config file works in every environment — environment determines which provider succeeds first.
+
+**`config.yaml` example:**
+
+```yaml
+agents:
+  prime:
+    providers: [claude-sdk, local, anthropic-api]
+    claude-sdk:
+      model: claude-opus-4-7
+    local:
+      endpoint: http://thor:11434         # tailnet hostname (Tailscale)
+      model: llama3.1:70b
+    anthropic-api:
+      model: claude-opus-4-7
+  projectionist:
+    providers: [local]
+    local:
+      endpoint: http://localhost:11434
+      model: qwen3:3b
+  archivist:
+    providers: [local]
+    local:
+      endpoint: http://localhost:11434
+      model: qwen3:3b
+  contemplator:
+    providers: [local]
+    local:
+      endpoint: http://localhost:11434
+      model: qwen3:3b
+```
+
+**How the chain resolves per environment:**
+
+| Environment | Prime resolution path | Outcome |
+|---|---|---|
+| Laptop runtime, Pro Max active | `claude-sdk` → success | Free, Opus |
+| Render runtime, Thor on | `claude-sdk` skipped (no creds) → `local` (Thor) success | Free, Llama |
+| Render runtime, Thor off | `claude-sdk` skipped → `local` unreachable → `anthropic-api` success | Paid, Opus |
+| Local-only dev, Pro Max throttled | `claude-sdk` rate-limited → `local` (laptop Ollama) success | Free, fallback model |
+
+**Provider startup detection:** at runtime boot, each provider in each chain runs a 1-second probe (SDK creds-check, local endpoint `/health`, API key validation). Providers that fail probe are marked unavailable for the session and skipped in the chain. Re-probed every 60s in case of recovery.
+
+**Implementation shape (`providers/base.py`):**
+
+```python
+class Provider(ABC):
+    name: str  # "claude-sdk" | "local" | "anthropic-api"
+
+    @abstractmethod
+    async def probe(self) -> bool: ...
+
+    @abstractmethod
+    async def complete(self, messages, model, **kwargs) -> Completion: ...
+
+class ProviderChain:
+    def __init__(self, providers: list[Provider], guardrails: Guardrails):
+        self.providers = providers
+        self.guardrails = guardrails
+
+    async def complete(self, agent: str, messages, model, **kwargs):
+        for provider in self.providers:
+            if not provider.available:
+                continue
+            try:
+                await self.guardrails.rate_alarm.check_and_record(agent, provider.name)
+                result = await provider.complete(messages, model, **kwargs)
+                await self.guardrails.record_usage(provider.name, result.usage, model)
+                return result
+            except (AuthError, NetworkError) as e:
+                logger.warning("provider.fallback", provider=provider.name, reason=str(e))
+                provider.available = False
+                continue
+        raise NoProviderAvailable("All providers in chain exhausted")
+```
+
+**Prompt caching:** the `claude-sdk` and `anthropic-api` providers both support Anthropic prompt caching via `cache_control` in messages. The `local` provider strips `cache_control` before forwarding (Ollama/vLLM ignore it but warn). Cache savings logged to `provider.cache_hit` / `provider.cache_miss` events.
+
+**Why not just LiteLLM:** LiteLLM does not natively support Claude Agent SDK / subscription auth — it assumes API key everywhere. We could wrap LiteLLM inside the `anthropic-api` provider as a convenience for model-name normalization, but the abstraction layer must own the chain semantics, fallback logic, and per-provider guardrail wiring. ADR-004 (Anthropic vs LiteLLM) is superseded by ADR-010.
 
 **V2 addition — circuit breaker hooks:**
 The circuit breaker callback from T0.B1 wires here. When `circuit_breaker.opened` fires, emit an SSE `system_health` event with `status: "degraded"`, `details: {component: "supabase", state: "circuit_open"}`. When closed, emit `status: "healthy"`.
@@ -1340,7 +1548,7 @@ Document this in the T2.6 PR description.
 
 **Approach:** pytest-driven canned conversations. The harness:
 
-1. Mocks LiteLLM (`responses` library or `pytest-httpx`) so no Anthropic / Ollama calls happen — deterministic, free, fast
+1. Mocks the provider chain (`responses` library or `pytest-httpx`) so no real claude-sdk / local / anthropic-api calls happen — deterministic, free, fast. Each provider in the chain has a mock-mode that returns canned responses; tests assert which provider in the chain was selected.
 2. Loads a canned conversation script from `services/helm-runtime/tests/simulations/<scenario>.yaml`
 3. Drives the runtime through the script (`/invoke` per turn)
 4. Captures emitted SSE events, memory writes (against in-memory Supabase mock), structured logs
@@ -1576,27 +1784,84 @@ services:
     plan: free
     envVars:
       - key: ANTHROPIC_API_KEY
-        sync: false   # set in dashboard
+        sync: false   # set in dashboard — funds the anthropic-api fallback in provider chain
       - key: SUPABASE_BRAIN_URL
         value: https://zlcvrfmbtpxlhsqosdqf.supabase.co
       - key: SUPABASE_BRAIN_SERVICE_KEY
         sync: false
       - key: HELM_API_TOKEN
         sync: false
+      - key: TS_AUTHKEY
+        sync: false   # Tailscale auth key — joins tailnet for Thor reachability
+      - key: HELM_DAILY_COST_CAP_USD
+        value: "5"    # User-overridable per ADR-010 + T0.A11
 ```
 
+**Tailscale integration (per ADR-010 `local` provider on Thor):**
+
+The Render container joins your Tailscale tailnet at startup so the `local` provider in the prime agent's chain can reach `http://thor:11434` (or your laptop's Ollama, if Thor is off). Without Tailscale, the `local` provider in the chain is unreachable from Render and the chain falls through to `anthropic-api` ($).
+
+**Dockerfile additions** (in `services/helm-runtime/Dockerfile`):
+
+```dockerfile
+# Install Tailscale (lands in T0.A7 hardening; activated in T4.11)
+RUN apt-get update && apt-get install -y curl iptables \
+ && curl -fsSL https://tailscale.com/install.sh | sh \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY scripts/start-with-tailscale.sh /usr/local/bin/
+ENTRYPOINT ["/usr/local/bin/start-with-tailscale.sh"]
+```
+
+**`scripts/start-with-tailscale.sh`:**
+
+```bash
+#!/bin/sh
+set -e
+if [ -n "$TS_AUTHKEY" ]; then
+  tailscaled --tun=userspace-networking --socks5-server=localhost:1055 &
+  sleep 2
+  tailscale up --authkey="$TS_AUTHKEY" --hostname="helm-dev" --ephemeral
+  echo "Tailscale up — tailnet IP: $(tailscale ip -4)"
+else
+  echo "TS_AUTHKEY not set — skipping Tailscale (local provider on Thor will be unreachable)"
+fi
+exec uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+The `--ephemeral` flag means the device unregisters when the container dies — keeps your Tailscale device list clean across deploys.
+
+**Provider chain on Render — concrete config:**
+
+```yaml
+# Render's config.yaml — Prime tries Thor first, falls back to paid API
+agents:
+  prime:
+    providers: [local, anthropic-api]   # claude-sdk skipped — no creds in container
+    local:
+      endpoint: http://thor:11434
+      model: llama3.1:70b
+    anthropic-api:
+      model: claude-opus-4-7
+```
+
+When Thor is on: free, Llama. When Thor is off: paid, Opus, dollar cap engaged. See ADR-010 for full chain semantics.
+
 **Decision points** (handled in T4.11 PR):
-- Vercel project setup (one-time dashboard config; document in runbook for repeatability).
+- Vercel project setup (one-time dashboard config; documented in runbook 0017).
 - Render account creation + GitHub repo connection.
 - Render service plan (free) — confirm 750-hr budget math against T2/T3 future cron load.
 - Subdomain choice for both Vercel and Render — affects what Maxwell types into his phone.
+- **Tailscale account + auth key generation** — one-time, free; documented in runbook 0018.
+- **Provider chain ordering for Render Prime** — `[local, anthropic-api]` recommended (free first, paid fallback). Alternative: `[anthropic-api]` only if Thor is unreliable.
 
 **Out of scope (Stage 2):**
 - Custom domain + Let's Encrypt (Path C, runbook 0011).
 - Render paid plan ($7/mo) if 750-hr budget is exceeded by T2/T3 cron volume.
 - Multi-region deployment.
+- Multi-user Tailscale (ACLs, shared tailnet) — Stage 2 if Helm gains additional users.
 
-**ARCH gate.** Adds Vercel + Render as deployment dependencies. Maxwell sign-off needed on subdomain choice and Render account.
+**ARCH gate.** Adds Vercel + Render + Tailscale as deployment dependencies. Maxwell sign-off needed on subdomain choice, Render account, Tailscale account, and provider chain ordering for Render Prime.
 
 ---
 
@@ -1971,12 +2236,18 @@ T1.1, T1.2, T1.3, T1.4, T1.5a, T1.5b, T1.6 ─► T1.7 (HARD GATE)
 
 | Risk | Phase | Mitigation |
 |---|---|---|
-| LiteLLM `cache_control` pass-through breaks | T2.3 | Verify at impl time; pin LiteLLM version; fallback to direct Anthropic SDK call if needed |
+| Provider chain abstraction (ADR-010) more complex than LiteLLM-only would have been | T2.3 | Three-backend modularity (claude-sdk / local / anthropic-api) is required for T3 + future-user customization. The complexity is load-bearing. Test coverage in T2.9 simulation harness validates fallback semantics. |
+| Claude Agent SDK auth detection brittle on laptop runtime | T2.3 | Provider probe at boot detects `~/.claude/credentials.json` presence + validity. If broken, chain falls through to next provider. Documented behavior, not silent. |
+| Tailscale auth key expiry causes Render → Thor outage | T4.11 | Auth keys default to 90 days. Runbook 0018 documents rotation procedure + GitHub Actions reminder issue 14 days before expiry. |
+| Thor unavailable when Render Helm is needed (Thor off / network drop) | T4.11 | Provider chain auto-falls to `anthropic-api`. User pays per turn instead of $0. Dollar cap protects against runaway spend. Acceptable trade-off. |
+| Pro Max weekly budget tracker estimate diverges from Anthropic's actual throttle | T0.A11 | Tracker is conservative (warns at 70%, blocks at 95%). Calibrated by observation over first few weeks of use. Tunable via `HELM_PROMAX_WEEKLY_BUDGET`. |
+| Smart-routing failover during streaming SSE response loses partial response | T1.5b | Document in T1.7: failover during active stream aborts the stream + shows banner. User retries; new request goes to fallback runtime. No silent partial responses. |
 | TypeScript conversion (if ADR-001 Path A) blows up T1.5b scope | T1.5b | Bundle is the right call; if scope explodes, split TS conversion into its own PR before T1.5b |
 | SQLite outbox doesn't handle high write rate | T0.B2 | At T1 scale (single user, single agent set), well within SQLite's envelope. Stage 2 considers Postgres-backed if needed. |
 | Supabase Realtime drops connection mid-Phase-3 validation | T3.5 | T4.3 (session resumption) is in Phase 4 *after* T3.5. If Realtime drops repeatedly during T3.5, advance T4.3 ahead of T3.5. |
 | Anthropic prompt cache TTL (5 min) doesn't help one-off turns | T2.3 | Acceptable. T2 scheduled work + T3 ambient work will keep sessions warm. |
-| Cost cap of $5/day is too low for normal use | T0.A11 | Configurable; raise after first week of observation. Initial cap is paranoia, not policy. |
+| Dollar cap of $5/day is too low for normal use | T0.A11 | Configurable via `HELM_DAILY_COST_CAP_USD`; user-overridable per ADR-010. Set to 0 to disable. Initial cap is paranoia, not policy. |
+| Rate alarm thresholds too tight, blocks legitimate bursty Helm sessions | T0.A11 | All thresholds env-overridable. Tune after first week of observation. Defaults erring on the side of catching bugs early. |
 | Backup runbook drill reveals Supabase tier doesn't allow `pg_dump` | T0.A10 | Use Supabase Dashboard backup feature instead; document the alternate path in the runbook |
 | `pre-commit install` doesn't run in Windows / WSL transition | T0.A2 | Document in `AGENTS.md`; CI catches what hooks miss |
 | ADR-001 Path A discovers helm-ui is too JSX-coupled to convert cleanly | T0.A5 | ADR captures the discovery; flip to Path B; T1.5b reverts to JSX scope |
@@ -2078,12 +2349,14 @@ ADRs created during V2 execution:
 | ADR-001 | helm-ui type discipline (TS conversion vs JSDoc + ESLint strict) | T0.A5 | Pending |
 | ADR-002 | Migration reversibility policy | T0.A9 | Pending |
 | ADR-003 | T1 deployment target (localhost vs persistent dev free vs paid isolated) | T4.4 | Pending — V2 recommends Path B (Vercel + Render + Supabase project partition) |
-| ADR-004 | Anthropic vs LiteLLM for prompt caching pass-through | T2.3 | Conditional — only if LiteLLM doesn't pass through |
+| ADR-004 | Anthropic vs LiteLLM for prompt caching pass-through | T2.3 | **Superseded by ADR-010** — provider chain abstraction subsumes the LiteLLM-vs-direct decision |
 | ADR-005 | GHCR public vs private image visibility | T0.A12 | Pending |
 | ADR-006 | Dependabot vs Renovate for dependency automation | T0.A14 | Pending — V2 picks Dependabot, ADR records the rejected option |
 | ADR-007 | PR preview stack (Vercel native previews + Render per-PR + Supabase project-column partitioning) | T4.6 | Pending — all-free stack, reuses T4.11 deployment dependencies |
 | ADR-008 | Versioning policy + release-please configuration | T4.10 | Pending |
 | ADR-009 | (placeholder for any architectural decision discovered during execution) | — | — |
+| ADR-010 | **Model Provider Abstraction** — three-backend chain (`claude-sdk` / `local` / `anthropic-api`) with per-agent config, ordered fallback, per-provider guardrail wiring | T2.3 | Pending — foundational. Supersedes ADR-004. Enables Pro Max via SDK on laptop + Thor via Tailscale on Render + paid API fallback. |
+| ADR-011 | **UI Smart Routing** — probe + auto-failover state machine for `LOCAL_URL` / `REMOTE_URL`, banner UX, per-session stickiness | T1.7 | Pending — locked in T1.7 spec, implemented in T1.5b. |
 
 ---
 
@@ -2101,7 +2374,7 @@ Runbooks created during V2 execution:
 | 0005 | Anthropic API down | T4.1 |
 | 0006 | Ollama model missing | T4.1 |
 | 0007 | Frontend disconnected | T4.1 |
-| 0008 | Cost cap exceeded | T4.1 |
+| 0008 | Guardrail tripped — rate alarm / Pro Max weekly / dollar cap (per ADR-010 + T0.A11 layers) | T4.1 |
 | 0009 | Outbox dead-letter accumulating | T4.1 |
 | 0010 | Schema migration failure | T4.1 |
 | 0011 | Deployment via paid isolated stack — Fly.io + Supabase Pro (deferred to Stage 2) | T4.4 |
@@ -2111,6 +2384,8 @@ Runbooks created during V2 execution:
 | 0015 | Container image pruning (GHCR storage management) | T0.A12 |
 | 0016 | Dependabot grouping rules + skip rationale | T0.A14 |
 | 0017 | Persistent dev deployment — Vercel project setup + Render service config + warmup cron management | T4.11 |
+| 0018 | Tailscale + Thor setup — install on Thor / laptop / Render container, auth key generation + rotation, magic DNS verification, troubleshooting `local` provider unreachability | T4.11 |
+| 0019 | Smart routing failure modes — UI banner states, manual retry, when to clear `REMOTE_URL`, debugging probe failures | T1.5b |
 
 ---
 
