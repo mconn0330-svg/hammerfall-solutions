@@ -2,10 +2,17 @@
 projectionist.py — Projectionist agent handler.
 
 Receives a turn request, builds a structured frame JSON via Qwen2.5 3B on Ollama,
-validates the output, and writes the frame to helm_frames via supabase_client.py.
+validates the output, and writes the frame to helm_frames via the memory module.
 
 Frame schema: agents/helm/projectionist/projectionist.md
-Write path: supabase_client.py → Supabase REST → helm_frames table
+
+Write path (T0.B3+):
+  memory.MemoryWriter.write_helm_frame_record() → MemoryClient → Supabase REST → helm_frames
+  On transport failure: enqueued to memory.Outbox; drain loop retries.
+
+Read + PATCH paths still go through SupabaseClient (cold-frame reads, frame_status
+updates, layer transitions). T0.B6 renames supabase_client → read_client to make
+the write/read split explicit; that PR is purely cosmetic.
 """
 
 import asyncio
@@ -13,6 +20,7 @@ import json
 import logging
 from datetime import UTC, datetime
 
+from memory import MemoryWriter
 from middleware import InvokeRequest
 from model_router import ModelRouter
 from supabase_client import SupabaseClient
@@ -68,6 +76,7 @@ async def handle(
     req: InvokeRequest,
     router: ModelRouter,
     supabase: SupabaseClient,
+    writer: MemoryWriter,
 ) -> str:
     """
     Build a frame JSON from the turn, write it to helm_frames, return the frame JSON.
@@ -77,7 +86,7 @@ async def handle(
       2. Build prompt with verbatim turn content
       3. Call Qwen2.5 3B via Ollama with JSON mode enforced
       4. output_validator middleware validates the response (runs in pipeline after this returns)
-      5. Write validated frame to helm_frames
+      5. Write validated frame to helm_frames via memory.MemoryWriter (durable + outbox)
       6. Evaluate offload triggers (batch priority, then interval)
       7. Return frame JSON string
     """
@@ -164,17 +173,17 @@ Produce the frame JSON now."""
     frame["session_id"] = req.session_id
     frame["turn"] = req.turn_number
 
-    # Write to helm_frames
-    payload = {
-        "session_id": req.session_id,
-        "turn_number": req.turn_number,
-        "layer": "warm",
-        "frame_status": frame.get("frame_status", "active"),
-        "frame_json": frame,
-    }
-
+    # Write to helm_frames via the memory module — durable + outbox-fallback.
+    # On transport failure the entry is enqueued to the outbox transparently;
+    # writer.write_helm_frame_record returns the payload either way.
     try:
-        await supabase.insert("helm_frames", payload)
+        await writer.write_helm_frame_record(
+            session_id=req.session_id,
+            turn_number=req.turn_number,
+            layer="warm",
+            frame_status=frame.get("frame_status", "active"),
+            frame_json=frame,
+        )
         logger.info(
             "Projectionist wrote frame: session=%s turn=%d topic=%r",
             req.session_id,

@@ -21,6 +21,7 @@ is the intended pattern (one client = one HTTP pool = one circuit breaker).
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 from uuid import UUID
 
@@ -64,6 +65,7 @@ class MemoryWriter:
         sync_ready: bool = False,
         embedding: list[float] | None = None,
         subject_ref: UUID | None = None,
+        session_date: date | None = None,
     ) -> MemoryEntry:
         """Write a memory entry to `helm_memory` and return the persisted form.
 
@@ -92,17 +94,24 @@ class MemoryWriter:
         if isinstance(memory_type, str):
             memory_type = MemoryType(memory_type)
 
-        entry = MemoryEntry(
-            project=project,
-            agent=agent,
-            memory_type=memory_type,
-            content=content,
-            confidence=confidence,
-            full_content=full_content,
-            sync_ready=sync_ready,
-            embedding=embedding,
-            subject_ref=subject_ref,
-        )
+        # session_date is optional — when None, MemoryEntry's default fires
+        # (today in UTC). Frame migration (Archivist) passes the frame's
+        # original session_date so the indexed column reflects when the
+        # conversation actually happened, not when the drain ran.
+        entry_kwargs: dict[str, Any] = {
+            "project": project,
+            "agent": agent,
+            "memory_type": memory_type,
+            "content": content,
+            "confidence": confidence,
+            "full_content": full_content,
+            "sync_ready": sync_ready,
+            "embedding": embedding,
+            "subject_ref": subject_ref,
+        }
+        if session_date is not None:
+            entry_kwargs["session_date"] = session_date
+        entry = MemoryEntry(**entry_kwargs)
 
         with tracer.start_as_current_span("memory.write") as span:
             span.set_attribute("memory.project", project)
@@ -155,11 +164,17 @@ class MemoryWriter:
         content: str,
         full_content: dict[str, Any],
         confidence: float | None = None,
+        session_date: date | None = None,
     ) -> MemoryEntry:
         """Write a Projectionist frame.
 
         `full_content` carries the structured frame JSON; `content` is the
         1-3 sentence summary that lives in the warm/hot retrieval layer.
+
+        `session_date` should be the date of the original conversation when
+        Archivist migrates a cold frame from helm_frames (so the indexed
+        column matches the frame's true date, not the drain run's date).
+        Defaults to today via MemoryEntry's factory.
         """
         return await self.write(
             project=project,
@@ -168,6 +183,7 @@ class MemoryWriter:
             content=content,
             full_content=full_content,
             confidence=confidence,
+            session_date=session_date,
         )
 
     async def write_behavioral(
@@ -368,3 +384,71 @@ class MemoryWriter:
             memory_type=MemoryType.SCRATCHPAD,
             content=content,
         )
+
+    # ── helm_frames record writer (Projectionist, T0.B3) ───────────────────
+
+    async def write_helm_frame_record(
+        self,
+        *,
+        session_id: str,
+        turn_number: int,
+        layer: str,
+        frame_status: str,
+        frame_json: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Write a row to `helm_frames` (NOT `helm_memory` — different table).
+
+        Projectionist creates these as the conversation unfolds; Archivist
+        later drains cold-layer rows into `helm_memory` with `memory_type=frame`
+        via `write_frame()`. Two distinct operations on two distinct tables.
+
+        Same durability contract as `write()`: client failure
+        (`MemoryWriteFailed` / `CircuitBreakerOpen`) routes to the outbox
+        when one is configured. Without outbox, the underlying exception
+        propagates so callers can decide.
+
+        Returns the payload as written. Frame rows have a Supabase-generated
+        `id` UUID (not client-generated like `MemoryEntry`) — caller can
+        re-query if it needs the persisted id, but most flows only care
+        that the write was accepted.
+        """
+        payload: dict[str, Any] = {
+            "session_id": session_id,
+            "turn_number": turn_number,
+            "layer": layer,
+            "frame_status": frame_status,
+            "frame_json": frame_json,
+        }
+        with tracer.start_as_current_span("memory.write_helm_frame_record") as span:
+            span.set_attribute("memory.session_id", session_id)
+            span.set_attribute("memory.turn_number", turn_number)
+            span.set_attribute("memory.frame_layer", layer)
+            span.set_attribute("memory.frame_status", frame_status)
+            try:
+                await self._client.insert("helm_frames", payload)
+                span.set_attribute("memory.delivery", "direct")
+                logger.info(
+                    "memory.write.helm_frames",
+                    session_id=session_id,
+                    turn_number=turn_number,
+                    layer=layer,
+                    frame_status=frame_status,
+                    delivery="direct",
+                )
+                return payload
+            except (MemoryWriteFailed, CircuitBreakerOpen) as e:
+                if self._outbox is None:
+                    span.set_attribute("memory.delivery", "failed")
+                    raise
+                row_id = await self._outbox.enqueue("helm_frames", payload)
+                span.set_attribute("memory.delivery", "queued")
+                span.set_attribute("memory.outbox_row_id", row_id)
+                logger.warning(
+                    "memory.write.helm_frames.queued",
+                    session_id=session_id,
+                    turn_number=turn_number,
+                    outbox_row_id=row_id,
+                    reason=type(e).__name__,
+                    error=str(e)[:300],
+                )
+                return payload
