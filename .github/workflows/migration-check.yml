@@ -28,7 +28,7 @@ jobs:
     name: reversibility (ADR-002)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-python@v6
         with:
@@ -66,7 +66,7 @@ jobs:
   #   runs-on: ubuntu-latest
   #   if: ${{ vars.SUPABASE_BRANCHING_ENABLED == 'true' }}
   #   steps:
-  #     - uses: actions/checkout@v4
+  #     - uses: actions/checkout@v6
   #     - uses: supabase/setup-cli@v1
   #       with: { version: latest }
   #     - name: Create ephemeral Supabase branch
