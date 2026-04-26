@@ -54,6 +54,16 @@ updates:
         dependency-type: production
       development:
         dependency-type: development
+    ignore:
+      # eslint v10 is incompatible with eslint-plugin-react@7.x (peer cap at
+      # eslint v9.7). Dependabot retries the failing group immediately on
+      # close — locked us in a loop until eslint-plugin-react ships v9 with
+      # eslint v10 support. Drop these `ignore` entries when that lands.
+      # First surfaced 2026-04-25 on PRs #120, #125.
+      - dependency-name: 'eslint'
+        versions: ['>=10']
+      - dependency-name: '@eslint/js'
+        versions: ['>=10']
     open-pull-requests-limit: 5
 
   # ─── GitHub Actions workflows ─────────────────────────────────────────────
