@@ -3,16 +3,28 @@ archivist.py — Archivist agent handler.
 
 Two responsibilities:
 
-1. Cold frame migration — reads cold frames from helm_frames, generates a
-   1-3 sentence summary per frame via qwen3:14b on Ollama, writes to helm_memory
-   at full fidelity via supabase_client.py, then deletes the helm_frames row.
+1. Cold frame migration — reads cold frames from helm_frames via memory.read_frames(),
+   generates a 1-3 sentence summary per frame via qwen3:14b on Ollama, writes to
+   helm_memory at full fidelity via memory.MemoryWriter (durable + outbox-fallback),
+   then deletes the helm_frames row.
 
 2. Contemplator write handoff — when req.context contains "contemplator_writes",
    executes the structured payload (belief patches, pattern entries, curiosity
-   flags, reflection log) directly to Supabase. No model call required.
-   Payload is produced by Contemplator after a session_end deep pass.
+   flags, reflection log). Pattern/curiosity/monologue inserts go through the
+   memory module; belief/personality PATCHes stay through SupabaseClient
+   (sibling-table modifies — no outbox semantics needed).
 
-Write path: supabase_client.py → Supabase REST → helm_memory / helm_beliefs
+Write paths (T0.B3+):
+  helm_memory inserts → memory.MemoryWriter
+  helm_beliefs PATCH  → SupabaseClient (sibling-table modify)
+  helm_personality PATCH → SupabaseClient (sibling-table modify)
+  helm_frames DELETE → SupabaseClient (cleanup after migration confirmed)
+
+Read paths:
+  Cold-frame queue → memory.read_frames(layer="cold") (T0.B3 migration)
+  helm_beliefs SELECT → SupabaseClient (current-strength lookup before PATCH)
+  helm_personality SELECT → SupabaseClient (current-score lookup before PATCH)
+
 Safety net: cold frames stay in helm_frames on any write failure —
             retried on next Archivist invocation. Nothing is lost.
 
@@ -21,14 +33,15 @@ Projectionist contract). The column value is written into full_content JSONB.
 """
 
 import asyncio
-import datetime
 import logging
+from datetime import date
 from typing import Any
 
 from embedding_client import EmbeddingClient
+from memory import MemoryType, MemoryWriter, read_frames
 from middleware import InvokeRequest
 from model_router import ModelRouter
-from supabase_client import SupabaseClient, SupabaseError
+from supabase_client import SupabaseClient
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +61,7 @@ async def handle(
     req: InvokeRequest,
     router: ModelRouter,
     supabase: SupabaseClient,
+    writer: MemoryWriter,
     embedding_client: EmbeddingClient | None = None,
 ) -> str:
     """
@@ -69,13 +83,13 @@ async def handle(
     contemplator_payload = req.context.get("contemplator_writes")
     if contemplator_payload:
         logger.info("Archivist: received contemplator_writes payload. session=%s", req.session_id)
-        return await _execute_contemplator_writes(contemplator_payload, supabase, embedding_client)
+        return await _execute_contemplator_writes(
+            contemplator_payload, supabase, writer, embedding_client
+        )
 
-    # Query all cold frames — not scoped to session, Archivist clears the full cold queue
-    cold_frames = await supabase.select(
-        "helm_frames",
-        {"layer": "eq.cold", "select": "*", "order": "created_at.asc"},
-    )
+    # Query all cold frames via memory.read_frames — not scoped to session,
+    # Archivist clears the full cold queue.
+    cold_frames = await read_frames(supabase, layer="cold")
 
     if not cold_frames:
         logger.info("Archivist: no cold frames to migrate.")
@@ -111,33 +125,28 @@ async def handle(
         full_content = dict(frame_json)
         full_content["frame_status"] = frame_status  # column is authoritative
 
-        # Write to helm_memory at full fidelity
-        # session_date extracted from ISO timestamp in frame_json (first 10 chars: YYYY-MM-DD).
-        # Used as a filter field at Stage 1 pgvector semantic search.
-        raw_ts = full_content.get("timestamp", "")
-        session_date = raw_ts[:10] if len(raw_ts) >= 10 else None
+        # session_date extracted from ISO timestamp in frame_json (first 10 chars:
+        # YYYY-MM-DD). Indexes the helm_memory row to when the conversation
+        # actually happened — not when the drain ran. Used as a filter field
+        # at Stage 1 pgvector semantic search.
+        session_date = _parse_session_date(full_content.get("timestamp"))
 
-        # Generate embedding for semantic search. Non-fatal — write proceeds without
-        # embedding if client is unavailable or generation fails.
-        embedding = None
-        if embedding_client is not None:
-            embedding = await embedding_client.generate(summary)
+        # Note: frames don't carry per-row embeddings — the summary text gets
+        # embedded at retrieval time. Pattern / monologue / curiosity writes
+        # below DO carry embeddings (high-value semantic-search targets).
 
-        payload = {
-            "project": req.context.get("project", "hammerfall-solutions"),
-            "agent": req.context.get("agent", "helm"),
-            "memory_type": "frame",
-            "content": summary,
-            "sync_ready": False,
-            "full_content": full_content,
-            "session_date": session_date,
-        }
-        if embedding is not None:
-            payload["embedding"] = embedding
-
-        write_ok = await _write_to_memory(supabase, payload, frame_id)
+        # Write to helm_memory via memory.MemoryWriter — durable + outbox-fallback.
+        write_ok = await _write_frame_to_memory(
+            writer=writer,
+            project=req.context.get("project", "hammerfall-solutions"),
+            agent=req.context.get("agent", "helm"),
+            content=summary,
+            full_content=full_content,
+            session_date=session_date,
+            frame_id=frame_id,
+        )
         if not write_ok:
-            # Write failed — frame stays in cold, retried next invocation
+            # Write failed — frame stays in cold, retried next invocation.
             failed += 1
             continue
 
@@ -234,6 +243,7 @@ Summarize this turn in 1-3 sentences."""
 async def _execute_contemplator_writes(
     payload: dict[str, Any],
     supabase: SupabaseClient,
+    writer: MemoryWriter,
     embedding_client: EmbeddingClient | None = None,
 ) -> str:
     """
@@ -260,7 +270,8 @@ async def _execute_contemplator_writes(
     Returns a one-line summary string. Errors are logged and collected but do
     not abort remaining writes — all writes are attempted regardless of failures.
     """
-    today = datetime.date.today().isoformat()
+    # session_date defaults to today via MemoryWriter's MemoryEntry factory —
+    # contemplator writes ARE produced today, so the default is correct.
     results: dict[str, Any] = {
         "belief_patches": 0,
         "personality_patches": 0,
@@ -330,44 +341,44 @@ async def _execute_contemplator_writes(
     for entry in payload.get("pattern_entries", []):
         try:
             content = entry["content"]
-            row = {
-                "project": "hammerfall-solutions",
-                "agent": "helm",
-                "memory_type": "pattern",
-                "content": content,
-                "session_date": today,
-                "sync_ready": False,
-            }
+            embedding = None
             if embedding_client is not None:
                 embedding = await embedding_client.generate(content)
-                if embedding is not None:
-                    row["embedding"] = embedding
-            await supabase.insert("helm_memory", row)
+            await writer.write(
+                project="hammerfall-solutions",
+                agent="helm",
+                memory_type=MemoryType.PATTERN,
+                content=content,
+                embedding=embedding,
+            )
             results["pattern_entries"] += 1
         except Exception as e:
             logger.error("Archivist: pattern_entry write failed: %s", e)
             results["errors"].append(f"pattern_entry: {e}")
 
     # --- Curiosity flags ---
+    # Note: T0.B7b lands `helm_curiosities` as a sibling table with its own
+    # MemoryType.CURIOSITY enum value. Until then, curiosity flags piggyback on
+    # `helm_memory` with `memory_type='curiosity_flag'` (legacy literal — not
+    # a Tier 1 enum value). Using writer.write() with the literal string
+    # preserves backwards compatibility; the existing rows in helm_memory
+    # remain queryable.
     for flag in payload.get("curiosity_flags", []):
         try:
             flag_type = flag.get("type", "unknown").upper()
             topic = flag.get("topic", "")
             question = flag.get("question", "")
             content = f"[CURIOUS:{flag_type}] {topic} — {question}"
-            row = {
-                "project": "hammerfall-solutions",
-                "agent": "helm",
-                "memory_type": "curiosity_flag",
-                "content": content,
-                "session_date": today,
-                "sync_ready": False,
-            }
+            embedding = None
             if embedding_client is not None:
                 embedding = await embedding_client.generate(content)
-                if embedding is not None:
-                    row["embedding"] = embedding
-            await supabase.insert("helm_memory", row)
+            await writer.write(
+                project="hammerfall-solutions",
+                agent="helm",
+                memory_type="curiosity_flag",  # legacy literal — see comment above
+                content=content,
+                embedding=embedding,
+            )
             results["curiosity_flags"] += 1
         except Exception as e:
             logger.error("Archivist: curiosity_flag write failed: %s", e)
@@ -379,19 +390,15 @@ async def _execute_contemplator_writes(
     if reflection and reflection.get("content"):
         try:
             content = reflection["content"]
-            row = {
-                "project": "hammerfall-solutions",
-                "agent": "helm",
-                "memory_type": "monologue",
-                "content": content,
-                "session_date": today,
-                "sync_ready": False,
-            }
+            embedding = None
             if embedding_client is not None:
                 embedding = await embedding_client.generate(content)
-                if embedding is not None:
-                    row["embedding"] = embedding
-            await supabase.insert("helm_memory", row)
+            await writer.write_monologue(
+                project="hammerfall-solutions",
+                agent="helm",
+                content=content,
+                embedding=embedding,
+            )
             results["reflection"] = True
         except Exception as e:
             logger.error("Archivist: reflection write failed: %s", e)
@@ -411,28 +418,52 @@ async def _execute_contemplator_writes(
     return summary
 
 
-async def _write_to_memory(
-    supabase: SupabaseClient,
-    payload: dict[str, Any],
+def _parse_session_date(raw_timestamp: Any) -> date | None:
+    """Pull the date portion from an ISO-8601 timestamp string. Returns None
+    on missing / malformed input — caller falls back to MemoryWriter's
+    default (today). Used by frame migration to preserve the original
+    conversation date in helm_memory.session_date."""
+    if not isinstance(raw_timestamp, str) or len(raw_timestamp) < 10:
+        return None
+    try:
+        return date.fromisoformat(raw_timestamp[:10])
+    except ValueError:
+        return None
+
+
+async def _write_frame_to_memory(
+    *,
+    writer: MemoryWriter,
+    project: str,
+    agent: str,
+    content: str,
+    full_content: dict[str, Any],
+    session_date: date | None,
     frame_id: str,
 ) -> bool:
     """
-    Write a frame to helm_memory. Returns True on success, False on failure.
-    Does NOT delete the helm_frames row — caller handles deletion after this returns True.
+    Write a frame to helm_memory via MemoryWriter. Returns True on success,
+    False on failure. Caller handles helm_frames deletion after True.
+
+    Failure modes:
+      - MemoryWriteFailed / CircuitBreakerOpen with outbox configured: writer
+        enqueues + returns success. We never see the exception here.
+      - MemoryWriteFailed / CircuitBreakerOpen WITHOUT outbox: exception
+        propagates here; we log + leave the frame in cold for retry.
+      - Validation error (Pydantic): caller bug; log + leave the frame.
     """
     try:
-        await supabase.insert("helm_memory", payload)
-        return True
-    except SupabaseError as e:
-        logger.error(
-            "Archivist: helm_memory write failed for frame=%s — frame left in cold queue. error=%s",
-            frame_id,
-            e,
+        await writer.write_frame(
+            project=project,
+            agent=agent,
+            content=content,
+            full_content=full_content,
+            session_date=session_date,
         )
-        return False
+        return True
     except Exception as e:
         logger.error(
-            "Archivist: unexpected error writing helm_memory for frame=%s — frame left in cold queue. error=%s",
+            "Archivist: helm_memory write failed for frame=%s — frame left in cold queue. error=%s",
             frame_id,
             e,
         )
