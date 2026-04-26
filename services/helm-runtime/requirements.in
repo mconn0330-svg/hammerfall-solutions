@@ -12,6 +12,7 @@ litellm==1.83.0
 httpx==0.28.1
 pyyaml==6.0.3
 pydantic==2.13.3
+pydantic-settings>=2.6  # T0.B1 — env-driven MemorySettings (HELM_MEMORY_ prefix)
 openai>=1.0.0
 
 # T0.A6 — Observability foundation. structlog gives JSON-shaped logs;
