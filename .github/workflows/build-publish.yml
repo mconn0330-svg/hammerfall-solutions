@@ -1,0 +1,120 @@
+# T0.A12 — Build the helm-runtime container image, publish to GHCR.
+# Spec: docs/stage1/Helm_T1_Launch_Spec_V2.md §T0.A12
+# Arch note: docs/stage1/arch_notes/T0.A12_ci_container_build.md
+#
+# Triggers:
+#   pull_request — build only (catches Dockerfile breakage before merge)
+#                  Tagged `pr-<NN>` so T4.6 (preview environments) can pull.
+#   push to main — build + push, tagged latest / main / sha-<short>.
+#
+# Path filter: only runs when Dockerfile-relevant paths change. If you move
+# requirements.in / Dockerfile / hashed lockfiles out of services/helm-runtime,
+# update the filter or builds silently stop.
+#
+# Permissions: GITHUB_TOKEN with packages:write (push to GHCR), security-events:write
+# (Trivy SARIF upload). No external secret rotation.
+#
+# Trivy is intentionally non-blocking. Architect approved: Helm has no security
+# team; vuln-scan-as-merge-gate becomes either noise (immediate dismissal) or
+# blocks all work on every CVE in the slim base image. SARIF upload to GitHub
+# Code Scanning surfaces the info without the cost.
+
+name: Build + Publish
+
+on:
+  pull_request:
+    paths:
+      - 'services/helm-runtime/**'
+      - '.github/workflows/build-publish.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'services/helm-runtime/**'
+      - '.github/workflows/build-publish.yml'
+
+permissions:
+  contents: read
+  packages: write
+  pull-requests: read
+  security-events: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/helm-runtime
+
+jobs:
+  build-publish:
+    name: build (+ push on main)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        # Only needed for push events (PR builds don't push).
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute tags + labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # Tag plan:
+          #   push to main:  latest, main, sha-<short>
+          #   pull_request:  pr-<NN>  (T4.6 will consume these for preview envs)
+          tags: |
+            type=raw,value=latest,enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+            type=ref,event=branch,enable=${{ github.event_name == 'push' }}
+            type=sha,format=short,prefix=sha-,enable=${{ github.event_name == 'push' }}
+            type=ref,event=pr,prefix=pr-,enable=${{ github.event_name == 'pull_request' }}
+
+      - name: Build (and push on main)
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: services/helm-runtime
+          push: ${{ github.event_name == 'push' }}
+          load: ${{ github.event_name == 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Pick scan target
+        # Trivy needs a single ref. On PR, scan the locally-loaded image by its
+        # first tag. On push, scan via the digest we just pushed.
+        id: scan_ref
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            ref=$(echo '${{ steps.meta.outputs.tags }}' | head -n1)
+          else
+            ref="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}"
+          fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+
+      - name: Trivy vulnerability scan (non-blocking)
+        uses: aquasecurity/trivy-action@v0.36.0
+        # Architect approved: never block on vuln scan. exit-code=0 makes
+        # Trivy emit a report but always succeed; SARIF upload below surfaces
+        # findings in GitHub Code Scanning without merge-gating them.
+        with:
+          image-ref: ${{ steps.scan_ref.outputs.ref }}
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+          exit-code: '0'
+          ignore-unfixed: true
+
+      - name: Upload Trivy SARIF to Code Scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-helm-runtime
