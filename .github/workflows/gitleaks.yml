@@ -1,0 +1,36 @@
+# T0.A13 — Gitleaks secret scan on every push and PR.
+# Spec: docs/stage1/Helm_T1_Launch_Spec_V2.md §T0.A13
+#
+# Blocks accidental commits of API keys, service tokens, OAuth secrets.
+# The .gitleaks.toml at the repo root carries any project-specific allowlist
+# (e.g., Supabase anon key once T1.6 commits it; integrity hashes in lockfiles).
+#
+# fetch-depth: 0 is required so gitleaks-action can scan full git history,
+# not just the diff. On a long-lived branch a leaked secret three commits
+# back still needs to fail the build.
+
+name: Secrets Scan
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  gitleaks:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GITLEAKS_LICENSE is only required for organizations with >25 users.
+          # Single-dev account doesn't need it; action runs in OSS mode.
