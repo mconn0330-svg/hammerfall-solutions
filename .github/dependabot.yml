@@ -1,0 +1,71 @@
+# T0.A14 — Automated dependency PRs.
+# Spec: docs/stage1/Helm_T1_Launch_Spec_V2.md §T0.A14
+#
+# Four ecosystems, all weekly on Monday. Grouped to keep PR volume sane:
+#   pip:            production deps grouped, dev deps grouped separately
+#   npm:            production grouped, development grouped (via dependency-type)
+#   github-actions: ungrouped (one PR per action)
+#   docker:         ungrouped (one PR per base-image change)
+#
+# open-pull-requests-limit: 5 per ecosystem caps the Monday flood.
+#
+# Auto-merge is OPT-IN per spec. T0.A14 does not ship an auto-merge workflow;
+# Maxwell decides at PR time. If auto-merge becomes desired, add a separate
+# workflow gated on `vars.DEPENDABOT_AUTOMERGE_ENABLED`.
+#
+# KNOWN GAPS to watch on the first Monday run (documented in SITREP):
+#  1. pip + pip-compile interaction. Dependabot's pip ecosystem updates
+#     requirements.txt directly. Our T0.A7 workflow generates requirements.txt
+#     from requirements.in via pip-compile inside python:3.12.4-slim-bookworm.
+#     The CI lockfile-sync check may fail Dependabot PRs because Dependabot's
+#     resolver picks transitives differently than a fresh pip-compile run.
+#     If this becomes noisy, two paths: (a) write a workflow that regenerates
+#     the lockfile after Dependabot opens the PR, (b) move to Renovate which
+#     has explicit pip-compile support.
+#  2. docker ecosystem + ARG-based FROM line. Our Dockerfile uses
+#     `ARG PYTHON_VERSION=3.12.4` then `FROM python:${PYTHON_VERSION}-slim-bookworm`.
+#     Dependabot's docker ecosystem may not detect the version through the ARG
+#     indirection; if so, base-image bumps require manual tracking.
+
+version: 2
+updates:
+  # ─── Python (helm-runtime) ────────────────────────────────────────────────
+  - package-ecosystem: pip
+    directory: /services/helm-runtime
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      production:
+        patterns: ['*']
+        exclude-patterns: ['pytest*', 'mypy*', 'ruff*', 'black*', 'pip-tools*', 'types-*']
+      development:
+        patterns: ['pytest*', 'mypy*', 'ruff*', 'black*', 'pip-tools*', 'types-*']
+    open-pull-requests-limit: 5
+
+  # ─── JavaScript (helm-ui) ─────────────────────────────────────────────────
+  - package-ecosystem: npm
+    directory: /helm-ui
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      production:
+        dependency-type: production
+      development:
+        dependency-type: development
+    open-pull-requests-limit: 5
+
+  # ─── GitHub Actions workflows ─────────────────────────────────────────────
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+
+  # ─── Docker base image (Dockerfile) ───────────────────────────────────────
+  - package-ecosystem: docker
+    directory: /services/helm-runtime
+    schedule:
+      interval: weekly
+      day: monday
