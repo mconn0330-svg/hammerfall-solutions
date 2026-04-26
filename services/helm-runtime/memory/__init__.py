@@ -29,6 +29,7 @@ from .circuit_breaker import (
 )
 from .client import MemoryClient, MemoryClientError, MemoryWriteFailed
 from .models import MemoryEntry, MemoryType, slugify
+from .outbox import DrainResult, Outbox, OutboxStats, stop_drain_loop
 from .settings import MemorySettings
 from .writer import MemoryWriter
 
@@ -36,6 +37,7 @@ __all__ = [
     "CircuitBreaker",
     "CircuitBreakerOpen",
     "CircuitState",
+    "DrainResult",
     "MemoryClient",
     "MemoryClientError",
     "MemoryEntry",
@@ -43,7 +45,10 @@ __all__ = [
     "MemoryType",
     "MemoryWriteFailed",
     "MemoryWriter",
+    "Outbox",
+    "OutboxStats",
     "StateChangeCallback",
     "slugify",
+    "stop_drain_loop",
     "utc_now",
 ]
