@@ -19,9 +19,9 @@ The architecture is additive by design. Each tier extends the previous one witho
 
 | Tier | Hardware | Prime | Contemplator | Mobile path | Cost model |
 |------|----------|-------|--------------|-------------|------------|
-| T1 | 4090 workstation | Anthropic API (Opus) | Per-session only | Render → Anthropic API | API tokens |
-| T2 | 4090 workstation | Anthropic API (Opus) | Scheduled cron | Render → Anthropic API | API tokens |
-| T3 | NVIDIA Thor | Claude Max SDK or local 70B | Always-on process | Render → Thor runtime | Subscription flat |
+| T1 | 4090 workstation | Claude Max SDK (desktop) · Anthropic API (mobile fallback) | Per-session only | Render → Anthropic API (no tunnel) · Render → local (with tunnel) | SDK subscription + API fallback tokens |
+| T2 | 4090 workstation | Claude Max SDK (desktop) · Anthropic API (mobile fallback) | Scheduled cron | Same as T1 | SDK subscription + API fallback tokens |
+| T3 | NVIDIA Thor | Claude Max SDK or local 70B | Always-on process | Render → Thor (via Tailscale) | Subscription flat · zero per-token |
 | Prod | GPU cluster (cloud) | Shared 70B pool | Per-user job queue | API gateway → cluster | Per-user SaaS |
 
 ---
@@ -34,10 +34,11 @@ Everything runs on Maxwell's local workstation. Helm responds when invoked. No p
 ### Infrastructure
 - **Compute:** RTX 4090 workstation (24GB VRAM)
 - **Inference:** Ollama serving Qwen3 4B (Projectionist) and Qwen3 14B (Archivist, Contemplator)
-- **Prime:** Anthropic API — Opus-class model via LiteLLM router
+- **Prime (desktop):** Claude Max SDK — flat subscription, zero per-token cost, credentials local only
+- **Prime (mobile fallback):** Anthropic API — per-token cost, engaged only when local runtime unreachable from Render
 - **Brain:** Supabase (hosted, always-on, no maintenance burden)
 - **Runtime:** FastAPI at `services/helm-runtime/` — Docker Compose + Ollama sidecar
-- **Mobile gateway:** Render — proxies requests to runtime when available, falls back to direct Anthropic API call when local runtime unreachable
+- **Mobile gateway:** Render — proxies requests to runtime when available via Tailscale tunnel, falls back to Anthropic API when local runtime unreachable
 
 ### Request flow
 
@@ -256,26 +257,80 @@ Per-User Brain (Supabase — row-level security)
 
 ---
 
+## Access Model — Deliberate Phased Ramp
+
+There is no permanent free tier. Free tiers are economically unsustainable at launch scale and — more importantly — they undermine the product. A user with 30-day memory and no Contemplator is not experiencing Helm. They are experiencing a sophisticated chatbot. They will not convert because they never saw the real product.
+
+Access is deliberate and phased. Each phase answers a specific question before the next opens.
+
+---
+
+### Phase 1 — Alpha (Maxwell only)
+
+**Question being answered:** Does the behavioral thesis hold? Does Helm actually feel like a persistent presence or a well-architected chatbot?
+
+**Who:** Maxwell only. Single user. Personal instance on Thor.
+
+**Gate to Phase 2:** T3.5 "Helm cares" test — at least 3 of 5 behavioral criteria demonstrated in unscripted live use. If the thesis holds, Phase 2 opens. If not, prompt and cognitive architecture are revisited before any external user touches Helm.
+
+---
+
+### Phase 2 — Closed Beta (5–10 invited users)
+
+**Question being answered:** Does the productization infrastructure hold? Does per-user Brain isolation work? Does the experience transfer to someone who isn't Maxwell?
+
+**Who:** Carefully selected individuals — diverse enough to stress-test the infrastructure, known enough to give honest signal. No public announcement.
+
+**Access:** Invite only. Full Ambient tier experience. No payment — this is validation, not revenue.
+
+**Gate to Phase 3:** Per-user Brain isolation confirmed. Cross-surface routing confirmed. Behavioral thesis holds for users who aren't Maxwell. Infrastructure handles concurrent users without incident.
+
+---
+
+### Phase 3 — Early Access (Waitlist, invite batches)
+
+**Question being answered:** Does the business model work? What do strangers pay for?
+
+**Who:** Waitlist-driven. Batches of 50–100 users invited as infrastructure confidence grows. Screened for fit — people who understand what ambient intelligence means and have the hardware for BYOH if that's their tier.
+
+**Access:** Paid from day one. Trial period (14–30 days full Pro access) replaces free tier. Convert or don't — but they experienced the real product.
+
+**Tiers available:** Personal and BYOH at launch. Ambient added when Contemplator job queue is stable at scale.
+
+**Gate to Phase 4:** Conversion data. Retention data. Unit economics confirmed at small scale.
+
+---
+
+### Phase 4 — Open (Controlled growth)
+
+**Question being answered:** Can we scale?
+
+**Who:** Public. Marketing. Proper onboarding flow.
+
+**Tiers:** Full tier stack available. Trial replaces free permanently — no permanent free tier until infrastructure economics clearly support it and conversion data justifies the acquisition cost.
+
+---
+
 ## Pricing Tiers
 
-Pricing maps directly to which subsystems are active, which models serve them, and whether Contemplator runs continuously.
+Pricing maps directly to which subsystems are active, which models serve them, whether Contemplator runs continuously, and what hardware is required.
 
-### Tier 0 — Free
+### Trial — 14 days (replaces Free tier permanently)
 
-**Positioning:** Try Helm. No commitment.
+**Positioning:** Experience the real Helm before committing. Not a demo — full Pro access for two weeks.
 
 | Dimension | Value |
 |-----------|-------|
-| Prime | Smaller model (8B–14B) |
+| Prime | Full Opus-class model |
 | Projectionist | Active |
-| Archivist | Active — limited retrieval window (30 days) |
-| Contemplator | Disabled |
-| Memory window | 30 days |
-| Surfaces | Web only |
-| Proactivity tier | T1 — on-demand only |
-| Inner life | None |
+| Archivist | Active — full retrieval |
+| Contemplator | Scheduled — 2x daily |
+| Memory window | Full — carries forward on conversion |
+| Surfaces | Web, mobile, desktop |
+| Proactivity tier | T2 — scheduled check-ins |
+| Duration | 14 days — no credit card required to start |
 
-**Experience:** Helm responds well. Remembers recent sessions. No personality, no curiosity, no between-session thinking. Feels like a smart assistant, not a persistent presence.
+**Experience:** The real product. If they don't convert after 14 days of actual Helm, a permanent free tier wouldn't have converted them either.
 
 ---
 
@@ -339,7 +394,7 @@ Pricing maps directly to which subsystems are active, which models serve them, a
 
 **Model:** Hammerfall provides the orchestration software, runtime, and Brain sync. User provides the GPU. Flat fee covers software license and Supabase hosting. No inference cost to Hammerfall beyond the Brain sync.
 
-**Target user:** Privacy-conscious power users, enterprises, users with existing NVIDIA hardware (DGX Spark, workstation-class GPU, home lab).
+**Target user:** Privacy-conscious power users, enterprises, users with existing NVIDIA hardware (DGX Spark, workstation-class GPU, home lab). Maxwell's T3 personal instance is the reference implementation for this tier.
 
 ---
 
@@ -357,7 +412,7 @@ Rough unit economics at scale for internal planning. Not for external communicat
 | Render gateway — per user/month | ~$0.02 | Negligible at scale |
 
 **Margin targets:**
-- Free tier: -$0.15–0.30/user/month (acquisition cost)
+- Trial (14 days): -$0.50–1.00/user (acquisition cost — acceptable, converts or exits cleanly)
 - Personal ($29): ~65–70% gross margin at steady state
 - Ambient ($79): ~55–60% gross margin (Contemplator always-on is the cost driver)
 - BYOH ($19): ~85% gross margin (no inference cost)
@@ -368,15 +423,16 @@ Rough unit economics at scale for internal planning. Not for external communicat
 
 These are infrastructure milestones, not feature milestones. Feature roadmap lives in the Jarvana stages document.
 
-| Milestone | Description | Depends on |
-|-----------|-------------|------------|
-| P0 | Thor bring-up, MIG partitioning, T3 personal Helm validated | Thor hardware |
-| P1 | Orchestration service — multi-tenant request routing | P0 |
-| P2 | Per-user Brain isolation — Supabase RLS, user provisioning | P1 |
-| P3 | Shared inference cluster — vLLM, first external GPU node | P2 |
-| P4 | Contemplator job queue — per-user scheduled background jobs | P3 |
-| P5 | Billing integration — Stripe, tier enforcement | P4 |
-| P6 | First external user onboarding | P5 |
+| Milestone | Description | Depends on | Access gate |
+|-----------|-------------|------------|-------------|
+| P0 | Thor bring-up, MIG partitioning, T3 personal Helm validated | Thor hardware | Alpha — Maxwell only |
+| P1 | Orchestration service — multi-tenant request routing | P0 | — |
+| P2 | Per-user Brain isolation — Supabase RLS, user provisioning | P1 | Closed Beta (5–10 users) |
+| P3 | Shared inference cluster — vLLM, first external GPU node | P2 | — |
+| P4 | Contemplator job queue — per-user scheduled background jobs | P3 | — |
+| P5 | Billing integration — Stripe, tier enforcement, trial flow | P4 | Early Access (waitlist batches) |
+| P6 | First external paid user onboarding | P5 | — |
+| P7 | Conversion and retention data sufficient to validate unit economics | P6 | Open / Phase 4 |
 
 **Current state:** T1 personal instance. P0 is next hardware milestone.
 
