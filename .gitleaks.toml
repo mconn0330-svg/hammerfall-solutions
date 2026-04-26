@@ -1,0 +1,40 @@
+# T0.A13 — Gitleaks allowlist.
+# Spec: docs/stage1/Helm_T1_Launch_Spec_V2.md §T0.A13
+#
+# Inherits all default rules via [extend]. Without that, the file
+# REPLACES (rather than extends) the defaults and we lose detection.
+#
+# Each allowlisted entry MUST have a comment explaining WHY it is safe to
+# commit. Without that, future contributors won't know whether the
+# allowlist entry is still load-bearing.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Repo-wide ignores for files that produce noise without real secret risk."
+
+paths = [
+  # Lockfiles contain integrity hashes (sha256: / sha512:) that gitleaks
+  # can mis-classify. They're public artifact verifiers, not credentials.
+  '''helm-ui/package-lock\.json''',
+  '''services/helm-runtime/requirements.*\.txt''',
+
+  # Schema dump contains UUIDs and timestamp-shaped strings; nothing
+  # secret leaves Supabase via the schema.
+  '''supabase/schema_baseline\.sql''',
+
+  # SITREPs and runbooks occasionally quote example tokens in instructional
+  # context (e.g., "sbp_..." in the rotation runbook). Documentation uses
+  # deliberately invalid placeholders; never real values.
+  '''docs/runbooks/.*\.md''',
+  '''docs/stage1/SITREPs/.*\.md''',
+]
+
+# Future: T1.6 will commit the Supabase anon key (public by design — scoped
+# by RLS) and add an entry below. Anon keys look like a JWT to gitleaks.
+# Template:
+#
+#   regexes = [
+#     '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.<base64>\..*''',
+#   ]

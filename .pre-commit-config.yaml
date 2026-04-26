@@ -57,6 +57,13 @@ repos:
         files: ^helm-ui/.*\.(js|jsx)$
         pass_filenames: true
 
+  # Secrets scan — gitleaks (T0.A13). Local mirror of the CI workflow so leaks
+  # are caught before push, not just at PR open. Allowlist lives in /.gitleaks.toml.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks
+
   # Commit message — commitlint (commit-msg stage)
   - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
     rev: v9.24.0
