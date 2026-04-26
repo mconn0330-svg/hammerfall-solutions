@@ -100,7 +100,7 @@ jobs:
           echo "ref=$ref" >> "$GITHUB_OUTPUT"
 
       - name: Trivy vulnerability scan (non-blocking)
-        uses: aquasecurity/trivy-action@0.30.0
+        uses: aquasecurity/trivy-action@v0.36.0
         # Architect approved: never block on vuln scan. exit-code=0 makes
         # Trivy emit a report but always succeed; SARIF upload below surfaces
         # findings in GitHub Code Scanning without merge-gating them.
