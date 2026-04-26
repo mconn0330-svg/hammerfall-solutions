@@ -49,8 +49,14 @@ DESTRUCTIVE_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("DROP TYPE", re.compile(r"\bDROP\s+TYPE\b", re.IGNORECASE)),
     ("DROP POLICY", re.compile(r"\bDROP\s+POLICY\b", re.IGNORECASE)),
     ("DROP FUNCTION", re.compile(r"\bDROP\s+FUNCTION\b", re.IGNORECASE)),
-    ("RENAME", re.compile(r"\bALTER\s+(TABLE|COLUMN|INDEX)\b.*\bRENAME\b", re.IGNORECASE)),
-    ("ALTER COLUMN ... TYPE", re.compile(r"\bALTER\s+COLUMN\b.*\bTYPE\b", re.IGNORECASE)),
+    (
+        "RENAME",
+        re.compile(r"\bALTER\s+(TABLE|COLUMN|INDEX)\b.*\bRENAME\b", re.IGNORECASE),
+    ),
+    (
+        "ALTER COLUMN ... TYPE",
+        re.compile(r"\bALTER\s+COLUMN\b.*\bTYPE\b", re.IGNORECASE),
+    ),
     ("TRUNCATE", re.compile(r"\bTRUNCATE\b", re.IGNORECASE)),
 ]
 
@@ -95,7 +101,9 @@ def _check_one(path: Path) -> list[str]:
 
     declared_class = class_match.group(1)
     body = _strip_down_block(content)
-    triggered = [keyword for keyword, pattern in DESTRUCTIVE_PATTERNS if pattern.search(body)]
+    triggered = [
+        keyword for keyword, pattern in DESTRUCTIVE_PATTERNS if pattern.search(body)
+    ]
 
     if declared_class == "1":
         # Class 1 must contain a DOWN block.
@@ -148,12 +156,12 @@ def main(argv: list[str]) -> int:
         all_violations.extend(_check_one(path))
 
     if all_violations:
-        print(f"Migration reversibility check FAILED ({len(all_violations)} violation(s)):\n")
+        print(
+            f"Migration reversibility check FAILED ({len(all_violations)} violation(s)):\n"
+        )
         for v in all_violations:
             print(f"  - {v}")
-        print(
-            "\nSee docs/adr/0002-migration-reversibility-policy.md for the policy."
-        )
+        print("\nSee docs/adr/0002-migration-reversibility-policy.md for the policy.")
         return 1
 
     print(f"Migration reversibility check PASSED ({len(files)} file(s) scanned).")
