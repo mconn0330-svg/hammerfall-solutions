@@ -39,7 +39,7 @@ Four of five spec deliverables ship in this PR. The fifth (schema baseline file)
 
 1. **`supabase db dump --schema public` instead of `pg_dump $SUPABASE_DB_URL --schema-only --schema=public`.** The Supabase CLI reuses the existing project link and doesn't need a separate Postgres URL or local pg_dump install. Output is the same shape. Spec gets noted in `migrate.sh` comments along with the `pg_dump` fallback.
 
-2. **`apply-and-verify` job gated on `vars.SUPABASE_BRANCHING_ENABLED == 'true'`.** Supabase ephemeral branches require the Pro tier. We don't know yet whether the project is on Pro; rather than have CI fail confusingly, the job is opt-in via a repo variable. Reversibility check (the cheaper, always-valuable one) runs unconditionally. Maxwell sets `SUPABASE_BRANCHING_ENABLED=true` (repo variable) when the project is on Pro and `SUPABASE_ACCESS_TOKEN` is in secrets.
+2. **`apply-and-verify` job DISABLED — deferred to post-T1 / pre-T2 cycle (Finding #006).** Five iterations on this PR confirmed the spec's command sequence (`supabase db push --linked --branch X`) does not match current Supabase CLI: `db push` doesn't accept `--branch`; branches are separate Supabase projects with their own refs that require re-linking before push. The job is commented out in `.github/workflows/migration-check.yml` with a clear TODO block pointing to Finding #006. Reversibility check (the load-bearing gate per ADR-002) runs unconditionally and works. Trigger to revive: second contributor lands, migration cadence picks up, OR we get burned by a migration that passed reversibility but broke on apply. Earmark per Maxwell direction: ships in the post-T1 / pre-T2 cycle alongside Finding #002 (ambient bridge work). The `SUPABASE_BRANCHING_ENABLED` variable, `SUPABASE_PROJECT_REF` variable, and `SUPABASE_ACCESS_TOKEN` secret are all set and stay set — they'll be needed when the job comes back.
 
 3. **Reversibility script grandfathers pre-T0.A9 migrations** (timestamp ≤ `20260425000000`). The 9 existing files predate the policy and don't have headers; backfilling them is busywork. New migrations from T0.A9 onward must declare a class. Documented in ADR-002 "Negative consequences."
 
@@ -78,11 +78,19 @@ The infrastructure ships either way; the baseline file is a snapshot of the curr
 
 Phase 0A pacing note: task 9 of ~15. Two more ARCH-tier tasks queued (T0.A12, T0.A14 at minimum); the rest are STOP/Batch.
 
+## Findings filed during this PR
+
+- **Finding #006** — Re-enable migration `apply-and-verify` CI job. Earmarked
+  for the post-T1 / pre-T2 cycle alongside Finding #002 per Maxwell direction
+  ("scope for the build phase after we launch"). Workflow has a TODO block
+  pointing to it; reversibility gate stays active. To be enumerated in the
+  T4.5 (T1 close) SITREP alongside other open findings.
+
 ## STOP gate
 
-Standing by for your explicit approval. Two questions for the gate:
+Standing by for your explicit approval. After merge, T0.A10 (backup + restore runbook) is the next infrastructure beat.
 
-1. **Did you want to run the baseline dump now (so it lands in this PR), or as a follow-up `chore(migration)` PR after merge?** Either is fine; the deliverable shape is identical.
-2. **Do you know whether the Supabase project is on Pro tier (branching available)?** If yes, set the `SUPABASE_BRANCHING_ENABLED` repo variable and add `SUPABASE_ACCESS_TOKEN` to secrets. If no, the apply-and-verify job stays opt-out and we revisit at T4.x.
+Resolved during PR review:
 
-After approval + merge (and the baseline file), T0.A10 (backup + restore runbook) is the next infrastructure beat.
+- Schema baseline file added in commit `96599a8` via `bash scripts/migrate.sh baseline-dump` against the live `hammerfall-brain` Supabase project.
+- `SUPABASE_BRANCHING_ENABLED=true`, `SUPABASE_PROJECT_REF=zlcvrfmbtpxlhsqosdqf`, and `SUPABASE_ACCESS_TOKEN` (sbp\_ token) are set in repo vars/secrets — ready for Finding #006's eventual revival.

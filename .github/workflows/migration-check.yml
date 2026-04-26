@@ -37,58 +37,41 @@ jobs:
       - name: Run reversibility check
         run: python3 scripts/check_migration_reversibility.py supabase/migrations/
 
-  apply-and-verify:
-    name: apply-and-verify (ephemeral branch)
-    runs-on: ubuntu-latest
-    # Only run if the Supabase access token is configured.
-    # Without it, branching can't work; reversibility-only is acceptable
-    # for now and will be marked as a soft signal in the PR.
-    if: ${{ vars.SUPABASE_BRANCHING_ENABLED == 'true' }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
-
-      # The `supabase link` state lives in a local .supabase/ dir and doesn't
-      # survive across CI runs. Pass --project-ref to each command instead so
-      # we don't need either to link or to persist link state between steps.
-      # vars.SUPABASE_PROJECT_REF is set in repo variables (not a secret —
-      # project refs are visible in the dashboard URL).
-
-      - name: Create ephemeral Supabase branch
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: |
-          supabase branches create "ci-pr-${{ github.event.pull_request.number }}" \
-            --project-ref "${{ vars.SUPABASE_PROJECT_REF }}"
-
-      - name: Apply all migrations to branch
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: |
-          supabase db push \
-            --project-ref "${{ vars.SUPABASE_PROJECT_REF }}" \
-            --branch "ci-pr-${{ github.event.pull_request.number }}"
-
-      - name: Schema diff vs baseline
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: |
-          supabase db diff \
-            --project-ref "${{ vars.SUPABASE_PROJECT_REF }}" \
-            --branch "ci-pr-${{ github.event.pull_request.number }}" \
-            > diff.sql
-          echo "----- Schema diff (informational) -----"
-          cat diff.sql
-
-      - name: Cleanup ephemeral branch
-        if: always()
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: |
-          supabase branches delete \
-            "ci-pr-${{ github.event.pull_request.number }}" \
-            --project-ref "${{ vars.SUPABASE_PROJECT_REF }}" \
-            --force || true
+  # apply-and-verify (DISABLED) — see Finding #006 in Post_T1_Findings.md.
+  #
+  # Status: deferred to the post-T1 / pre-T2 cycle (same window as Finding #002,
+  #         the ambient-bridge batch).
+  #
+  # Why deferred: the spec yaml's command sequence (`supabase db push --linked
+  # --branch X`) does not match current Supabase CLI behavior. Real branching
+  # requires:
+  #   1. `supabase branches create` returns a NEW project ref for the branch
+  #   2. Re-link to that ref (or build a --db-url from it)
+  #   3. THEN `db push`
+  # Five iterations on this PR (#108) confirmed the spec is aspirational; the
+  # current CLI surface needs deliberate re-derivation against live docs.
+  #
+  # What still works without it: the `reversibility` job above is the load-
+  # bearing gate (catches missing DOWN blocks per ADR-002). Apply-and-verify
+  # was a nice-to-have for catching SQL syntax / ordering / FK errors; while
+  # we're single-dev, those are caught when the contributor runs
+  # `supabase db push` locally before merging.
+  #
+  # When to revive: second contributor lands, OR migration cadence picks up,
+  # OR we get burned by a migration that passed reversibility but broke on
+  # apply. See Finding #006 for the full re-implementation scope.
+  #
+  # apply-and-verify:
+  #   name: apply-and-verify (ephemeral branch)
+  #   runs-on: ubuntu-latest
+  #   if: ${{ vars.SUPABASE_BRANCHING_ENABLED == 'true' }}
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: supabase/setup-cli@v1
+  #       with: { version: latest }
+  #     - name: Create ephemeral Supabase branch
+  #       env: { SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }} }
+  #       run: |
+  #         supabase branches create "ci-pr-${{ github.event.pull_request.number }}" \
+  #           --project-ref "${{ vars.SUPABASE_PROJECT_REF }}"
+  #     # ... (rest of original implementation; see PR #108 history)

@@ -132,6 +132,53 @@ context is wasted work.
   `helm_curiosity` status change
 - Voice spike: ADR landed, decision recorded (build / wait / never)
 
+### Finding #006 — Re-enable migration `apply-and-verify` CI job
+
+**Surfaced:** 2026-04-25, T0.A9 PR #108 — five iterations attempting to wire
+the apply-and-verify job (per V2 spec yaml) confirmed the spec's command
+sequence does not match current Supabase CLI behavior.
+**Status:** Deferred to the post-T1 / pre-T2 cycle (this section). Sequence
+alongside Finding #002's batch — they share the post-T1 stakeholder review
+window. Maxwell explicit direction at PR #108 review: "earmark this to be
+part of the scope for the build phase after we launch."
+**Reference:** Workflow file `.github/workflows/migration-check.yml` —
+job is commented out with a TODO block pointing here. Reversibility check
+(the load-bearing gate per ADR-002) remains active.
+
+**Why deferred (concrete):**
+
+- Spec yaml uses `supabase db push --linked --branch X`. The current CLI
+  does not accept `--branch` on `db push`; branches are separate Supabase
+  projects with their own ref. Real flow: `branches create` returns a new
+  project ref → re-link to that ref (or build a `--db-url`) → THEN
+  `db push`. Spec was aspirational.
+- While single-dev, contributors run `supabase db push` locally before
+  merging anyway, so the syntax/ordering errors apply-and-verify would
+  catch are caught earlier in the loop. Reversibility (the ADR-002
+  policy) is the durable gate that doesn't depend on local discipline.
+
+**What's needed to revive (~2-4 hours of careful work):**
+
+1. Capture branch project-ref from `supabase branches create` JSON output
+2. Re-link or pass `--db-url` (parsed from branch info) to subsequent
+   `db push` / `db diff`
+3. Verify against Supabase docs current at the time (CLI evolves quickly)
+4. Smoke test against a real ephemeral branch
+5. Restore the workflow job from the commented-out template
+
+**Trigger to revive:**
+
+- Second contributor lands (someone who might push a migration without
+  running `supabase db push` locally first)
+- Migration cadence picks up (the "I'll remember to test locally" bar
+  stops scaling)
+- We get burned by a migration that passed reversibility but broke on
+  apply
+
+**Acceptance:** PR that touches `supabase/migrations/` triggers a CI run
+that creates a Supabase branch, applies all migrations against it, prints
+the schema diff, and tears down — all green.
+
 ---
 
 ## Open findings — surfaced during T1, deferred
