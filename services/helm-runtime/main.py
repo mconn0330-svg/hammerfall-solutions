@@ -39,6 +39,8 @@ from memory import (
     MemorySettings,
     MemoryWriter,
     Outbox,
+    PromptManager,
+    PromptUnavailable,
     stop_drain_loop,
 )
 from middleware import InvokeRequest, MiddlewarePipeline, PrimeDirectivesViolation
@@ -67,6 +69,7 @@ embedding_client: EmbeddingClient | None = None
 memory_client: MemoryClient | None = None
 memory_writer: MemoryWriter | None = None
 outbox: Outbox | None = None
+prompt_manager: PromptManager | None = None
 _drain_task: asyncio.Task[None] | None = None
 
 
@@ -74,7 +77,7 @@ _drain_task: asyncio.Task[None] | None = None
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Initialize service globals at startup. Fail fast on config errors."""
     global router, supabase, pipeline, embedding_client
-    global memory_client, memory_writer, outbox, _drain_task
+    global memory_client, memory_writer, outbox, prompt_manager, _drain_task
 
     logger.info("Helm Runtime Service starting...")
 
@@ -118,6 +121,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Cancellation on shutdown is the clean stop signal.
     _drain_task = asyncio.create_task(outbox.drain_loop(memory_client))
     logger.info("Memory module wired: outbox=%s drain_loop=running", memory_settings.outbox_path)
+
+    # Prompt management (T0.B5) — Supabase canonical, file fallback, refuse
+    # to boot if dual-failure. Validated at startup with a probe load on
+    # helm_prime so the runtime fails LOUD if it can't serve a Prime prompt.
+    prompt_manager = PromptManager(supabase)
+    helm_prime_fallback = Path(__file__).parent / "agents" / "helm" / "helm_prompt.md"
+    try:
+        await prompt_manager.load("helm_prime", fallback_path=helm_prime_fallback)
+        logger.info("PromptManager: helm_prime prompt available at startup")
+    except PromptUnavailable as e:
+        logger.critical("PromptManager startup probe failed: %s", e)
+        raise SystemExit(1) from e
 
     pipeline = MiddlewarePipeline()
 
@@ -266,8 +281,10 @@ async def _handle_helm_prime(req: InvokeRequest) -> str:
     Helm Prime invocation via runtime.
     See agents/helm_prime.py for full implementation.
     """
-    assert router is not None and supabase is not None, "service not initialized"
-    return await helm_prime_agent.handle(req, router, supabase)
+    assert (
+        router is not None and supabase is not None and prompt_manager is not None
+    ), "service not initialized"
+    return await helm_prime_agent.handle(req, router, supabase, prompt_manager)
 
 
 AGENT_HANDLERS = {
