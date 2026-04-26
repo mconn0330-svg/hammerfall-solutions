@@ -52,7 +52,7 @@ jobs:
         run: cat summary.md
 
       - name: Open weekly cost summary issue
-        uses: peter-evans/create-issue-from-file@v5
+        uses: peter-evans/create-issue-from-file@v6
         with:
           title: 'Weekly cost summary — ${{ github.run_started_at }}'
           content-filepath: summary.md
