@@ -1,14 +1,14 @@
 # Helm T1 Launch — Consolidated Build Specification V2
 
-| | |
-|---|---|
-| **Status** | 🟡 Active — supersedes Helm_T1_Launch_Spec.md (v2.0) |
-| **Version** | V2 — comprehensive foundation rewrite |
-| **Authored** | 2026-04-24, Claude Opus 4.7 (Helm IDE) under Maxwell's planning + architecture authority grant |
-| **Purpose** | Land T1 on-demand presence on a production-grade foundation. Memory infrastructure, repo operating contract, test harness, CI, observability, deployment hardening, API auth, cost guardrails, and backup discipline all in place before T1 closes. |
-| **Estimated PRs** | 54–62 |
-| **Execution model** | Single dev (Helm IDE / me), sequential, methodical. Maxwell reviews. Architect consulted on STOP-gated tasks. |
-| **Exit criteria** | A user opens the UI, talks to Helm, sees live agent activity, experiences a coherent identity — on real data, no mocks — running on a stack that has tests, CI, structured logs, traces, an auth boundary, a backup, and a runbook for every known failure mode. |
+|                     |                                                                                                                                                                                                                                                                                                                                      |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Status**          | 🟡 Active — supersedes Helm_T1_Launch_Spec.md (v2.0)                                                                                                                                                                                                                                                                                 |
+| **Version**         | V2.1 — adds productization gaps + infrastructure-portable audit (2026-04-26)                                                                                                                                                                                                                                                         |
+| **Authored**        | 2026-04-24, Claude Opus 4.7 (Helm IDE) under Maxwell's planning + architecture authority grant                                                                                                                                                                                                                                       |
+| **Purpose**         | Land T1 on-demand presence on a production-grade foundation. Memory infrastructure, repo operating contract, test harness, CI, observability, deployment hardening, API auth, cost guardrails, backup discipline, four-backend provider chain, demo sandbox, and infrastructure-portable architecture all in place before T1 closes. |
+| **Estimated PRs**   | 58–66                                                                                                                                                                                                                                                                                                                                |
+| **Execution model** | Single dev (Helm IDE / me), sequential, methodical. Maxwell reviews. Architect consulted on STOP-gated tasks.                                                                                                                                                                                                                        |
+| **Exit criteria**   | A user opens the UI, talks to Helm, sees live agent activity, experiences a coherent identity — on real data, no mocks — running on a stack that has tests, CI, structured logs, traces, an auth boundary, a backup, and a runbook for every known failure mode.                                                                     |
 
 ---
 
@@ -25,8 +25,9 @@ The v1 spec was correct in shape: T0 memory foundation, freestanding UI work in 
 7. **No API auth** — `/invoke/helm_prime` is open. Acceptable on `localhost`. Not acceptable when T2/T3 reach for ambient.
 8. **No backup discipline** — Supabase brain has no documented backup procedure. A single bad RLS migration loses everything.
 9. **No cost guardrails** — embedding calls are unmetered. A loop bug burns API budget silently.
+10. **Productization gaps + machine-bound surfaces (V2.1 amendment, 2026-04-26)** — the V2 baseline assumed a 3-backend provider chain (`claude-sdk` / `local` / `anthropic-api`), 7 widgets, `mockData.js` shipping in production, and Maxwell's machine as the only consumer surface. The Helm productization strategy + ambient-turn vision + UI Interaction Spec audit surfaced: (a) a fourth backend type is required (`remote-openai-compat` for vLLM-on-VM and Hammerfall Cloud — the productization path that doesn't require Tailscale), (b) demo-share to friends/family requires a fully isolated demo brain + runtime + admin purge surface (so visitors mold a separate Helm without polluting Maxwell's), (c) "frames are traded, curiosity happens" is unobservable without dedicated `frames` and `curiosities` widgets, (d) `/health` + `/config/agents` lie about provider chain state in the original V2 (single provider per agent, no fallback visibility), (e) `mockData.js` will silently mask brain state if widgets fall back to it on Supabase failure, and (f) several runtime behaviors are bound to Maxwell's local machine (bash session-instrumentation scripts, `hammerfall-config.md` local file, IDE-as-surface assumptions in `helm_prompt.md`) — all violate the durable directive that **infrastructure determines efficacy, never functionality**. V2.1 layers these in: 4-backend chain (ADR-010 amended), `T4.12` demo sandbox, `frames` + `curiosities` widgets, chain-aware `/health`, mockData purge from production, and an infrastructure-portability audit folded into `T0.B5b` (config tunables migration) + expanded `T0.B6` scope (script deletes, snapshot orphans, surface stripping).
 
-V2 layers all of this in. The shape stays — Memory Foundation first, UI in parallel, backend after, integration last. What changes is Phase 0 grows from 6 tasks to 17, a new Phase 4 (Operational Readiness) closes the spec, and every existing task gets the fixes from the spec gap analysis.
+V2 layers all of this in. The shape stays — Memory Foundation first, UI in parallel, backend after, integration last. What changes is Phase 0 grows from 6 tasks to 18 (V2.1 adds T0.B5b), a new Phase 4 (Operational Readiness) closes the spec with the demo sandbox at T4.12, and every existing task gets the fixes from the spec gap analysis.
 
 ---
 
@@ -48,11 +49,11 @@ This spec assumes one dev (Helm IDE) executes all tasks sequentially, pausing at
 
 **STOP gate discipline (V2):**
 
-| Tier | When | Behavior |
-|---|---|---|
-| **Full STOP — Architect + Maxwell** | Architectural decisions, schema changes, API contracts | PR opens with `[ARCH]` prefix. Architect comments. Then Maxwell reviews + merges. |
-| **STOP — Maxwell only** | Behavior changes, agent prompt changes, runtime logic | PR opens with full description. Maxwell reviews + merges. |
-| **Batch — Maxwell-only review queue** | Mechanical changes, cosmetics, doc edits | PR opens with `[BATCH]` prefix. Maxwell reviews in groups. |
+| Tier                                  | When                                                   | Behavior                                                                          |
+| ------------------------------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| **Full STOP — Architect + Maxwell**   | Architectural decisions, schema changes, API contracts | PR opens with `[ARCH]` prefix. Architect comments. Then Maxwell reviews + merges. |
+| **STOP — Maxwell only**               | Behavior changes, agent prompt changes, runtime logic  | PR opens with full description. Maxwell reviews + merges.                         |
+| **Batch — Maxwell-only review queue** | Mechanical changes, cosmetics, doc edits               | PR opens with `[BATCH]` prefix. Maxwell reviews in groups.                        |
 
 Every PR description follows the template in **Appendix A — PR Description Template**.
 
@@ -67,6 +68,7 @@ All commits land under the [Conventional Commits 1.0.0](https://www.conventional
 **Allowed scopes (V2):** `memory`, `runtime`, `ui`, `agent`, `prompt`, `infra`, `ci`, `docs`, `migration`, `repo`, `auth`, `obs` (observability), `ops`.
 
 Examples:
+
 - `feat(memory): add outbox pattern for write durability` — T0.B2
 - `fix(prompt): resolve helm_prompt.md brain.sh references` — T0.B6
 - `docs(spec): create T1 Launch Spec V2` — this PR
@@ -80,103 +82,105 @@ Examples:
 
 #### Sub-phase 0A — Repo & Operational Foundation (lands FIRST)
 
-| Task | Description | Tier | Status |
-|---|---|---|---|
-| T0.A1 | Repo operating contract — AGENTS.md (vendor-neutral), Conventional Commits, ADR template, runbook template | STOP | 🔵 Queued |
-| T0.A2 | Pre-commit hooks — ruff, black, eslint, prettier, commitlint | Batch | 🔵 Queued |
-| T0.A3 | Test harness — pytest (Python) + vitest (JS) skeletons | STOP | 🔵 Queued |
-| T0.A4 | CI pipeline — GitHub Actions: lint + typecheck + test on every PR | STOP | 🔵 Queued |
-| T0.A5 | Type discipline — mypy strict for Python; helm-ui type strategy decision (ADR-001) | STOP | 🔵 Queued |
-| T0.A6 | Observability foundation — structlog standard, correlation IDs, OpenTelemetry tracer (no exporter yet) | STOP | 🔵 Queued |
-| T0.A7 | Deployment hardening — multi-stage Dockerfile, non-root user, HEALTHCHECK, .dockerignore, pinned base images | ARCH | 🔵 Queued |
-| T0.A8 | API auth — HELM_API_TOKEN bearer middleware on /invoke and /events | ARCH | 🔵 Queued |
-| T0.A9 | Migration discipline — numbered, idempotent, schema dump baseline, ADR-002 reversibility policy | STOP | 🔵 Queued |
-| T0.A10 | Backup + restore runbook — pg_dump nightly, restore drill | STOP | 🔵 Queued |
-| T0.A11 | Cost guardrails — embedding $/day cap, daily-spend logger, kill switch | STOP | 🔵 Queued |
-| T0.A12 | CI: container build + GHCR publish on merge to main | ARCH | 🔵 Queued |
-| T0.A13 | CI: secrets scanning (gitleaks) on every push | Batch | 🔵 Queued |
-| T0.A14 | CI: dependency automation (Dependabot config, grouped weekly PRs) | STOP | 🔵 Queued |
-| T0.A15 | CI: weekly cost summary issue from `helm.cost` log events | Batch | 🔵 Queued |
+| Task   | Description                                                                                                  | Tier  | Status    |
+| ------ | ------------------------------------------------------------------------------------------------------------ | ----- | --------- |
+| T0.A1  | Repo operating contract — AGENTS.md (vendor-neutral), Conventional Commits, ADR template, runbook template   | STOP  | 🔵 Queued |
+| T0.A2  | Pre-commit hooks — ruff, black, eslint, prettier, commitlint                                                 | Batch | 🔵 Queued |
+| T0.A3  | Test harness — pytest (Python) + vitest (JS) skeletons                                                       | STOP  | 🔵 Queued |
+| T0.A4  | CI pipeline — GitHub Actions: lint + typecheck + test on every PR                                            | STOP  | 🔵 Queued |
+| T0.A5  | Type discipline — mypy strict for Python; helm-ui type strategy decision (ADR-001)                           | STOP  | 🔵 Queued |
+| T0.A6  | Observability foundation — structlog standard, correlation IDs, OpenTelemetry tracer (no exporter yet)       | STOP  | 🔵 Queued |
+| T0.A7  | Deployment hardening — multi-stage Dockerfile, non-root user, HEALTHCHECK, .dockerignore, pinned base images | ARCH  | 🔵 Queued |
+| T0.A8  | API auth — HELM_API_TOKEN bearer middleware on /invoke and /events                                           | ARCH  | 🔵 Queued |
+| T0.A9  | Migration discipline — numbered, idempotent, schema dump baseline, ADR-002 reversibility policy              | STOP  | 🔵 Queued |
+| T0.A10 | Backup + restore runbook — pg_dump nightly, restore drill                                                    | STOP  | 🔵 Queued |
+| T0.A11 | Cost guardrails — embedding $/day cap, daily-spend logger, kill switch                                       | STOP  | 🔵 Queued |
+| T0.A12 | CI: container build + GHCR publish on merge to main                                                          | ARCH  | 🔵 Queued |
+| T0.A13 | CI: secrets scanning (gitleaks) on every push                                                                | Batch | 🔵 Queued |
+| T0.A14 | CI: dependency automation (Dependabot config, grouped weekly PRs)                                            | STOP  | 🔵 Queued |
+| T0.A15 | CI: weekly cost summary issue from `helm.cost` log events                                                    | Batch | 🔵 Queued |
 
 #### Sub-phase 0B — Memory Foundation (was v1's T0.1–T0.6)
 
-| Task | Description | Tier | Status |
-|---|---|---|---|
-| T0.B1 | Memory module — core package, Pydantic models, client, settings | ARCH | 🔵 Queued |
-| T0.B2 | Memory module — durable outbox (SQLite, not JSONL) | ARCH | 🔵 Queued |
-| T0.B3 | Migrate in-process agents to memory module | ARCH | 🔵 Queued |
-| T0.B4 | Snapshot service — replace snapshot.sh, atomic writes via os.replace | STOP | 🔵 Queued |
-| T0.B5 | Prompt management — replace sync/pull scripts, refuse-to-boot fallback | STOP | 🔵 Queued |
-| T0.B6 | Shell deprecation + complete prompt/doc rewrite (4 files) | STOP | 🔵 Queued |
-| T0.B7 | Tier 2 brain types — `helm_entities` deepening + `helm_curiosities` + `helm_promises` (proves T0.B1 abstraction is additive) | ARCH | 🔵 Queued |
+| Task   | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Tier | Status    |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | --------- |
+| T0.B1  | Memory module — core package, Pydantic models, client, settings                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | ARCH | 🔵 Queued |
+| T0.B2  | Memory module — durable outbox (SQLite, not JSONL)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | ARCH | 🔵 Queued |
+| T0.B3  | Migrate in-process agents to memory module                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | ARCH | 🔵 Queued |
+| T0.B4  | Snapshot service — replace snapshot.sh, atomic writes via os.replace                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | STOP | 🔵 Queued |
+| T0.B5  | Prompt management — replace sync/pull scripts, refuse-to-boot fallback                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | STOP | 🔵 Queued |
+| T0.B5b | **(V2.1)** Runtime config tunables migration — move `hammerfall-config.md` params (`frame_offload_interval`, `warm_queue_max_frames`, `frame_offload_conservative`) into `config.yaml` `runtime_tunables:` block; delete the local file                                                                                                                                                                                                                                                                                                                                         | STOP | 🔵 Queued |
+| T0.B6  | Shell deprecation + complete prompt/doc rewrite (4 files) — **(V2.1) extended scope:** also delete `scripts/{brain,snapshot,session_watchdog,ping_session,activity_ping}.sh` + orphaned `agents/helm/memory/*.md` snapshots + `ShortTerm_Scratchpad.md` + strip ALL IDE/shell/surface assumptions from `helm_prompt.md` (UUID generation, `curl localhost:8000` invocations, "Antigravity / Claude Code" naming, local config file reads, snapshot file references, PowerShell push fallback). Prompt becomes pure cognitive identity + behavioral protocol — surface-agnostic. | STOP | 🔵 Queued |
+| T0.B7  | Tier 2 brain types — `helm_entities` deepening + `helm_curiosities` + `helm_promises` (proves T0.B1 abstraction is additive)                                                                                                                                                                                                                                                                                                                                                                                                                                                    | ARCH | 🔵 Queued |
 
 ### Phase 1 — Freestanding UI (can start in parallel with Phase 0; in single-dev mode, runs interleaved)
 
-| Task | Description | Tier | Status |
-|---|---|---|---|
-| T1.1 | Remove Speaker from mockData.js, rename to subsystems_invoked | Batch | 🔵 Ready |
-| T1.2 | Update mock IDs to UUIDs | Batch | 🔵 Ready |
-| T1.3 | Hardcode personality translations in widget | Batch | 🔵 Ready |
-| T1.4 | Date formatting utility | Batch | 🔵 Ready |
-| T1.5a | Glass morphism — define CSS design tokens | Batch | 🔵 Ready |
-| T1.5b | Glass morphism — apply tokens across components | STOP | 🔵 Ready |
-| T1.6 | Commit Supabase anon key to repo (.env) | Batch | 🔵 Ready |
-| T1.7 | UI Interaction Spec document — incl. smart routing per ADR-011 (HARD GATE) | ARCH | 🔵 Ready |
+| Task  | Description                                                                                                                                                                                                          | Tier  | Status                                 |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | -------------------------------------- |
+| T1.1  | Remove Speaker from mockData.js, rename to subsystems_invoked                                                                                                                                                        | Batch | 🔵 Ready                               |
+| T1.2  | Update mock IDs to UUIDs                                                                                                                                                                                             | Batch | 🔵 Ready                               |
+| T1.3  | Hardcode personality translations in widget                                                                                                                                                                          | Batch | 🔵 Ready                               |
+| T1.4  | Date formatting utility                                                                                                                                                                                              | Batch | 🔵 Ready                               |
+| T1.5a | Glass morphism — define CSS design tokens                                                                                                                                                                            | Batch | 🔵 Ready                               |
+| T1.5b | Glass morphism — apply tokens across components                                                                                                                                                                      | STOP  | 🔵 Ready                               |
+| T1.6  | Commit Supabase anon key to repo (.env)                                                                                                                                                                              | Batch | 🔵 Ready                               |
+| T1.7  | UI Interaction Spec document — incl. smart routing per ADR-011, **(V2.1) 9 widgets** (adds `frames` + `curiosities`), frames widget tabbed by Prime/Projectionist/Archivist, blank-state UX requirements (HARD GATE) | ARCH  | ✅ Drafted (V2.1 amendment in this PR) |
 
 > **T1.7 is a hard gate.** Phase 2 does not open until T1.7 is reviewed and accepted by Architect + Maxwell. T1.7 defines the contracts T2.3 builds against.
 
 ### Phase 2 — Backend Build (requires Phase 0 complete + T1.7 locked)
 
-| Task | Description | Tier | Status |
-|---|---|---|---|
-| T2.1 | ABSORBED INTO T0.B5 | — | ✅ Replaced |
-| T2.2 | Contemplator→Archivist async handoff (via memory module) | STOP | 🔵 Queued |
-| T2.3 | SSE endpoint + UI directives + prompt caching | ARCH | 🔵 Queued |
-| T2.4 | Add slug column to helm_beliefs | Batch | 🔵 Queued |
-| T2.5 | Belief observation history (helm_belief_history) | STOP | 🔵 Queued |
-| T2.6 | Signals table + dual-write hook in memory module | ARCH | 🔵 Queued |
-| T2.7 | RPC function get_entities_with_counts() | Batch | 🔵 Queued |
-| T2.9 | Agent simulation test harness (canned conversations, mocked provider chain, asserts SSE + memory writes) | ARCH | 🔵 Queued |
-| T2.8 | Schema reference doc (Widget Data Map) — LAST | STOP | 🔵 Queued |
+| Task | Description                                                                                                                                                                                               | Tier  | Status      |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----------- |
+| T2.1 | ABSORBED INTO T0.B5                                                                                                                                                                                       | —     | ✅ Replaced |
+| T2.2 | Contemplator→Archivist async handoff (via memory module)                                                                                                                                                  | STOP  | 🔵 Queued   |
+| T2.3 | SSE endpoint + UI directives + prompt caching + **(V2.1) 4-backend provider chain** (`claude-sdk` / `anthropic-api` / `local-ollama` / `remote-openai-compat`) + chain-aware `/health` + `/config/agents` | ARCH  | 🔵 Queued   |
+| T2.4 | Add slug column to helm_beliefs                                                                                                                                                                           | Batch | 🔵 Queued   |
+| T2.5 | Belief observation history (helm_belief_history)                                                                                                                                                          | STOP  | 🔵 Queued   |
+| T2.6 | Signals table + dual-write hook in memory module                                                                                                                                                          | ARCH  | 🔵 Queued   |
+| T2.7 | RPC function get_entities_with_counts()                                                                                                                                                                   | Batch | 🔵 Queued   |
+| T2.9 | Agent simulation test harness (canned conversations, mocked provider chain, asserts SSE + memory writes)                                                                                                  | ARCH  | 🔵 Queued   |
+| T2.8 | Schema reference doc (Widget Data Map) — LAST                                                                                                                                                             | STOP  | 🔵 Queued   |
 
 ### Phase 3 — Integration + Launch Validation (⛔ blocked on Phase 2 + Phase 0 complete)
 
-| Task | Description | Tier | Status |
-|---|---|---|---|
-| T3.1 | JSON + fallback response parser | Batch | 🔴 Blocked on T2.3 |
-| T3.2 | executeDirective() handler | Batch | 🔴 Blocked on T2.3 |
-| T3.3 | Connect UI to real Supabase (per-widget feature flags) | STOP | 🔴 Blocked on T1.6 + T2.4–T2.7 |
-| T3.4 | Connect UI to real runtime (chat + SSE + node state + auth header) | STOP | 🔴 Blocked on T0.A8 + T2.3 |
-| T3.5 | T1 Launch validation (the "Helm cares" test) | STOP | 🔴 Blocked on T3.1–T3.4 |
+| Task | Description                                                                                                                                                                                                                                                          | Tier  | Status                         |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ------------------------------ |
+| T3.1 | JSON + fallback response parser                                                                                                                                                                                                                                      | Batch | 🔴 Blocked on T2.3             |
+| T3.2 | executeDirective() handler                                                                                                                                                                                                                                           | Batch | 🔴 Blocked on T2.3             |
+| T3.3 | Connect UI to real Supabase (per-widget feature flags) — **(V2.1) `mockData.js` purged from production bundle** (moved to `helm-ui/src/__tests__/fixtures/`), every widget renders explicit empty state, brain-blank surfaces clear error messaging + action prompts | STOP  | 🔴 Blocked on T1.6 + T2.4–T2.7 |
+| T3.4 | Connect UI to real runtime (chat + SSE + node state + auth header)                                                                                                                                                                                                   | STOP  | 🔴 Blocked on T0.A8 + T2.3     |
+| T3.5 | T1 Launch validation (the "Helm cares" test)                                                                                                                                                                                                                         | STOP  | 🔴 Blocked on T3.1–T3.4        |
 
 ### Phase 4 — Operational Readiness (closes T1)
 
-| Task | Description | Tier | Status |
-|---|---|---|---|
-| T4.1 | Runbook set — incident response, common failure modes (10+ runbooks) | STOP | 🔵 Queued |
-| T4.2 | Rate limiting on /invoke endpoint (token bucket, per-token) | STOP | 🔵 Queued |
-| T4.3 | SSE session resumption protocol — Last-Event-ID + replay buffer | ARCH | 🔵 Queued |
-| T4.4 | Dev deployment decision (ADR-003) — Vercel + Render + Supabase project-column partitioning | STOP | 🔵 Queued |
-| T4.11 | Persistent dev deployment — Vercel (UI) + Render (runtime) + Tailscale (Render→Thor for `local` provider), provider chain config, warmup cron | ARCH | 🔵 Queued |
-| T4.6 | Preview environments per PR — Vercel native previews + Render per-PR + Supabase project partition | ARCH | 🔵 Queued |
-| T4.7 | Scheduled health checks — cron-driven `/health` + canary `/invoke` | STOP | 🔵 Queued |
-| T4.8 | Performance regression baseline + bench (latency on canned inputs) | STOP | 🔵 Queued |
-| T4.9 | Docs site auto-deploy (GitHub Pages: V2 spec, ADRs, runbooks) | Batch | 🔵 Queued |
-| T4.10 | Release automation (semantic-release, auto-changelog, GitHub releases) | STOP | 🔵 Queued |
-| T4.5 | Operational SITREP — close Stage 1 T1 | STOP | 🔵 Queued |
+| Task  | Description                                                                                                                                                                                                                                                                                                                                                                 | Tier  | Status    |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | --------- |
+| T4.1  | Runbook set — incident response, common failure modes (10+ runbooks)                                                                                                                                                                                                                                                                                                        | STOP  | 🔵 Queued |
+| T4.2  | Rate limiting on /invoke endpoint (token bucket, per-token)                                                                                                                                                                                                                                                                                                                 | STOP  | 🔵 Queued |
+| T4.3  | SSE session resumption protocol — Last-Event-ID + replay buffer                                                                                                                                                                                                                                                                                                             | ARCH  | 🔵 Queued |
+| T4.4  | Dev deployment decision (ADR-003) — Vercel + Render + Supabase project-column partitioning                                                                                                                                                                                                                                                                                  | STOP  | 🔵 Queued |
+| T4.11 | Persistent dev deployment — Vercel (UI) + Render (runtime) + Tailscale (Render→Thor for `local-ollama` provider), provider chain config, warmup cron. **(V2.1)** This is the _production_ runtime; demo runtime is separate in T4.12.                                                                                                                                       | ARCH  | 🔵 Queued |
+| T4.12 | **(V2.1)** Demo sandbox — separate Supabase project (`hammerfall-brain-demo`) + separate Render service (`helm-demo.onrender.com`, scale-to-zero) + curated `demo_seed.sql` + admin purge endpoint gated by `HELM_ADMIN_TOKEN` (cross-surface, no local-bound state) + Vercel password gate at deploy time. Identical Helm cognitive identity; only the brain data differs. | ARCH  | 🔵 Queued |
+| T4.6  | Preview environments per PR — Vercel native previews + Render per-PR + Supabase project partition                                                                                                                                                                                                                                                                           | ARCH  | 🔵 Queued |
+| T4.7  | Scheduled health checks — cron-driven `/health` + canary `/invoke`                                                                                                                                                                                                                                                                                                          | STOP  | 🔵 Queued |
+| T4.8  | Performance regression baseline + bench (latency on canned inputs)                                                                                                                                                                                                                                                                                                          | STOP  | 🔵 Queued |
+| T4.9  | Docs site auto-deploy (GitHub Pages: V2 spec, ADRs, runbooks)                                                                                                                                                                                                                                                                                                               | Batch | 🔵 Queued |
+| T4.10 | Release automation (semantic-release, auto-changelog, GitHub releases)                                                                                                                                                                                                                                                                                                      | STOP  | 🔵 Queued |
+| T4.5  | Operational SITREP — close Stage 1 T1                                                                                                                                                                                                                                                                                                                                       | STOP  | 🔵 Queued |
 
 ### Previously Completed (carry-forward from v1)
 
-| Task | Description | Status |
-|---|---|---|
-| RLS policies on all 8 brain tables | ✅ Done |
-| Supabase Realtime on all 7 tables | ✅ Done |
-| Console drawer + chat tab (PR #81) | ✅ Done |
-| Activity/System tabs + split view (PR #81) | ✅ Done |
-| Docked widgets + minimize pills (PR #81) | ✅ Done |
-| Position settings + full-screen + slash commands | ✅ Done |
-| Widget viewport clamping + quadrant stacking | ✅ Done |
-| Lane C refounding (PRs #73–87) | ✅ Done |
+| Task                                             | Description | Status |
+| ------------------------------------------------ | ----------- | ------ |
+| RLS policies on all 8 brain tables               | ✅ Done     |
+| Supabase Realtime on all 7 tables                | ✅ Done     |
+| Console drawer + chat tab (PR #81)               | ✅ Done     |
+| Activity/System tabs + split view (PR #81)       | ✅ Done     |
+| Docked widgets + minimize pills (PR #81)         | ✅ Done     |
+| Position settings + full-screen + slash commands | ✅ Done     |
+| Widget viewport clamping + quadrant stacking     | ✅ Done     |
+| Lane C refounding (PRs #73–87)                   | ✅ Done     |
 
 ---
 
@@ -205,7 +209,8 @@ The user-facing task IDs are grouped by phase, but in single-dev sequential mode
 18. T0.B3   Migrate agents
 19. T0.B4   Snapshot service
 20. T0.B5   Prompt management
-21. T0.B6   Shell deprecation + 4-file rewrite
+20a. T0.B5b Runtime config tunables migration  (V2.1 — move hammerfall-config.md → config.yaml)
+21. T0.B6   Shell deprecation + 4-file rewrite + V2.1 audit cleanup (script deletes, snapshot orphans, surface stripping)
 22. T0.B7   Tier 2 brain types — entities deepening + curiosities + promises  [validates T0.B1 abstraction; lands ~3 PRs]
 23. T1.1    UI: Speaker removal + subsystems_invoked rename
 24. T1.2    UI: UUID mocks
@@ -233,6 +238,7 @@ The user-facing task IDs are grouped by phase, but in single-dev sequential mode
 46. T4.3    SSE session resumption
 47. T4.4    Dev deployment decision (ADR-003)
 48. T4.11   Persistent dev deployment (Vercel + Render, stable URL)  [implements ADR-003; hello-world #2: remote]
+48a. T4.12  Demo sandbox (V2.1 — separate brain + runtime + admin purge; share-with-friends path)
 49. T4.6    Preview environments per PR        [reuses T4.11 stack, ephemeral instances]
 50. T4.7    Scheduled health checks            [needs T4.11 deployed instance]
 51. T4.8    Performance regression baseline    [needs T4.11 deployed instance to bench against]
@@ -241,7 +247,7 @@ The user-facing task IDs are grouped by phase, but in single-dev sequential mode
 54. T4.5    Operational SITREP — T1 close
 ```
 
-54 tasks. T0.B7 lands ~3 PRs (one per type). Other bundles (T1.1+T1.2 batch, T2.4+T2.7 batch, T4.9+T4.10 batch) — true PR count ~54–62.
+56 tasks (V2.1 adds T0.B5b + T4.12). T0.B7 lands ~3 PRs (one per type). Other bundles (T1.1+T1.2 batch, T2.4+T2.7 batch, T4.9+T4.10 batch) — true PR count **~58–66**.
 
 ---
 
@@ -256,14 +262,14 @@ The user-facing task IDs are grouped by phase, but in single-dev sequential mode
 **Deliverables:**
 
 1. **`AGENTS.md`** at repo root — vendor-neutral instructions to any agent working in this repo. Contents:
-    - V2 spec is canonical for T1 work
-    - Conventional Commits required
-    - All non-trivial work goes through STOP gates
-    - Test harness exists; new code includes tests
-    - Structured logging convention (`structlog`, `helm.<module>` logger names, correlation IDs)
-    - Memory writes go through `memory.write()` — never raw `supabase_client` or shell
-    - Don't claim a PR is ready until CI passes
-    - Reference to `docs/runbooks/` for known failure modes
+   - V2 spec is canonical for T1 work
+   - Conventional Commits required
+   - All non-trivial work goes through STOP gates
+   - Test harness exists; new code includes tests
+   - Structured logging convention (`structlog`, `helm.<module>` logger names, correlation IDs)
+   - Memory writes go through `memory.write()` — never raw `supabase_client` or shell
+   - Don't claim a PR is ready until CI passes
+   - Reference to `docs/runbooks/` for known failure modes
 2. **Optional vendor shims** at repo root if a tool in active use doesn't auto-discover `AGENTS.md`. Each is one line: `See AGENTS.md`. None added speculatively — only when a real tool needs one. Initial set: empty (Claude Code is the only agent in active use, and it reads `AGENTS.md` natively).
 3. **`docs/adr/` directory** with ADR template (`docs/adr/0000-template.md`) following the [Michael Nygard ADR format](https://github.com/joelparkerhenderson/architecture-decision-record/tree/main/locales/en/templates/decision-record-template-by-michael-nygard).
 4. **`docs/runbooks/` directory** with runbook template (`docs/runbooks/0000-template.md`) — symptom, diagnosis, fix, root cause links.
@@ -337,23 +343,27 @@ cd helm-ui && npm install --save-dev @commitlint/cli @commitlint/config-conventi
 **Purpose:** Give CI something to run. Not full coverage — just the harness, conventions, and one passing test per language.
 
 **Python (`services/helm-runtime/`):**
+
 - Add `pytest`, `pytest-asyncio`, `pytest-cov` to `requirements-dev.txt`
 - Add `pyproject.toml` `[tool.pytest.ini_options]` block — set `asyncio_mode = "auto"`, set `testpaths = ["tests"]`
 - Create `services/helm-runtime/tests/` with `__init__.py`, `conftest.py` (Supabase fixture stub), and `test_smoke.py` (one passing test that imports `main`)
 
 **JavaScript (`helm-ui/`):**
+
 - Add `vitest`, `@testing-library/react`, `@testing-library/jest-dom`, `jsdom` to devDependencies
 - Add `vitest.config.js` with `environment: 'jsdom'`
 - Create `helm-ui/src/__tests__/smoke.test.jsx` with one passing test
 - Add `npm test` script
 
 **Conventions documented in `AGENTS.md`:**
+
 - Python tests live next to subjects (memory module → `tests/test_memory_writer.py`)
 - JS tests use `*.test.jsx` co-located with components
 - New code must include tests (PR template enforces)
 - One assertion per test where practical
 
 **Coverage targets (V2):**
+
 - T0.B1–T0.B7 memory module + Tier 2 brain types → 80%+ unit coverage (this is the foundation; it has to be solid)
 - T2.x runtime additions → 60%+ coverage
 - T3.x UI integration → smoke + critical-path tests, not full coverage
@@ -524,6 +534,7 @@ async def write(self, ...):
 No exporter (no Jaeger, no OTLP collector) lands in T1. Spans are just structured. T4 / Stage 2 wires an exporter when there's a place to send them.
 
 **Logging convention (committed in `AGENTS.md`):**
+
 - Logger name: `helm.<module>` — `helm.memory`, `helm.runtime`, `helm.agent.contemplator`
 - Event names: `dotted.snake_case` — `memory.write`, `memory.write.failed`, `agent.invoked`
 - Every event includes `correlation_id` (auto-bound)
@@ -589,6 +600,7 @@ tests
 **`requirements.txt` discipline:** All deps pinned to exact versions. Hash-locked via `pip-compile` (add `pip-tools` to dev deps). Renovate or Dependabot handles upgrades.
 
 **`docker-compose.yml` updates:**
+
 - `restart: unless-stopped` on the runtime service
 - Read-only root filesystem (`read_only: true`) with `tmpfs` mounts for `/tmp`
 - `cap_drop: [ALL]`
@@ -656,6 +668,7 @@ async def events(...): ...
 **Purpose:** Make migrations a first-class artifact with rules, not ad-hoc SQL.
 
 **Establish in `supabase/migrations/`:**
+
 - Numbered: `YYYYMMDDHHMMSS_description.sql`
 - Idempotent where feasible: `CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`
 - Reversibility documented in a comment block at top of each migration. `DOWN:` section even if not auto-applied — at least it's documented.
@@ -740,7 +753,7 @@ The reversibility check parses the `DOWN:` comment block required by ADR-002 —
 
 All three thresholds user-overridable via env vars. All three engage independently — the Render runtime might trip rate alarm + dollar cap simultaneously; the laptop runtime might trip rate alarm + Pro Max tracker.
 
-**Why split:** at T1 with Pro Max + local models, the v1 "$5/day embedding cap" was solving a problem you didn't have. The rate alarm is the always-on tripwire that catches *bug-shaped* events (loops, accidental fan-out) at zero dollar cost. The other two engage only when their backend is real. See ADR-010 for the provider abstraction this depends on.
+**Why split:** at T1 with Pro Max + local models, the v1 "$5/day embedding cap" was solving a problem you didn't have. The rate alarm is the always-on tripwire that catches _bug-shaped_ events (loops, accidental fan-out) at zero dollar cost. The other two engage only when their backend is real. See ADR-010 for the provider abstraction this depends on.
 
 **Implementation sketch:**
 
@@ -861,6 +874,7 @@ class DollarCapExceeded(Exception): ...
 ```
 
 **Integration (per-provider in T2.3's provider chain):**
+
 - Every provider call wrapped in `rate_alarm.check_and_record(agent, provider)` first
 - `claude-sdk` provider also wraps in `promax_tracker.check_and_record(in, out)` after response
 - `anthropic-api` provider also wraps in `dollar_cap.check_and_record(model, in, out)` after response
@@ -868,14 +882,14 @@ class DollarCapExceeded(Exception): ...
 
 **Configuration (all user-overridable):**
 
-| Env var | Default | Set to 0 | Notes |
-|---|---|---|---|
-| `HELM_RATE_WARN_PER_MIN` | 30 | disabled | Logged warning at threshold |
-| `HELM_RATE_BLOCK_PER_MIN` | 60 | disabled | Hard block at threshold |
-| `HELM_RATE_WARN_PER_HOUR` | 600 | disabled | |
-| `HELM_RATE_BLOCK_PER_HOUR` | 1500 | disabled | |
-| `HELM_PROMAX_WEEKLY_BUDGET` | 5,000,000 tokens | disabled | Adjust based on observed Pro Max throttle behavior |
-| `HELM_DAILY_COST_CAP_USD` | 5.00 | disabled | Auto-set to higher in Render env if user funds prepaid |
+| Env var                     | Default          | Set to 0 | Notes                                                  |
+| --------------------------- | ---------------- | -------- | ------------------------------------------------------ |
+| `HELM_RATE_WARN_PER_MIN`    | 30               | disabled | Logged warning at threshold                            |
+| `HELM_RATE_BLOCK_PER_MIN`   | 60               | disabled | Hard block at threshold                                |
+| `HELM_RATE_WARN_PER_HOUR`   | 600              | disabled |                                                        |
+| `HELM_RATE_BLOCK_PER_HOUR`  | 1500             | disabled |                                                        |
+| `HELM_PROMAX_WEEKLY_BUDGET` | 5,000,000 tokens | disabled | Adjust based on observed Pro Max throttle behavior     |
+| `HELM_DAILY_COST_CAP_USD`   | 5.00             | disabled | Auto-set to higher in Render env if user funds prepaid |
 
 **On exception:** the requesting agent gets a structured error response (`429`-style with retry hint), the runtime continues serving other agents. Errors emit SSE `system_health` event with `severity: "warning"` so the UI can surface them.
 
@@ -937,6 +951,7 @@ jobs:
 ```
 
 **Behavior:**
+
 - PRs build but don't push (catches Dockerfile breakage before merge)
 - Merges to `main` build + push tagged with `latest`, branch name, and short SHA
 - BuildKit cache via GitHub Actions cache backend — second-run builds in seconds
@@ -1036,7 +1051,7 @@ updates:
 name: Weekly Cost Summary
 on:
   schedule:
-    - cron: '0 14 * * MON'   # Monday 14:00 UTC
+    - cron: '0 14 * * MON' # Monday 14:00 UTC
   workflow_dispatch:
 
 jobs:
@@ -1054,7 +1069,7 @@ jobs:
       - name: Open issue
         uses: peter-evans/create-issue-from-file@v5
         with:
-          title: "Weekly cost summary — week of ${{ github.event.schedule }}"
+          title: 'Weekly cost summary — week of ${{ github.event.schedule }}'
           content-filepath: summary.md
           labels: cost,automation
 ```
@@ -1145,7 +1160,7 @@ class MemorySettings(BaseSettings):
     circuit_breaker_threshold: int = 5
     circuit_breaker_cooldown: float = 30.0
     outbox_path: Path = Path.home() / ".helm" / "outbox.db"
-    
+
     model_config = SettingsConfigDict(
         env_prefix="HELM_MEMORY_",
         env_file=".env",
@@ -1179,7 +1194,7 @@ class CircuitBreaker:
         )
         # Hook for SSE — emit event so System tab surfaces it
         self._on_state_change("open")
-    
+
     def close(self):
         self._state = "closed"
         logger.info("circuit_breaker.closed")
@@ -1210,6 +1225,7 @@ Every write opens an OpenTelemetry span (T0.A6). Span attributes include `projec
 v1 specified JSONL. JSONL has a concurrency race: two processes appending simultaneously corrupt entries (POSIX `O_APPEND` is atomic per `write()` but not across multiple writes). Drain-then-truncate has a window where new appends are lost.
 
 SQLite gives:
+
 - ACID transactions on enqueue and drain
 - Single-file portability (no Postgres dependency, just an embedded DB)
 - Built-in `aiosqlite` async driver
@@ -1238,21 +1254,22 @@ CREATE INDEX idx_outbox_queued_at ON outbox(queued_at);
 # memory/outbox.py
 class Outbox:
     def __init__(self, path: Path): ...
-    
+
     async def enqueue(self, table: str, payload: dict) -> int:
         """Append to outbox. Returns row id."""
-    
+
     async def drain(self, client: SupabaseClient, batch_size: int = 50) -> DrainResult:
         """Drain up to batch_size entries. Failures stay queued with attempt_count++."""
-    
+
     async def drain_loop(self, client: SupabaseClient, interval: float = 5.0):
         """Background worker."""
-    
+
     async def stats(self) -> OutboxStats:
         """For /health and observability."""
 ```
 
 **Drain failure handling:**
+
 - After 5 attempts, the entry is moved to `outbox_dead_letter` (separate table, manual review)
 - Critical log + SSE event on dead-lettering
 
@@ -1265,7 +1282,7 @@ silently. To prevent this, T0.B6's prompt rewrite + Routine 0 surfaces
 outbox state in Helm's session-start context:
 
 - `memory.session_start_context()` returns `{queued_count, oldest_queued_at,
-  dead_letter_count}` alongside the brain delta.
+dead_letter_count}` alongside the brain delta.
 - helm_prompt.md Routine 0 includes a new instruction: "If queued_count > 0,
   hedge in this session — say 'I think I told you about X earlier, but my
   memory is still settling' rather than asserting from a possibly-stale
@@ -1273,9 +1290,10 @@ outbox state in Helm's session-start context:
   types route through the same outbox so this hedge protects them too).
 - `/health` already exposes the counts for the System tab (T2.3 wires
   `system_health` SSE on dead-letter); this V2 addition is specifically
-  about Helm *himself* knowing, not just Maxwell knowing via UI.
+  about Helm _himself_ knowing, not just Maxwell knowing via UI.
 
 **Tests:**
+
 - `tests/test_outbox.py` — enqueue, drain, retry, dead-letter, concurrent enqueue (asyncio.gather of 100 enqueues, all distinct)
 - `tests/test_outbox.py::test_session_start_context_surfaces_queue_state` — `memory.session_start_context()` returns non-zero queued_count when outbox has pending writes
 
@@ -1291,13 +1309,13 @@ outbox state in Helm's session-start context:
 
 v1 said "writes are the priority, reads continue through `supabase_client` for now." V2 keeps that as the T0.B3 scope, but adds a **read-path migration plan as part of the PR description**:
 
-| Read | T0.B3 disposition | Migrated in |
-|---|---|---|
-| `supabase_client.get('helm_personality')` (Prime) | Stays in `supabase_client` | Stage 2 |
-| `supabase_client.get('helm_prompt')` (Prime boot) | **Moves to `memory.prompt.PromptManager.load()`** | T0.B5 |
+| Read                                               | T0.B3 disposition                                     | Migrated in    |
+| -------------------------------------------------- | ----------------------------------------------------- | -------------- |
+| `supabase_client.get('helm_personality')` (Prime)  | Stays in `supabase_client`                            | Stage 2        |
+| `supabase_client.get('helm_prompt')` (Prime boot)  | **Moves to `memory.prompt.PromptManager.load()`**     | T0.B5          |
 | `supabase_client.match_memories()` (Prime context) | Stays in `supabase_client`, but renamed `read_client` | T0.B6 cosmetic |
-| `supabase_client.match_beliefs()` | Stays in `supabase_client` (read-only RPC) | Stage 2 |
-| Frame read by Archivist | **Moves to `memory.read_frames()`** | T0.B3 |
+| `supabase_client.match_beliefs()`                  | Stays in `supabase_client` (read-only RPC)            | Stage 2        |
+| Frame read by Archivist                            | **Moves to `memory.read_frames()`**                   | T0.B3          |
 
 The principle: **writes must be unified now**; reads can stay split as long as the file is renamed `read_client.py` to make the intent clear. T0.B6 includes that rename.
 
@@ -1336,30 +1354,63 @@ The principle: **writes must be unified now**; reads can stay split as long as t
 
 ---
 
+### T0.B5b — Runtime Config Tunables Migration (V2.1)
+
+**Why this exists:** `hammerfall-config.md` at the repo root holds runtime parameters (`frame_offload_interval`, `warm_queue_max_frames`, `frame_offload_conservative`) that are read by Routine 0 from a local file. This violates the infrastructure-portable directive — a Helm running on Render or Vercel has no way to reach a local markdown file. These are deployment-config values, not user data; they belong in `services/helm-runtime/config.yaml` alongside the model/provider settings, validated by the same Pydantic schema, set by env at Render/local indistinguishably.
+
+**Scope:**
+
+1. **Extend `config.yaml` schema** — add a `runtime_tunables:` block:
+
+```yaml
+runtime_tunables:
+  frame_offload_interval: 10 # turns
+  warm_queue_max_frames: 50 # frames per session before forced cold
+  frame_offload_conservative: true # offload at 80% of interval rather than 100%
+```
+
+2. **Extend `RuntimeTunablesSchema` Pydantic model** in `model_router.py` — same validation pattern as `ServiceConfigSchema`. Defaults match current `hammerfall-config.md` values so behavior is byte-identical post-migration.
+
+3. **Read path migration** — wherever Projectionist / Archivist currently consumes these values from a file path (or shell `grep | awk` in agent prompts), replace with `router.tunables.frame_offload_interval` etc. Memory module surfaces tunables via `memory.tunables()` for agent code.
+
+4. **Delete `hammerfall-config.md`** at repo root in this PR. Move any non-tunable content (notes, headers, comments) into `services/helm-runtime/config.yaml` comments or `docs/runbooks/`. The file does not survive T0.B5b.
+
+5. **Update `helm_prompt.md` Routine 0 step 9** — strip the `grep "frame_offload_interval:" hammerfall-config.md | awk '{print $2}'` shell block. T0.B6 owns the broader prompt rewrite, but this single block dies in T0.B5b because the file dies here.
+
+6. **Tests** — `test_config.py::test_runtime_tunables_default_load`, `test_config.py::test_runtime_tunables_env_override` (env var precedence per `HELM_RUNTIME_*` prefix).
+
+**Why ordered between T0.B5 and T0.B6:** T0.B5 (prompt management) establishes that prompts come from Supabase + file fallback. T0.B5b extends the same "no local file is canonical" principle to runtime tunables. T0.B6 then rewrites the agent prompts assuming both paths are clean.
+
+**STOP gate.**
+
+---
+
 ### T0.B6 — Shell Deprecation + Complete Prompt/Doc Rewrite
 
 **Critical V2 expansion.** v1 listed only `helm_prompt.md` as needing a brain.sh sweep. Reality across the repo:
 
-| File | brain.sh references | Status |
-|---|---|---|
-| `agents/helm/helm_prompt.md` | 30+ | Must rewrite Routine 4 + entity/alias/correction/curious/reasoning/pattern/people/heartbeat blocks |
-| `agents/helm/archivist/archivist.md` | 7 (lines 25, 62, 125, 128, 133, 137, 141) | Must rewrite all write blocks |
-| `agents/helm/contemplator/contemplator.md` | 1 explicit + meta-reference | Already says "never calls brain.sh"; just needs alignment with new memory API names |
-| `management/COMPANY_BEHAVIOR.md` | 4 (lines 37, 61, 63, 82) | Must rewrite |
-| `services/helm-runtime/supabase_client.py` (docstring lines 7-11) | Architectural canon of the divergence | Must rewrite docstring + rename to `read_client.py` per T0.B3 |
+| File                                                              | brain.sh references                       | Status                                                                                             |
+| ----------------------------------------------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `agents/helm/helm_prompt.md`                                      | 30+                                       | Must rewrite Routine 4 + entity/alias/correction/curious/reasoning/pattern/people/heartbeat blocks |
+| `agents/helm/archivist/archivist.md`                              | 7 (lines 25, 62, 125, 128, 133, 137, 141) | Must rewrite all write blocks                                                                      |
+| `agents/helm/contemplator/contemplator.md`                        | 1 explicit + meta-reference               | Already says "never calls brain.sh"; just needs alignment with new memory API names                |
+| `management/COMPANY_BEHAVIOR.md`                                  | 4 (lines 37, 61, 63, 82)                  | Must rewrite                                                                                       |
+| `services/helm-runtime/supabase_client.py` (docstring lines 7-11) | Architectural canon of the divergence     | Must rewrite docstring + rename to `read_client.py` per T0.B3                                      |
 
 **Rewrite pattern — every brain.sh invocation becomes a memory.write call:**
 
 ```markdown
 # Before (in agent prompt markdown)
+
 bash scripts/brain.sh hammerfall-solutions helm pattern "Pattern — slug | statement"
 
 # After (in agent prompt markdown — Python pseudocode the agent shows)
+
 memory.write(
-    project="hammerfall-solutions",
-    agent="helm",
-    memory_type="pattern",
-    content="Pattern — slug | statement",
+project="hammerfall-solutions",
+agent="helm",
+memory_type="pattern",
+content="Pattern — slug | statement",
 )
 ```
 
@@ -1372,16 +1423,50 @@ python -m memory.write hammerfall-solutions helm pattern "Pattern — slug | sta
 **Em-dash convention:** v1 detection of patterns by `content.startswith("Pattern —")` uses U+2014 EM DASH. Risk: someone types `--` and the dual-write hook misses it. V2 fix: the memory module normalizes any `Pattern --`, `Pattern -`, `Pattern—` to canonical `Pattern —` at write time, and the dual-write detection runs on normalized content. Document in T0.B6's PR.
 
 **Scripts deleted in T0.B6:**
+
 - `scripts/brain.sh` (replaced by `python -m memory.write` CLI)
 - `scripts/snapshot.sh` (replaced by `memory.snapshot` service)
 - `scripts/sync_prompt.sh` (replaced by `python -m memory.prompt push`)
 - `scripts/pull_prompt.sh` (replaced by `python -m memory.prompt pull`)
+- **(V2.1)** `scripts/session_watchdog.sh` — replaced by SSE connection-state liveness in T2.3
+- **(V2.1)** `scripts/ping_session.sh` — replaced by SSE keep-alive
+- **(V2.1)** `scripts/activity_ping.sh` — replaced by `agent_invoked` / `agent_completed` SSE events from T2.3
 
-**Scripts that remain (legitimately shell):**
-- `scripts/pull_models.sh` — Ollama model pre-pulls
+**Scripts that remain (legitimately shell — operator tools, not runtime functionality):**
+
+- `scripts/pull_models.sh` — Ollama model pre-pulls (operator setup)
 - `scripts/migrate.sh` — Supabase migration operator tool (T0.A9)
+- `scripts/backup.sh` — pg_dump operator tool (T0.A10 runbook)
+- `scripts/seed_*.sh`, `scripts/patch_entity_summaries.sh` — one-time data seeding tools
+- `scripts/smoke_test.sh` — operator smoke test
 
-**Tests:** Smoke test for the CLI (`python -m memory.write` works end-to-end against a mock Supabase fixture).
+**(V2.1) Orphaned snapshot files deleted in T0.B6:**
+
+The snapshot files at `agents/helm/memory/` were generated by `snapshot.sh` (deleted above) as cold-read mirrors of the brain. Once the script is gone, the files are stale-by-construction. The Memory widget (T3.3) reads canonically from Supabase. Files deleted in this PR:
+
+- `agents/helm/memory/BEHAVIORAL_PROFILE.md`
+- `agents/helm/memory/BELIEFS_SUMMARY.md`
+- `agents/helm/memory/BRAIN_SUMMARY.md`
+- `agents/helm/memory/PERSONALITY_SUMMARY.md`
+- `agents/helm/memory/ShortTerm_Scratchpad.md`
+
+Git history preserves them. They do not survive into the live tree.
+
+**(V2.1) `helm_prompt.md` surface assumptions stripped:**
+
+Beyond the brain.sh sweep, the current prompt encodes Claude-Code-as-surface assumptions throughout. After T1, Prime is invoked by the runtime (HTTP POST → `helm_prime` handler → `model_router.invoke()`) — the prompt should describe Prime's _cognitive_ behavior, not the runtime's _mechanical_ behavior. Specifically removed:
+
+- **Inline UUID generation** — `node -e "process.stdout.write(require('crypto').randomUUID())"`. Session ID is generated by the UI per T1.7 and arrives in `req.session_id`.
+- **Inline `curl localhost:8000` invocations** of runtime endpoints. The runtime drives subsystem invocation; Prime is invoked, not invoking.
+- **"Antigravity / Claude Code" surface naming** in operating-context blocks. Replace with surface-agnostic language ("the user surface", not "Claude Code").
+- **Local config file reads** (`grep "frame_offload_interval:" hammerfall-config.md`). File deleted in T0.B5b; reference removed here.
+- **Local snapshot file references** (`agents/helm/memory/BEHAVIORAL_PROFILE.md` etc.). Files deleted above; references removed.
+- **PowerShell git push fallback snippet** baked into the prompt body. Operator concern, belongs in a runbook, not in Helm's identity.
+- **All `bash`-block routines** in Routines 0/4/5/6 — the protocol described in these routines becomes things Prime _knows the runtime is doing for him_ (read at session start, write after response, etc.), not bash commands he _executes_. The prompt describes the protocol; the runtime implements it.
+
+The post-rewrite prompt is **surface-agnostic** — it could just as well be loaded by a CLI client, a Vercel browser session, a phone PWA, or a future voice surface. The cognitive identity travels intact across all of them. This is the operationalization of the infrastructure-portable directive at the prompt layer.
+
+**Tests:** Smoke test for the CLI (`python -m memory.write` works end-to-end against a mock Supabase fixture). **(V2.1)** Add `test_helm_prompt_surface_agnostic.py` — grep the rewritten prompt for forbidden tokens (`bash`, `curl`, `node -e`, `localhost`, `Claude Code`, `Antigravity`, `hammerfall-config.md`); assert zero matches. This test guards future regressions.
 
 **STOP gate.** Architect reviews the rewritten prompts.
 
@@ -1405,6 +1490,7 @@ Pure schema enrichment + helper update. No new table. Validates that
 adding columns to an existing brain type follows the abstraction cleanly.
 
 - **Migration** (single Supabase migration, gated by T0.A9 safety checks):
+
   ```sql
   ALTER TABLE helm_entities ADD COLUMN entity_type TEXT CHECK (
     entity_type IN ('person', 'project', 'concept', 'place', 'organization', 'tool', 'event')
@@ -1424,6 +1510,7 @@ adding columns to an existing brain type follows the abstraction cleanly.
     confidence FLOAT
   );
   ```
+
 - **Memory module:** `write_entity()` helper accepts the new optional
   fields. `read_entities(type=...)` filter. New `write_entity_relationship()`
   helper. T2.7 (entities RPC) is updated to read enriched columns.
@@ -1437,7 +1524,7 @@ adding columns to an existing brain type follows the abstraction cleanly.
 
 #### T0.B7b — `helm_curiosities` (new type, end-to-end pattern)
 
-First *new* brain type added via T0.B1's abstraction. The PR proves the
+First _new_ brain type added via T0.B1's abstraction. The PR proves the
 "50-line cost" target: migration + enum line + helper + read helper +
 prompt section + tests.
 
@@ -1519,6 +1606,7 @@ Rename `routing` → `subsystems_invoked` in mocks. Add a vitest test that asser
 If ADR-001 Path A: this task does TS conversion + token application in one PR. The TS conversion is the larger surface; bundle reduces churn.
 
 **V2 addition — Smart Routing implementation:** T1.5b also lands the smart-routing state machine spec'd in T1.7 (per ADR-011). This includes:
+
 - A new `runtimeClient.ts` module that owns the URL selection, probe, and failover logic
 - The banner component (amber / red, with manual retry button)
 - vitest tests covering all six state-machine transitions from T1.7
@@ -1533,29 +1621,125 @@ This is bundled with T1.5b because both touch the API client surface — splitti
 ### T1.7 — V2 Note
 
 Spec is updated to include:
+
 - Auth header on all `/invoke/*` and `/events` requests
 - Correlation ID header convention (`x-correlation-id` — server echoes back; UI propagates per session)
 - Rate-limit response shape (T4.2 formalizes; T1.7 just notes 429 + `Retry-After` will exist)
 - SSE reconnection strategy (T4.3 formalizes; T1.7 documents `Last-Event-ID` will be supported)
 - **Smart Routing requirement (per ADR-011)** — see below
+- **(V2.1) Widget vocabulary expanded from 7 to 9** — adds `frames` and `curiosities`; see V2.1 amendment below
+- **(V2.1) Frames widget tabbed surface** — Prime / Projectionist / Archivist tabs (matches existing Logs widget pattern); see V2.1 amendment below
+- **(V2.1) Blank-state UX requirement** — every widget renders explicit empty state with action prompts; mockData fallback prohibited in production; see V2.1 amendment below
+- **(V2.1) `/health` + `/config/agents` reflect 4-backend provider chain state** — see V2.1 amendment below
+
+### T1.7 — V2.1 Amendment (Widget Expansion + Chain Visibility + Blank-State UX)
+
+**Why this amendment:** The original T1.7 widget list (7) gave no surface for "frames are traded, curiosity happens" — the literal acceptance criteria for cross-session continuity in T3.5's "Helm cares" test. `mockData.js` shipping in production silently masks brain state if Supabase falters. `/health`'s per-agent boolean tells you nothing about which provider in the chain actually served the last turn (Pro Max vs $-API matters operationally). All three are corrected here.
+
+**Widget vocabulary — 9 identifiers (was 7):**
+
+| Identifier               | Widget                                                                                                                                                                                                                      | Source                                                                |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `agent_status`           | Agent Status — subsystem health, latency, last invocation, **(V2.1) chain state per agent**                                                                                                                                 | `/health` + `/config/agents`                                          |
+| `core_beliefs`           | Core Beliefs — belief list with strengths and observation history                                                                                                                                                           | `helm_beliefs`                                                        |
+| `personality`            | Personality — six dimension sliders with translations                                                                                                                                                                       | `helm_personality`                                                    |
+| `memory`                 | Memory — memory entries with type, content, confidence                                                                                                                                                                      | `helm_memory`                                                         |
+| `entities`               | Entities — entity list with types, aliases, relationship counts                                                                                                                                                             | `helm_entities` + `helm_entity_relationships`                         |
+| `signals`                | Signals — pattern aggregations with observation counts                                                                                                                                                                      | `helm_signals`                                                        |
+| `logs`                   | Logs — session/contemplator/system tabs                                                                                                                                                                                     | SSE event stream + `helm_memory`                                      |
+| **(V2.1)** `frames`      | **Frames — three-tab view:** Prime (currently active frames Helm reasons against) / Projectionist (warm-layer frames being authored this session) / Archive (cold-layer frames in `helm_memory` with `memory_type='frame'`) | `helm_frames` (warm) + `helm_memory WHERE memory_type='frame'` (cold) |
+| **(V2.1)** `curiosities` | **Curiosities — open `helm_curiosities` with status transitions** (open → investigating → resolved/abandoned)                                                                                                               | `helm_curiosities`                                                    |
+
+**Frames widget tab structure (V2.1):**
+
+The Frames widget mirrors the existing Logs widget tabbing pattern. Three tabs:
+
+- **Prime tab** — frames Helm Prime is currently reasoning against (read at session start + delta-checked per turn). Source: `helm_frames WHERE frame_status='active' AND session_id=<current>`.
+- **Projectionist tab** — frames being authored _during this session_ (warm layer, not yet drained). Source: `helm_frames WHERE layer='warm' AND session_id=<current>`. Live-updates via Realtime subscription as Projectionist writes.
+- **Archive tab** — drained frames (cold layer in `helm_memory`). Filterable by session_id, date range. Source: `helm_memory WHERE memory_type='frame' ORDER BY created_at DESC`.
+
+Future enhancement (logged in `Post_T1_Findings.md` Finding #007): manual push-frame-to-Prime button, allowing Maxwell to surface a specific archive frame back into Prime's active context. Out of scope for T1.
+
+**Blank-state UX (V2.1) — mandatory across all widgets:**
+
+When a widget's Supabase query returns 0 rows or fails, the widget renders an explicit empty state. Examples:
+
+| Widget                     | Empty state copy                                                                                           | Action prompt                            |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| Core Beliefs               | "Helm hasn't formed any beliefs yet. Beliefs accumulate as Helm observes patterns across sessions."        | "Talk to Helm."                          |
+| Memory                     | "No memories recorded for this session. Memories are written as Helm processes turns."                     | "Send a message."                        |
+| Entities                   | "No entities tracked yet. Helm forms entities when people, projects, or concepts come up in conversation." | "Mention someone or something specific." |
+| Curiosities                | "Helm has no open curiosities. He'll surface things he's wondering about as Contemplator runs."            | (no action — emerges over time)          |
+| Frames (Projectionist tab) | "No frames being written this session. Frames form as Helm reasons through turns."                         | "Send a message."                        |
+
+**Failure-state UX:** if a query _fails_ (Supabase unreachable, RLS denies, 500 error), the widget renders a distinct error state with a retry button and a pointer to the runbook. Critically — **no widget falls back to mock data in production.** mockData.js is purged from the production bundle in T3.3.
+
+**`/health` + `/config/agents` chain visibility (V2.1):**
+
+Original T1.7 spec returned per-agent `ok | unreachable`. With a 4-backend fallback chain, this lies — Prime might be "ok" because the chain fell through to anthropic-api ($) when claude-sdk (Pro Max) was throttled. Operationally invisible.
+
+**Amended `/health` response shape:**
+
+```json
+{
+  "status": "healthy",
+  "agents": {
+    "helm_prime": {
+      "active_provider": "claude-sdk",
+      "chain_state": [
+        {"provider": "claude-sdk", "model": "claude-opus-4-7", "available": true, "last_probe_at": "2026-04-26T14:22:01Z"},
+        {"provider": "anthropic-api", "model": "claude-opus-4-7", "available": true, "last_probe_at": "2026-04-26T14:22:01Z"},
+        {"provider": "local-ollama", "model": "llama3.1:70b", "available": false, "reason": "endpoint_unreachable", "last_probe_at": "2026-04-26T14:22:01Z"}
+      ]
+    },
+    "projectionist": { "active_provider": "local-ollama", "chain_state": [...] },
+    "archivist": { "active_provider": "local-ollama", "chain_state": [...] },
+    "contemplator": { "active_provider": "local-ollama", "chain_state": [...] }
+  },
+  "supabase": "connected",
+  "outbox": { "queued_count": 0, "dead_letter_count": 0 }
+}
+```
+
+**Amended `/config/agents` response shape:**
+
+```json
+{
+  "agents": {
+    "helm_prime": {
+      "chain": [
+        {"provider": "claude-sdk", "model": "claude-opus-4-7"},
+        {"provider": "anthropic-api", "model": "claude-opus-4-7"},
+        {"provider": "local-ollama", "model": "llama3.1:70b", "base_url": "http://thor:11434"}
+      ]
+    },
+    ...
+  }
+}
+```
+
+**Agent Status widget renders the chain visually** — active backend highlighted, fallbacks dimmed with their probe state, unavailable backends struck through with the failure reason on hover. Maxwell can see at a glance: "Prime is on Pro Max" vs "Prime fell through to API — that's why today's spend is up."
+
+**Implementation home:** widgets land in T1.5b (UI build); `/health` + `/config/agents` shape changes land in T2.3 (alongside the provider chain implementation per ADR-010).
 
 **V2 addition — Smart Routing (per ADR-011):**
 
 The UI client supports two configured runtime URLs and picks the active one via a probe-and-fallback state machine:
 
-| Env var | Purpose |
-|---|---|
-| `VITE_HELM_LOCAL_URL` | Default: `http://localhost:8000` — laptop runtime |
+| Env var                | Purpose                                             |
+| ---------------------- | --------------------------------------------------- |
+| `VITE_HELM_LOCAL_URL`  | Default: `http://localhost:8000` — laptop runtime   |
 | `VITE_HELM_REMOTE_URL` | Default: empty — set to Render URL when T4.11 is up |
 
 **State machine (canonical, codified as test cases in T1.5b):**
 
 1. **Startup probe.** UI hits `${LOCAL_URL}/health` with 2s timeout. If 200 OK → use local. Else if `REMOTE_URL` configured → probe remote, use it on success. Else → show "no Helm reachable" error screen.
-2. **Active session, request fails (timeout, 5xx, network error).** If currently on local + `REMOTE_URL` configured → auto-failover to remote. Show banner: *"Couldn't reach laptop Helm — switched to cloud Helm."* If currently on remote → show error banner with retry button. If `REMOTE_URL` not configured → show error banner: *"Laptop Helm unreachable and no fallback configured. Wake your laptop or set up cloud Helm."*
-3. **After failover, re-probe local every turn for next 3 turns.** If local returns within those 3 attempts → silent switch home, banner: *"Back on laptop Helm."* If still unreachable after 3 attempts → prominent banner: *"Still on cloud Helm — laptop hasn't come back."* Stops auto-re-probing until user clicks the manual retry button in the banner.
+2. **Active session, request fails (timeout, 5xx, network error).** If currently on local + `REMOTE_URL` configured → auto-failover to remote. Show banner: _"Couldn't reach laptop Helm — switched to cloud Helm."_ If currently on remote → show error banner with retry button. If `REMOTE_URL` not configured → show error banner: _"Laptop Helm unreachable and no fallback configured. Wake your laptop or set up cloud Helm."_
+3. **After failover, re-probe local every turn for next 3 turns.** If local returns within those 3 attempts → silent switch home, banner: _"Back on laptop Helm."_ If still unreachable after 3 attempts → prominent banner: _"Still on cloud Helm — laptop hasn't come back."_ Stops auto-re-probing until user clicks the manual retry button in the banner.
 4. **Per-session stickiness.** Once a runtime is chosen (and any failovers resolved), the UI sticks with it for the SSE session. New chat session = new probe.
 
 **Banner UX requirements:**
+
 - Banners are non-modal (don't interrupt the conversation).
 - Banner color: amber for "switched to cloud" (informational), red for "no Helm reachable" or "still on cloud after 3 retries" (action needed).
 - Banners include a manual retry button that immediately re-probes local.
@@ -1587,48 +1771,63 @@ The v1 Phase 2 task content stands. V2 fixes layered in:
 
 **Part D (prompt caching) — REWRITTEN under ADR-010:** the v1 design was LiteLLM-centric. V2 replaces this with a three-backend **provider chain** abstraction (see ADR-010 in Appendix B). Prompt caching applies only to the `claude-sdk` and `anthropic-api` backends; `local` providers don't use it.
 
-**V2 addition — Provider Chain (per ADR-010):**
+**V2 addition — Provider Chain (per ADR-010, amended in V2.1):**
 
-Each agent slot is configured with an *ordered* list of providers. The runtime tries each in order, falling back on auth failure or network unreachability. Same config file works in every environment — environment determines which provider succeeds first.
+Each agent slot is configured with an _ordered_ list of providers. The runtime tries each in order, falling back on auth failure or network unreachability. Same config file works in every environment — environment determines which provider succeeds first.
 
-**`config.yaml` example:**
+**(V2.1) Four backend types** — required for the productization story (visitors without Tailscale need a way to reach open-source-model inference). All four are interchangeable via config swap; no code change to switch:
+
+| Backend type           | What it is                                                                                          | Auth                                                                   | Use case                                                                                                                               |
+| ---------------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `claude-sdk`           | Claude Agent SDK against Pro Max subscription                                                       | `~/.claude/credentials.json` (no key in env)                           | Maxwell's laptop runtime — flat subscription, $0/turn                                                                                  |
+| `anthropic-api`        | Anthropic REST API with key                                                                         | `ANTHROPIC_API_KEY` env                                                | Render runtime fallback when Pro Max not credentialed; demo runtime; non-Maxwell users                                                 |
+| `local-ollama`         | Ollama instance (any host reachable by URL)                                                         | `OLLAMA_BASE_URL` env (Maxwell's 4090 directly, or Thor via Tailscale) | Free local inference; subsystems Projectionist/Archivist/Contemplator default here                                                     |
+| `remote-openai-compat` | Any OpenAI-API-compatible endpoint over HTTP — vLLM, LM Studio, Hammerfall Cloud, third-party hosts | `<provider>_BASE_URL_ENV` + optional `<provider>_API_KEY_ENV`          | Productization path: visitor without Tailscale hits Hammerfall-hosted vLLM directly; or BYOH user runs their own vLLM on a workstation |
+
+`local-ollama` and `remote-openai-compat` are distinct types because their semantics differ (Ollama has its own native API; OpenAI-compatible endpoints follow OpenAI's chat-completions shape). Both types are already in the runtime today — `ollama` and `custom` provider types in the existing `model_router.py`. T2.3 unifies them under the chain abstraction with proper fallback semantics.
+
+**`config.yaml` example (V2.1, 4 backends):**
 
 ```yaml
 agents:
   prime:
-    providers: [claude-sdk, local, anthropic-api]
+    providers: [claude-sdk, anthropic-api, local-ollama, remote-openai-compat]
     claude-sdk:
       model: claude-opus-4-7
-    local:
-      endpoint: http://thor:11434         # tailnet hostname (Tailscale)
-      model: llama3.1:70b
     anthropic-api:
       model: claude-opus-4-7
+      api_key_env: ANTHROPIC_API_KEY
+    local-ollama:
+      endpoint_env: OLLAMA_BASE_URL # default http://localhost:11434; on Render, set to http://thor:11434 via Tailscale
+      model: llama3.1:70b
+    remote-openai-compat:
+      endpoint_env: HAMMERFALL_PRIME_URL # e.g., https://prime.hammerfall.cloud/v1
+      api_key_env: HAMMERFALL_PRIME_KEY
+      model: hammerfall-prime-v1
   projectionist:
-    providers: [local]
-    local:
-      endpoint: http://localhost:11434
-      model: qwen3:3b
+    providers: [local-ollama]
+    local-ollama: { endpoint_env: OLLAMA_BASE_URL, model: qwen3:4b }
   archivist:
-    providers: [local]
-    local:
-      endpoint: http://localhost:11434
-      model: qwen3:3b
+    providers: [local-ollama]
+    local-ollama: { endpoint_env: OLLAMA_BASE_URL, model: qwen3:14b }
   contemplator:
-    providers: [local]
-    local:
-      endpoint: http://localhost:11434
-      model: qwen3:3b
+    providers: [local-ollama]
+    local-ollama: { endpoint_env: OLLAMA_BASE_URL, model: qwen3:14b }
 ```
 
-**How the chain resolves per environment:**
+**How the chain resolves per environment (V2.1):**
 
-| Environment | Prime resolution path | Outcome |
-|---|---|---|
-| Laptop runtime, Pro Max active | `claude-sdk` → success | Free, Opus |
-| Render runtime, Thor on | `claude-sdk` skipped (no creds) → `local` (Thor) success | Free, Llama |
-| Render runtime, Thor off | `claude-sdk` skipped → `local` unreachable → `anthropic-api` success | Paid, Opus |
-| Local-only dev, Pro Max throttled | `claude-sdk` rate-limited → `local` (laptop Ollama) success | Free, fallback model |
+| Environment                           | Prime resolution path                                                                                                          | Outcome                                              |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------- |
+| Maxwell's laptop, Pro Max active      | `claude-sdk` → success                                                                                                         | Free, Opus                                           |
+| Maxwell's laptop, Pro Max throttled   | `claude-sdk` rate-limited → `anthropic-api` → success                                                                          | Paid, Opus                                           |
+| Render runtime, Tailscale up to Thor  | `claude-sdk` skipped (no creds) → `anthropic-api` skipped (cost-protect) → `local-ollama` (Thor) → success                     | Free, Llama 70B                                      |
+| Render runtime, Tailscale down        | `claude-sdk` skipped → `anthropic-api` → success                                                                               | Paid, Opus, dollar-cap engaged                       |
+| Demo runtime (T4.12), visitor session | `claude-sdk` skipped → `anthropic-api` → success                                                                               | Paid, Opus, demo dollar-cap separate from production |
+| Hypothetical BYOH user with vLLM      | `claude-sdk` skipped → `anthropic-api` skipped → `local-ollama` skipped → `remote-openai-compat` (their vLLM) → success        | Free, their model                                    |
+| Hypothetical Hammerfall Cloud user    | `claude-sdk` skipped → `anthropic-api` skipped → `local-ollama` skipped → `remote-openai-compat` (Hammerfall-hosted) → success | Per-token, hosted Llama                              |
+
+**Validation in T1:** at minimum `claude-sdk` (Maxwell's laptop, hello-world #1) and `anthropic-api` (Render fallback, hello-world #2) are validated end-to-end. `local-ollama` via Tailscale is validated as a third configuration. `remote-openai-compat` is implementation-validated via unit tests + a manual probe against a stood-up vLLM endpoint (productization-path proof, doesn't need to be a permanent fixture).
 
 **Provider startup detection:** at runtime boot, each provider in each chain runs a 1-second probe (SDK creds-check, local endpoint `/health`, API key validation). Providers that fail probe are marked unavailable for the session and skipped in the chain. Re-probed every 60s in case of recovery.
 
@@ -1665,7 +1864,9 @@ class ProviderChain:
         raise NoProviderAvailable("All providers in chain exhausted")
 ```
 
-**Prompt caching:** the `claude-sdk` and `anthropic-api` providers both support Anthropic prompt caching via `cache_control` in messages. The `local` provider strips `cache_control` before forwarding (Ollama/vLLM ignore it but warn). Cache savings logged to `provider.cache_hit` / `provider.cache_miss` events.
+**Prompt caching:** the `claude-sdk` and `anthropic-api` providers both support Anthropic prompt caching via `cache_control` in messages. The `local-ollama` and `remote-openai-compat` providers strip `cache_control` before forwarding (Ollama/vLLM ignore it but warn). Cache savings logged to `provider.cache_hit` / `provider.cache_miss` events.
+
+**(V2.1) `/health` and `/config/agents` shape changes** — see T1.7 V2.1 amendment for the chain-aware response shapes. T2.3 implements them alongside the chain abstraction so widget consumers see real chain state from day one.
 
 **Why not just LiteLLM:** LiteLLM does not natively support Claude Agent SDK / subscription auth — it assumes API key everywhere. We could wrap LiteLLM inside the `anthropic-api` provider as a convenience for model-name normalization, but the abstraction layer must own the chain semantics, fallback logic, and per-provider guardrail wiring. ADR-004 (Anthropic vs LiteLLM) is superseded by ADR-010.
 
@@ -1674,6 +1875,7 @@ The circuit breaker callback from T0.B1 wires here. When `circuit_breaker.opened
 
 **V2 addition — emit point ownership:**
 Move ALL `emit_event` calls into a small set of well-defined hook points instead of scattering 12+ calls through `main.py`. Specifically:
+
 - `emit_agent_invoked` decorator on `/invoke/*` handlers
 - `memory.write` emits `frame_written`, `belief_updated`, etc. via post-write hooks
 - Health check emits `system_health` on every check
@@ -1690,6 +1892,7 @@ Carried forward from v1 with T0 fixes already noted (slug utility lives in `memo
 The hook does two writes: `helm_signals` (upsert) and `helm_memory` (insert). What happens if the first succeeds and the second fails?
 
 V2 design:
+
 1. **Order matters**: write `helm_memory` first (the canonical event), then `helm_signals` (the derived view).
 2. **If `helm_memory` fails**: the whole `memory.write()` raises. No signal write happens. Caller sees the error.
 3. **If `helm_memory` succeeds but `helm_signals` fails**: log a `signal_dual_write_failed` warning, enqueue the signal write to the outbox with `table: "helm_signals"`, return the entry id from `helm_memory`. Outbox drain will retry. Eventual consistency.
@@ -1724,19 +1927,20 @@ turns:
       }
     expected:
       sse_events:
-        - {type: agent_invoked, agent: helm_prime}
-        - {type: contemplator_pass_started}
-        - {type: contemplator_pass_completed}
-        - {type: agent_completed, agent: helm_prime}
+        - { type: agent_invoked, agent: helm_prime }
+        - { type: contemplator_pass_started }
+        - { type: contemplator_pass_completed }
+        - { type: agent_completed, agent: helm_prime }
       memory_writes:
-        - {agent: contemplator, memory_type: pattern, content_contains: "over-engineer"}
-        - {table: helm_signals, content_contains: "over-engineer"}  # dual-write hook fired
+        - { agent: contemplator, memory_type: pattern, content_contains: 'over-engineer' }
+        - { table: helm_signals, content_contains: 'over-engineer' } # dual-write hook fired
       response:
         subsystems_invoked: [contemplator]
         ui_directives: []
 ```
 
 **Initial scenario library (T2.9 ships ~13):**
+
 - 01 — Basic chat turn, no subsystems
 - 02 — Pattern entry triggers signals dual-write
 - 03 — Belief update through `memory.write_belief_update`
@@ -1750,7 +1954,7 @@ turns:
 
 **Multi-session continuity scenarios (V2 addition — required for ambient
 proof):** within-session correctness is necessary but not sufficient. Ambient
-intelligence is *across* time. These scenarios load a seeded brain fixture
+intelligence is _across_ time. These scenarios load a seeded brain fixture
 representing "session 1" state, then drive a fresh "session 2" `/invoke` and
 assert continuity:
 
@@ -1794,6 +1998,29 @@ Tests in vitest. Parser test covers JSON / plain text / malformed; directive han
 - Per-widget Realtime subscriptions wrap in TanStack Query for caching + revalidation (or vanilla `useEffect` if the team chooses; ADR-001 path may inform)
 - Loading and error states are required, not optional. PR review rejects widgets without them.
 
+### T3.3 — V2.1 Amendment (mockData purge + empty-state PR gate)
+
+**Why this amendment:** the durable directive — "infrastructure determines efficacy, never functionality" — applies to the UI just as it does to the runtime. `mockData.js` shipping in the production bundle is a violation: if Supabase falters, widgets silently render fictional state, and Maxwell loses the ability to verify what's _actually_ in Helm's brain. The whole "I need to easily see and verify what is happening in his brain" requirement collapses if widgets can lie via mock fallback.
+
+**Scope:**
+
+1. **Purge `helm-ui/src/data/mockData.js` from the production bundle.** Move the file to `helm-ui/src/__tests__/fixtures/mockData.js` — vitest can still import it for unit/component tests. Production widgets import nothing from `src/data/`. The directory is deleted in this PR.
+
+2. **Every widget renders an explicit empty state on 0-row queries.** Copy + action-prompt patterns specified in the T1.7 V2.1 amendment (Blank-state UX section). PR review rejects any widget without a tested empty state.
+
+3. **Every widget renders an explicit failure state on query failure.** Distinct from empty — failure state shows a retry button + a runbook pointer (e.g., "Supabase unreachable — see runbook 0003"). Failure state is also test-asserted.
+
+4. **No silent fallback path exists in widget code.** Static analysis: grep widget components for any import from `src/data/`, any try/catch that returns mock data, any default-prop that supplies fictional content. Zero matches required for merge.
+
+5. **Vitest fixtures in `__tests__/fixtures/mockData.js`** retain the existing structure so component tests don't churn — same `BELIEFS`, `MEMORY`, `ENTITIES` exports, just lifted to the test scope. Test imports update to `import { BELIEFS } from '../__tests__/fixtures/mockData'` or similar.
+
+**Acceptance:**
+
+- `npm run build` produces a bundle that does not reference `src/data/mockData`
+- Every widget has at least one component test asserting the empty state renders correctly
+- Every widget has at least one component test asserting the failure state renders correctly
+- Manual smoke: stop Supabase mid-session, confirm UI shows failure states (not stale mock data)
+
 ### T3.4 — V2 Notes — Critical
 
 - Auth header (`Authorization: Bearer ${VITE_HELM_API_TOKEN}`) on every `/invoke` and `/events` request
@@ -1819,7 +2046,7 @@ Carry forward v1's checklist. V2 adds:
 **The "Helm cares" behavioral contract (V2 addition — required for T1 close):**
 
 T3.5 is "the Helm cares test." The technical checklist above proves the
-runtime works. This second checklist proves the *vision* works. T1 closes
+runtime works. This second checklist proves the _vision_ works. T1 closes
 only if **at least 3 of 5** of these behaviors are demonstrated by Helm in
 unscripted live conversation with Maxwell:
 
@@ -1839,7 +2066,7 @@ unscripted live conversation with Maxwell:
       future session and follows through. Proves commitment-keeping.
 - [ ] **Frame match.** For at least one significant moment, Helm's named
       frame for what's happening (`helm_frames`) matches what Maxwell
-      himself would have said about that moment. Proves Helm is *seeing*,
+      himself would have said about that moment. Proves Helm is _seeing_,
       not just transcribing.
 
 **Failure mode:** if 0–2 hit, T1 ships the runtime but the SITREP (T4.5)
@@ -1862,20 +2089,21 @@ Phase 4 closes T1. This phase makes the launched system supportable.
 
 **Required runbooks (10):**
 
-| # | Title | Trigger |
-|---|---|---|
-| 0001 | API token rotation | Periodic / suspected leak |
-| 0002 | Supabase backup + restore | Done in T0.A10, refined here |
-| 0003 | Supabase outage / connection failure | Circuit breaker open in logs |
-| 0004 | Runtime container OOM / crash | Container restart loop |
-| 0005 | Anthropic API down | `helm.agent.prime` errors spike |
-| 0006 | Ollama model missing or refused | `model_router` errors |
-| 0007 | Frontend cannot connect | `DISCONNECTED` indicator persistent |
-| 0008 | Cost cap exceeded | `cost.cap_exceeded` log event |
-| 0009 | Outbox dead-letter accumulating | `/health` reports non-zero dead letter |
-| 0010 | Schema migration failure | `supabase db push` fails |
+| #    | Title                                | Trigger                                |
+| ---- | ------------------------------------ | -------------------------------------- |
+| 0001 | API token rotation                   | Periodic / suspected leak              |
+| 0002 | Supabase backup + restore            | Done in T0.A10, refined here           |
+| 0003 | Supabase outage / connection failure | Circuit breaker open in logs           |
+| 0004 | Runtime container OOM / crash        | Container restart loop                 |
+| 0005 | Anthropic API down                   | `helm.agent.prime` errors spike        |
+| 0006 | Ollama model missing or refused      | `model_router` errors                  |
+| 0007 | Frontend cannot connect              | `DISCONNECTED` indicator persistent    |
+| 0008 | Cost cap exceeded                    | `cost.cap_exceeded` log event          |
+| 0009 | Outbox dead-letter accumulating      | `/health` reports non-zero dead letter |
+| 0010 | Schema migration failure             | `supabase db push` fails               |
 
 **Format (each runbook):**
+
 - Symptom (what the user / operator sees)
 - Quick check (one-line command or query that confirms it's this issue)
 - Diagnosis steps
@@ -1918,6 +2146,7 @@ async def invoke_agent(...): ...
 **What:** UI may disconnect from `/events`. On reconnect, SSE specifies `Last-Event-ID` header — server replays missed events.
 
 **Implementation:**
+
 - Server-side: ring buffer per client session (in-memory, last 100 events). Each event has incrementing `id` field.
 - Client sends `Last-Event-ID: <id>` on reconnect; server replays events with `id > last_event_id` from buffer.
 - If buffer doesn't have it (overflowed), server sends a `replay_unavailable` event and the client knows to refresh state from Supabase.
@@ -1951,6 +2180,7 @@ T4.11 implements Path B.
 **Purpose:** Implements Path B from ADR-003. Deploys `main` to a stable, always-on URL so Maxwell can talk to dev Helm from any device, and so T2/T3 (scheduled, ambient) work later has a 24/7 host already in place. This is **where dev Helm lives** between merges.
 
 **Stack (all-free):**
+
 - **UI:** Vercel — connect `helm-ui/` directory of the repo to Maxwell's existing Vercel account, auto-deploys on push to `main`. Stable URL: `helm.vercel.app` (or chosen subdomain).
 - **Runtime:** Render free tier — `services/helm-runtime/Dockerfile` deployed from `main`, exposed at `helm-dev.onrender.com`. Free tier budget: 750 instance hours/month (24/7 = 720 hrs — fits, with ~30 hrs headroom).
 - **Database:** Supabase free tier (existing project `zlcvrfmbtpxlhsqosdqf`). Dev runtime uses normal `project="hammerfall-solutions"` partition.
@@ -1964,7 +2194,7 @@ T4.11 implements Path B.
 name: Dev Warmup
 on:
   schedule:
-    - cron: '*/10 * * * *'   # every 10 minutes
+    - cron: '*/10 * * * *' # every 10 minutes
   workflow_dispatch:
 
 jobs:
@@ -1990,7 +2220,7 @@ services:
     plan: free
     envVars:
       - key: ANTHROPIC_API_KEY
-        sync: false   # set in dashboard — funds the anthropic-api fallback in provider chain
+        sync: false # set in dashboard — funds the anthropic-api fallback in provider chain
       - key: SUPABASE_BRAIN_URL
         value: https://zlcvrfmbtpxlhsqosdqf.supabase.co
       - key: SUPABASE_BRAIN_SERVICE_KEY
@@ -1998,9 +2228,9 @@ services:
       - key: HELM_API_TOKEN
         sync: false
       - key: TS_AUTHKEY
-        sync: false   # Tailscale auth key — joins tailnet for Thor reachability
+        sync: false # Tailscale auth key — joins tailnet for Thor reachability
       - key: HELM_DAILY_COST_CAP_USD
-        value: "5"    # User-overridable per ADR-010 + T0.A11
+        value: '5' # User-overridable per ADR-010 + T0.A11
 ```
 
 **Tailscale integration (per ADR-010 `local` provider on Thor):**
@@ -2043,7 +2273,7 @@ The `--ephemeral` flag means the device unregisters when the container dies — 
 # Render's config.yaml — Prime tries Thor first, falls back to paid API
 agents:
   prime:
-    providers: [local, anthropic-api]   # claude-sdk skipped — no creds in container
+    providers: [local, anthropic-api] # claude-sdk skipped — no creds in container
     local:
       endpoint: http://thor:11434
       model: llama3.1:70b
@@ -2054,6 +2284,7 @@ agents:
 When Thor is on: free, Llama. When Thor is off: paid, Opus, dollar cap engaged. See ADR-010 for full chain semantics.
 
 **Decision points** (handled in T4.11 PR):
+
 - Vercel project setup (one-time dashboard config; documented in runbook 0017).
 - Render account creation + GitHub repo connection.
 - Render service plan (free) — confirm 750-hr budget math against T2/T3 future cron load.
@@ -2062,6 +2293,7 @@ When Thor is on: free, Llama. When Thor is off: paid, Opus, dollar cap engaged. 
 - **Provider chain ordering for Render Prime** — `[local, anthropic-api]` recommended (free first, paid fallback). Alternative: `[anthropic-api]` only if Thor is unreliable.
 
 **Out of scope (Stage 2):**
+
 - Custom domain + Let's Encrypt (Path C, runbook 0011).
 - Render paid plan ($7/mo) if 750-hr budget is exceeded by T2/T3 cron volume.
 - Multi-region deployment.
@@ -2071,11 +2303,61 @@ When Thor is on: free, Llama. When Thor is off: paid, Opus, dollar cap engaged. 
 
 ---
 
+### T4.12 — Demo Sandbox (V2.1, ARCH)
+
+**Purpose:** Maxwell wants to share Helm with friends and family — a link + password they can click and play with _a_ Helm without polluting _his_ Helm. Demo Helm has the same cognitive identity (same prompts, same architecture, same provider chain code) but a fully isolated brain. Visitors can mold and accumulate state in the demo brain; Maxwell can wipe + reseed via an admin button reachable from any of his surfaces.
+
+This task implements the productization-path validation: the same code that runs Maxwell's personal Helm runs _anyone's_ Helm with different infrastructure plugged in. Demo sandbox is the proof-of-concept tier.
+
+**Architecture:**
+
+| Element                            | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Brain**                          | Separate free-tier Supabase project `hammerfall-brain-demo` (distinct project ref + URL + service key from `zlcvrfmbtpxlhsqosdqf`). Two free projects allowed per Supabase account; this fits. True isolation — no RLS-leakage risk possible.                                                                                                                                                                                                                                                                    |
+| **Runtime**                        | Separate Render service `helm-demo.onrender.com`, scale-to-zero plan (cold-start ~30s tolerated for first visitor of the day). Same Docker image as production runtime; only env vars differ. Independent deploy/restart cycle from production.                                                                                                                                                                                                                                                                  |
+| **UI**                             | Same Vercel project, distinct deployment URL (e.g., `helm-demo.vercel.app`). Vercel native password protection enabled at the project level — visitors enter password before reaching the UI.                                                                                                                                                                                                                                                                                                                    |
+| **Cognitive identity**             | **Identical** to production — same `helm_prompt.md`, same Prime Directives, same Identity Baseline, same 4-subsystem cognitive architecture, same provider chain code. Only the _brain data_ differs. Demo Helm reads its seeded personality + beliefs at session start; visitors meet a Helm with character, not a blank slate.                                                                                                                                                                                 |
+| **Provider chain**                 | Demo runtime config: `providers: [anthropic-api]` only. No Tailscale, no Pro Max — visitors hit the API path. Separate dollar-cap from production (`HELM_DAILY_COST_CAP_USD` env, set per-runtime).                                                                                                                                                                                                                                                                                                              |
+| **Brain seed**                     | `supabase/demo_seed.sql` committed to the repo. Curated test data: illustrative personality scores, ~6-8 example beliefs that read as "things Helm has learned," 3-4 example entities (a fake user persona, "Hammerfall Solutions", "Helm" itself), a handful of example frames showing what a session looks like, one example monologue. Seed is canonical — re-applied on every demo brain reset.                                                                                                              |
+| **Visitor sessions**               | Per-device session_id (same UI lifecycle as production, T1.7 §Session Management). Each visitor gets their own session thread; all sessions accumulate writes into the shared demo brain. The demo Helm grows with visitor interaction until purged.                                                                                                                                                                                                                                                             |
+| **Admin purge**                    | New endpoint `POST /admin/demo/purge` on the demo runtime. Wipes all writes since seed (DELETE from helm_memory, helm_frames, helm_curiosities, etc. WHERE created_at > seed_apply_timestamp). Re-applies `demo_seed.sql`. Audit log entry written to a separate `helm_admin_audit` table (timestamp, admin_token_hash, what was wiped).                                                                                                                                                                         |
+| **Optional second admin endpoint** | `POST /admin/demo/wipe-empty` — wipes ALL data including the seed. Demo Helm becomes a blank-slate Helm (useful if Maxwell wants to demo "watch Helm form beliefs from scratch").                                                                                                                                                                                                                                                                                                                                |
+| **Admin auth**                     | New env var `HELM_ADMIN_TOKEN` (set in Render env on demo runtime only — production runtime does NOT have admin endpoints exposed). UI prompts for the token on first admin action; caches in surface localStorage on success; sends as `X-Helm-Admin-Token` header. Server validates against env var. **Cross-surface by construction** — token source of truth is server-side env, surfaces are dumb portals. Maxwell types it once per device (phone, watch, desktop, laptop, browser on a friend's machine). |
+
+**Why separate runtime, not single runtime + flag:** considered and rejected. Single runtime + `?demo=true` flag means demo logic is gated by a flag — if the flag handler has a bug, visitor writes land in production brain. Hard isolation removes the failure mode entirely. Cost: 2× Render free-tier hours wanted (1440 vs 750 cap), mitigated by demo running on scale-to-zero (only consumes hours when visitors actually visit). Headroom analysis: at <200 hrs/month visitor traffic (an aggressive estimate for friends-and-family scope), production (720 hrs) + demo (~200 hrs) = 920 hrs, exceeds 750. If we hit the cap, $7/mo Render paid plan lifts it — acceptable tradeoff for hard isolation.
+
+**Why separate Supabase project, not project-column partitioning:** considered and rejected. Project-column partitioning (the T4.6 PR-preview pattern) is fine when the data is throwaway and short-lived. Demo brain accumulates state across visitors and survives between purges — it's a long-lived second brain, not an ephemeral partition. Separate Supabase project is the right granularity. Free tier supports it. Backup discipline (T0.A10 runbook) extends to cover both projects.
+
+**Why same cognitive identity:** the whole point is "this is _a_ Helm" — same character, same Prime Directives, same architecture. Visitor experience is "I'm meeting Helm, just not Maxwell's Helm." If we split the cognitive identity, the demo becomes a _different product_. We're not building a different product; we're building a second brain for the same Helm.
+
+**Implementation deliverables (T4.12 PR):**
+
+1. New Supabase project `hammerfall-brain-demo` provisioned. Service key + URL captured for Render env.
+2. `supabase/demo_seed.sql` — curated seed committed to repo. Idempotent (safe to re-apply). Includes illustrative personality, beliefs, entities, frames, monologue.
+3. New Render service `helm-demo.onrender.com` configured via `render.yaml` extension. Same Docker image as production. Env vars: `SUPABASE_BRAIN_URL` + `SUPABASE_BRAIN_SERVICE_KEY` pointing at demo project; `HELM_API_TOKEN` distinct from production; `HELM_ADMIN_TOKEN` set; `ANTHROPIC_API_KEY` shared with production (one billing account); `HELM_DAILY_COST_CAP_USD` set conservatively (default $2/day for demo).
+4. New runtime endpoints: `POST /admin/demo/purge` and `POST /admin/demo/wipe-empty`. Auth via `X-Helm-Admin-Token` header. Production runtime has the endpoint code present but **disabled** (returns 404) when `HELM_ADMIN_TOKEN` env is unset — defense in depth.
+5. New `helm_admin_audit` table on demo brain. Schema: id, timestamp, admin_token_hash (sha256, never store plaintext), action ('purge' | 'wipe-empty'), rows_deleted_summary (jsonb).
+6. UI admin button — lives in Agent Status widget header on Maxwell's surfaces (any). Button visibility logic: shown when the surface has previously authenticated as admin (localStorage flag) OR when the user clicks an "I am Maxwell" link (which prompts for the admin token). On click: confirmation modal → POST → refresh widgets to reflect new state.
+7. New runbook 0020 — "Demo sandbox: purge procedure, admin token rotation, troubleshooting visitor-session failures, cost monitoring."
+8. Vercel password gate enabled in Vercel dashboard for the `helm-demo` deployment. Password chosen by Maxwell, communicated to friends/family out-of-band.
+9. Hello-world #3 (V2.1 add) — first real conversation with demo Helm from a non-Maxwell device (ideally a friend). Captured in T4.5 SITREP alongside hello-worlds #1 and #2.
+
+**ARCH gate.** Adds: second Supabase project, second Render service, admin auth boundary, audit table. Maxwell sign-off needed on: visitor accumulation policy (current spec: accumulate; alternative: per-visitor partition within demo brain), admin token rotation cadence, optional `wipe-empty` button inclusion.
+
+**Not in scope (logged as future enhancements in `Post_T1_Findings.md`):**
+
+- Helm-themed custom Vercel auth page (currently uses Vercel native password UI) — future Finding #008.
+- Per-visitor partition within demo brain (currently shared accumulation) — possible future enhancement if demo brain becomes too cluttered to be representative.
+- Demo-mode badge in UI ("You're talking to Demo Helm") — minor UX polish, can ship later.
+
+---
+
 ### T4.6 — Preview Environments per PR (ARCH)
 
 **Purpose:** Helm changes are hard to evaluate from a diff. T4.6 spins up a per-PR runtime + UI so Maxwell can talk to the changed Helm before merging. This is the highest-leverage CI/CD investment for a behavior-driven product. Reuses the stack from T4.11 (Vercel + Render + Supabase) with ephemeral instances per PR.
 
 **Stack (all-free, reuses T4.11):**
+
 - **UI:** Vercel native PR previews — zero workflow code. Vercel auto-creates a preview URL for every PR when the repo is connected (already done in T4.11). URL pattern: `helm-ui-git-<branch>-<account>.vercel.app`. Auto-destroyed on PR close.
 - **Runtime:** Render per-PR services — created via Render API on PR open, destroyed on PR close. URL pattern: `helm-pr-<num>.onrender.com`. Each is its own free-tier instance; cold start applies but acceptable for review use.
 - **Database:** Supabase **project-column partitioning** on the existing free-tier project — no Supabase branching ($25/mo Pro required), no separate DB. The runtime's `project` column is set to `hammerfall-pr-<num>` for the preview env. `helm_memory`, `helm_frames`, `helm_messages` rows for that PR are isolated by query filter. Cleanup: `DELETE FROM helm_memory WHERE project = 'hammerfall-pr-<num>'` on PR close.
@@ -2158,7 +2440,7 @@ jobs:
 name: Scheduled Health Check
 on:
   schedule:
-    - cron: '*/15 * * * *'   # every 15 minutes
+    - cron: '*/15 * * * *' # every 15 minutes
   workflow_dispatch:
 
 jobs:
@@ -2189,6 +2471,7 @@ jobs:
 ```
 
 **Probe definition:**
+
 - `/health` must return 200 with `{status: "healthy"}` and all 4 agents reporting healthy
 - Canary `/invoke` must return 200 with parseable JSON in `<30s`
 - Three consecutive failures escalate (issue gets a `urgent` label) — single failures may just be transient network
@@ -2208,15 +2491,16 @@ without thresholds. These are the "feels ambient vs. feels like a chatbot"
 SLOs Helm must hit at T1 close. Each is enforced by `compare.py` — falling
 short fails CI:
 
-| Metric | Target | Rationale |
-|---|---|---|
-| p95 time-to-first-token (laptop SDK, Routine 0 cached) | < 1.5s | First visible token ≤ ~human-conversational latency |
-| p95 memory write end-to-end (`memory.write` → Supabase confirmed) | < 500ms | Matters because outbox queueing on slow writes piles up |
-| Cold-start recovery (Render container, post-warmup-cron resume) | < 5s to first token | T4.11 warmup mitigates the 30s Render cold start; this is the residual |
-| Brain-read freshness (last write → next session-start read sees it) | < 1s under normal conditions | Required for cross-session continuity in T3.5's "Helm cares" test |
-| p95 full-turn latency (request → final response, no streaming) | < 4s | Upper bound on "feels alive" |
+| Metric                                                              | Target                       | Rationale                                                              |
+| ------------------------------------------------------------------- | ---------------------------- | ---------------------------------------------------------------------- |
+| p95 time-to-first-token (laptop SDK, Routine 0 cached)              | < 1.5s                       | First visible token ≤ ~human-conversational latency                    |
+| p95 memory write end-to-end (`memory.write` → Supabase confirmed)   | < 500ms                      | Matters because outbox queueing on slow writes piles up                |
+| Cold-start recovery (Render container, post-warmup-cron resume)     | < 5s to first token          | T4.11 warmup mitigates the 30s Render cold start; this is the residual |
+| Brain-read freshness (last write → next session-start read sees it) | < 1s under normal conditions | Required for cross-session continuity in T3.5's "Helm cares" test      |
+| p95 full-turn latency (request → final response, no streaming)      | < 4s                         | Upper bound on "feels alive"                                           |
 
 **Provider-conditional notes:**
+
 - `claude-sdk` (Pro Max) sets the laptop baseline.
 - `local` (Ollama on Thor via Tailscale) is allowed up to 1.5× the
   `claude-sdk` baseline before failing — local models are slower, that's
@@ -2224,11 +2508,12 @@ short fails CI:
 - `anthropic-api` should be roughly equivalent to `claude-sdk` since the
   upstream is the same model — divergence > 25% indicates a config issue.
 
-**When a target is missed:** PR description must declare *intentional*
+**When a target is missed:** PR description must declare _intentional_
 (e.g., "moved Helm Prime to a larger model — accept the latency hit") with
 Maxwell sign-off, OR fix it before merge. No silent regressions.
 
 **`services/helm-runtime/tests/bench/`** holds:
+
 - `inputs.yaml` — 20 canned messages (5 each of: short chat, deep contemplator pass, directive emission, memory query)
 - `bench.py` — runs each input N times, captures latency, writes results to `bench-results-<sha>.json`
 - `compare.py` — diffs current run against baseline; fails if p95 regressed >20% on any input class
@@ -2335,6 +2620,7 @@ jobs:
 ### T4.10 — Release Automation
 
 **Purpose:** When T1 closes (T4.5) and beyond, Helm should have versioned releases. Today there's no concept of "Helm v0.1.0" — every commit is the latest. Releases give:
+
 - A reference point ("the bug appeared in v0.3.2, last worked in v0.3.1")
 - A trigger for downstream consumers (notifications, image tags)
 - An archival changelog future-Maxwell can read
@@ -2362,12 +2648,14 @@ jobs:
 ```
 
 **Behavior:**
+
 - After every merge to `main`, release-please opens or updates a `release-please--branches--main` PR
 - That PR's body contains the auto-generated changelog (grouped by Conventional Commit type)
 - Merging that PR creates a git tag (`v0.X.Y`) and a GitHub release
 - T0.A12's container build workflow tags the resulting image with the version
 
 **Versioning policy:**
+
 - T1 lands as `v0.1.0`
 - Patch bumps: `fix` commits
 - Minor bumps: `feat` commits
@@ -2380,6 +2668,7 @@ jobs:
 ### T4.5 — Operational SITREP — T1 Close
 
 **What:** Write `docs/stage1/SITREPs/t1-close-report.md`. Documents:
+
 - Tasks completed (V2 task list with statuses)
 - Architecture as-built (cross-link to ADRs)
 - Known limitations carried forward to Stage 2
@@ -2405,7 +2694,7 @@ jobs:
     `anthropic-api` at metered cost). Capture: date, exchange, which
     provider served the turn, smart-routing banner state (if any), parity
     of behavior vs. laptop run.
-    **Success criteria:** *parity*, not full re-run. Confirm Helm references
+    **Success criteria:** _parity_, not full re-run. Confirm Helm references
     something from the laptop hello-world (proving the shared brain works
     across surfaces) and that latency under provider chain stays within the
     T4.8 SLOs. If parity holds and SLOs are met, the surface ships. If not,
@@ -2426,16 +2715,16 @@ whatever findings accumulated during T1 execution; Stage 2 planning follows.
 
 ## T0 Impact on Downstream Phases (Same as v1)
 
-| Original Task | Impact from T0 |
-|---|---|
-| T2.1 (Prompt storage) | **Absorbed into T0.B5.** |
-| T2.2 (Async handoff) | **Simplified.** Outbox provides durability. |
-| T2.3 (SSE endpoint) | **Cleaner integration.** Emit hooks via observability layer. |
-| T2.5 (Belief slugs) | **One slug utility** in `memory/models.py`, used by backfill + runtime. |
-| T2.6 (Belief history) | **Single `memory.write_belief_update()` call.** |
-| T2.7 (Signals) | **Dual-write hook in memory module** with transaction safety per V2 §T2.6. |
-| T3.3 (Supabase integration) | **No change.** UI reads via anon key. |
-| T3.4 (Runtime integration) | **Auth + correlation IDs added.** |
+| Original Task               | Impact from T0                                                             |
+| --------------------------- | -------------------------------------------------------------------------- |
+| T2.1 (Prompt storage)       | **Absorbed into T0.B5.**                                                   |
+| T2.2 (Async handoff)        | **Simplified.** Outbox provides durability.                                |
+| T2.3 (SSE endpoint)         | **Cleaner integration.** Emit hooks via observability layer.               |
+| T2.5 (Belief slugs)         | **One slug utility** in `memory/models.py`, used by backfill + runtime.    |
+| T2.6 (Belief history)       | **Single `memory.write_belief_update()` call.**                            |
+| T2.7 (Signals)              | **Dual-write hook in memory module** with transaction safety per V2 §T2.6. |
+| T3.3 (Supabase integration) | **No change.** UI reads via anon key.                                      |
+| T3.4 (Runtime integration)  | **Auth + correlation IDs added.**                                          |
 
 ---
 
@@ -2493,37 +2782,42 @@ T1.1, T1.2, T1.3, T1.4, T1.5a, T1.5b, T1.6 ─► T1.7 (HARD GATE)
 
 ## Risk Register
 
-| Risk | Phase | Mitigation |
-|---|---|---|
-| Provider chain abstraction (ADR-010) more complex than LiteLLM-only would have been | T2.3 | Three-backend modularity (claude-sdk / local / anthropic-api) is required for T3 + future-user customization. The complexity is load-bearing. Test coverage in T2.9 simulation harness validates fallback semantics. |
-| Claude Agent SDK auth detection brittle on laptop runtime | T2.3 | Provider probe at boot detects `~/.claude/credentials.json` presence + validity. If broken, chain falls through to next provider. Documented behavior, not silent. |
-| Tailscale auth key expiry causes Render → Thor outage | T4.11 | Auth keys default to 90 days. Runbook 0018 documents rotation procedure + GitHub Actions reminder issue 14 days before expiry. |
-| Thor unavailable when Render Helm is needed (Thor off / network drop) | T4.11 | Provider chain auto-falls to `anthropic-api`. User pays per turn instead of $0. Dollar cap protects against runaway spend. Acceptable trade-off. |
-| Pro Max weekly budget tracker estimate diverges from Anthropic's actual throttle | T0.A11 | Tracker is conservative (warns at 70%, blocks at 95%). Calibrated by observation over first few weeks of use. Tunable via `HELM_PROMAX_WEEKLY_BUDGET`. |
-| Smart-routing failover during streaming SSE response loses partial response | T1.5b | Document in T1.7: failover during active stream aborts the stream + shows banner. User retries; new request goes to fallback runtime. No silent partial responses. |
-| TypeScript conversion (if ADR-001 Path A) blows up T1.5b scope | T1.5b | Bundle is the right call; if scope explodes, split TS conversion into its own PR before T1.5b |
-| SQLite outbox doesn't handle high write rate | T0.B2 | At T1 scale (single user, single agent set), well within SQLite's envelope. Stage 2 considers Postgres-backed if needed. |
-| Supabase Realtime drops connection mid-Phase-3 validation | T3.5 | T4.3 (session resumption) is in Phase 4 *after* T3.5. If Realtime drops repeatedly during T3.5, advance T4.3 ahead of T3.5. |
-| Anthropic prompt cache TTL (5 min) doesn't help one-off turns | T2.3 | Acceptable. T2 scheduled work + T3 ambient work will keep sessions warm. |
-| Dollar cap of $5/day is too low for normal use | T0.A11 | Configurable via `HELM_DAILY_COST_CAP_USD`; user-overridable per ADR-010. Set to 0 to disable. Initial cap is paranoia, not policy. |
-| Rate alarm thresholds too tight, blocks legitimate bursty Helm sessions | T0.A11 | All thresholds env-overridable. Tune after first week of observation. Defaults erring on the side of catching bugs early. |
-| Backup runbook drill reveals Supabase tier doesn't allow `pg_dump` | T0.A10 | Use Supabase Dashboard backup feature instead; document the alternate path in the runbook |
-| `pre-commit install` doesn't run in Windows / WSL transition | T0.A2 | Document in `AGENTS.md`; CI catches what hooks miss |
-| ADR-001 Path A discovers helm-ui is too JSX-coupled to convert cleanly | T0.A5 | ADR captures the discovery; flip to Path B; T1.5b reverts to JSX scope |
-| Memory module 80% coverage target too aggressive for T0.B1 | T0.B1 | Coverage is a target, not a gate. PR can ship at lower coverage with explicit deferred-coverage list. |
-| GHCR container size grows beyond free tier | T0.A12 | Multi-stage Dockerfile already trims; if hit, prune old image tags via scheduled workflow |
-| Gitleaks false positives on Supabase anon key | T0.A13 | `.gitleaks.toml` allowlist with comment-rationale |
-| Dependabot opens too many PRs | T0.A14 | Grouping config + open-pull-requests-limit:5; disable if it becomes noise |
-| Render account / Vercel project setup blocks T4.11 | T4.11 | T4.11 PR description identifies blockers; Vercel account already exists (Maxwell). Render signup is free + fast. |
-| Render free-tier 750-hr/month cap exceeded by T4.11 + T4.6 + T2/T3 cron load | T4.11, T4.6 | T4.11 budgets 720 hrs persistent; T4.6 adds ~60 hrs/month at 1–2 open PRs. Headroom is thin. Mitigation: scale-to-zero on preview envs, monitor monthly via Render dashboard. Upgrade to $7/mo paid plan if cap hit. |
-| Render cold-start (~30s after 15min idle) frustrates Maxwell when checking from phone | T4.11 | Warmup cron every 10 min keeps the instance hot during waking hours. Cold start still possible after long idle (overnight); acceptable trade-off vs $7/mo paid. |
-| Supabase project-column partition data orphaned if PR closes without teardown workflow run | T4.6 | Cleanup workflow runs on PR close event; if it fails, scheduled monthly sweep deletes any `project LIKE 'hammerfall-pr-%'` rows older than 30 days. Documented in runbook. |
-| Per-PR partition policy ambiguous for identity tables (helm_personality, helm_beliefs) | T4.6 | T4.6 PR enumerates per-table policy with rationale. Default: shared identity, partitioned conversation. |
-| Vercel project setup tied to Maxwell's account creates bus factor | T4.11 | Documented in runbook: how to re-create Vercel project + reconnect repo if account access lost. Acceptable for solo-dev T1. |
-| Bench results too noisy on shared-runner CI | T4.8 | Run N=20 per input, use median; or self-hosted runner if noise persists |
-| MkDocs build fails on emoji or wide table in markdown | T4.9 | Standard MD-to-HTML; rare. PR catches at first build. |
-| release-please opens unmerged release PRs that pile up | T4.10 | Documented in runbook 0012 (added in T4.10): "merge release PRs at end of work cycle" |
-| Agent simulation harness becomes brittle to prompt edits | T2.9 | Scenarios assert behavior shape, not exact text. Prompt edit that doesn't change shape passes. |
+| Risk                                                                                                                                                    | Phase       | Mitigation                                                                                                                                                                                                                 |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Provider chain abstraction (ADR-010) more complex than LiteLLM-only would have been                                                                     | T2.3        | Three-backend modularity (claude-sdk / local / anthropic-api) is required for T3 + future-user customization. The complexity is load-bearing. Test coverage in T2.9 simulation harness validates fallback semantics.       |
+| Claude Agent SDK auth detection brittle on laptop runtime                                                                                               | T2.3        | Provider probe at boot detects `~/.claude/credentials.json` presence + validity. If broken, chain falls through to next provider. Documented behavior, not silent.                                                         |
+| Tailscale auth key expiry causes Render → Thor outage                                                                                                   | T4.11       | Auth keys default to 90 days. Runbook 0018 documents rotation procedure + GitHub Actions reminder issue 14 days before expiry.                                                                                             |
+| Thor unavailable when Render Helm is needed (Thor off / network drop)                                                                                   | T4.11       | Provider chain auto-falls to `anthropic-api`. User pays per turn instead of $0. Dollar cap protects against runaway spend. Acceptable trade-off.                                                                           |
+| Pro Max weekly budget tracker estimate diverges from Anthropic's actual throttle                                                                        | T0.A11      | Tracker is conservative (warns at 70%, blocks at 95%). Calibrated by observation over first few weeks of use. Tunable via `HELM_PROMAX_WEEKLY_BUDGET`.                                                                     |
+| Smart-routing failover during streaming SSE response loses partial response                                                                             | T1.5b       | Document in T1.7: failover during active stream aborts the stream + shows banner. User retries; new request goes to fallback runtime. No silent partial responses.                                                         |
+| TypeScript conversion (if ADR-001 Path A) blows up T1.5b scope                                                                                          | T1.5b       | Bundle is the right call; if scope explodes, split TS conversion into its own PR before T1.5b                                                                                                                              |
+| SQLite outbox doesn't handle high write rate                                                                                                            | T0.B2       | At T1 scale (single user, single agent set), well within SQLite's envelope. Stage 2 considers Postgres-backed if needed.                                                                                                   |
+| Supabase Realtime drops connection mid-Phase-3 validation                                                                                               | T3.5        | T4.3 (session resumption) is in Phase 4 _after_ T3.5. If Realtime drops repeatedly during T3.5, advance T4.3 ahead of T3.5.                                                                                                |
+| Anthropic prompt cache TTL (5 min) doesn't help one-off turns                                                                                           | T2.3        | Acceptable. T2 scheduled work + T3 ambient work will keep sessions warm.                                                                                                                                                   |
+| Dollar cap of $5/day is too low for normal use                                                                                                          | T0.A11      | Configurable via `HELM_DAILY_COST_CAP_USD`; user-overridable per ADR-010. Set to 0 to disable. Initial cap is paranoia, not policy.                                                                                        |
+| Rate alarm thresholds too tight, blocks legitimate bursty Helm sessions                                                                                 | T0.A11      | All thresholds env-overridable. Tune after first week of observation. Defaults erring on the side of catching bugs early.                                                                                                  |
+| Backup runbook drill reveals Supabase tier doesn't allow `pg_dump`                                                                                      | T0.A10      | Use Supabase Dashboard backup feature instead; document the alternate path in the runbook                                                                                                                                  |
+| `pre-commit install` doesn't run in Windows / WSL transition                                                                                            | T0.A2       | Document in `AGENTS.md`; CI catches what hooks miss                                                                                                                                                                        |
+| ADR-001 Path A discovers helm-ui is too JSX-coupled to convert cleanly                                                                                  | T0.A5       | ADR captures the discovery; flip to Path B; T1.5b reverts to JSX scope                                                                                                                                                     |
+| Memory module 80% coverage target too aggressive for T0.B1                                                                                              | T0.B1       | Coverage is a target, not a gate. PR can ship at lower coverage with explicit deferred-coverage list.                                                                                                                      |
+| GHCR container size grows beyond free tier                                                                                                              | T0.A12      | Multi-stage Dockerfile already trims; if hit, prune old image tags via scheduled workflow                                                                                                                                  |
+| Gitleaks false positives on Supabase anon key                                                                                                           | T0.A13      | `.gitleaks.toml` allowlist with comment-rationale                                                                                                                                                                          |
+| Dependabot opens too many PRs                                                                                                                           | T0.A14      | Grouping config + open-pull-requests-limit:5; disable if it becomes noise                                                                                                                                                  |
+| Render account / Vercel project setup blocks T4.11                                                                                                      | T4.11       | T4.11 PR description identifies blockers; Vercel account already exists (Maxwell). Render signup is free + fast.                                                                                                           |
+| Render free-tier 750-hr/month cap exceeded by T4.11 + T4.6 + T2/T3 cron load                                                                            | T4.11, T4.6 | T4.11 budgets 720 hrs persistent; T4.6 adds ~60 hrs/month at 1–2 open PRs. Headroom is thin. Mitigation: scale-to-zero on preview envs, monitor monthly via Render dashboard. Upgrade to $7/mo paid plan if cap hit.       |
+| Render cold-start (~30s after 15min idle) frustrates Maxwell when checking from phone                                                                   | T4.11       | Warmup cron every 10 min keeps the instance hot during waking hours. Cold start still possible after long idle (overnight); acceptable trade-off vs $7/mo paid.                                                            |
+| Supabase project-column partition data orphaned if PR closes without teardown workflow run                                                              | T4.6        | Cleanup workflow runs on PR close event; if it fails, scheduled monthly sweep deletes any `project LIKE 'hammerfall-pr-%'` rows older than 30 days. Documented in runbook.                                                 |
+| Per-PR partition policy ambiguous for identity tables (helm_personality, helm_beliefs)                                                                  | T4.6        | T4.6 PR enumerates per-table policy with rationale. Default: shared identity, partitioned conversation.                                                                                                                    |
+| **(V2.1)** Demo runtime cold-start (~30s) frustrates first-of-day visitor                                                                               | T4.12       | Acceptable trade-off vs $7/mo Render paid plan. If visitor traffic justifies, upgrade. Documented in runbook 0020.                                                                                                         |
+| **(V2.1)** `HELM_ADMIN_TOKEN` accidentally cached on a friend's surface they used briefly                                                               | T4.12       | UI clears admin token on logout. Friend sessions never see admin button (admin localStorage flag set explicitly by token entry, not auto-derived). Rotation runbook documents response if Maxwell suspects token exposure. |
+| **(V2.1)** Demo brain accumulates noise faster than Maxwell purges → visitors meet a Helm full of fictional sessions                                    | T4.12       | Admin purge button is one click from any surface. Establish a cadence (weekly purge?) in runbook 0020 once visitor traffic is observed. Optional `wipe-empty` for "fresh canvas" demos.                                    |
+| **(V2.1)** Production + demo runtimes consume more than 750 free Render hours/month combined                                                            | T4.12       | Demo on scale-to-zero, production warmup-cron-kept-hot. Headroom math is thin (~920 hrs at aggressive demo traffic vs 750 cap). Mitigation: monitor monthly via Render dashboard, $7/mo upgrade if hit.                    |
+| **(V2.1)** Strip-surface-assumptions test (`test_helm_prompt_surface_agnostic.py`) too brittle — false positives on legitimate uses of forbidden tokens | T0.B6       | Allowlist syntax in the test (e.g., a comment `<!-- prompt-test-allow: bash -->` permits a documented exception). Reviewed at PR time.                                                                                     |
+| Vercel project setup tied to Maxwell's account creates bus factor                                                                                       | T4.11       | Documented in runbook: how to re-create Vercel project + reconnect repo if account access lost. Acceptable for solo-dev T1.                                                                                                |
+| Bench results too noisy on shared-runner CI                                                                                                             | T4.8        | Run N=20 per input, use median; or self-hosted runner if noise persists                                                                                                                                                    |
+| MkDocs build fails on emoji or wide table in markdown                                                                                                   | T4.9        | Standard MD-to-HTML; rare. PR catches at first build.                                                                                                                                                                      |
+| release-please opens unmerged release PRs that pile up                                                                                                  | T4.10       | Documented in runbook 0012 (added in T4.10): "merge release PRs at end of work cycle"                                                                                                                                      |
+| Agent simulation harness becomes brittle to prompt edits                                                                                                | T2.9        | Scenarios assert behavior shape, not exact text. Prompt edit that doesn't change shape passes.                                                                                                                             |
 
 ---
 
@@ -2549,6 +2843,31 @@ These were considered and explicitly deferred:
 - **Auto-merge of Dependabot PRs** — T0.A14 ships the config; auto-merge is opt-in per Maxwell's preference. Default is manual review.
 - **Self-hosted CI runners** — GitHub-hosted runners at T1. Self-hosted considered in Stage 2 if Render / Vercel egress costs make CI flow expensive.
 - **Per-PR cost reports** — T0.A15 is weekly aggregate. Per-PR cost projection is Stage 2.
+
+---
+
+## Appendix E — Deferred to Stage 1.5 (V2.1)
+
+Items considered for T1 inclusion during the V2.1 amendment review, deferred to the **Stage 1.5 bridge cycle** (post-T1, pre-Stage-2 — same window as Finding #002). These are explicitly _not lost_; they're indexed here so they can be re-evaluated at T4.5.
+
+| Item                                                                                                                                                                | Why deferrable                                                                                                                                |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Helm-themed custom Vercel auth page                                                                                                                                 | Vercel native password protection works at deploy time; custom UI is polish, not goal-blocking. Logged as `Post_T1_Findings.md` Finding #008. |
+| Glass morphism look-and-feel polish beyond T1.5a/b                                                                                                                  | Framework lands in T1; tweaks aren't gating. Full UI/UX pass after Helm wakes up and we're talking with him.                                  |
+| Tier 3 brain types (`helm_goals`, `helm_hypotheses`, `helm_anticipations`, `helm_surprises`, `helm_tensions`, `helm_watchlist`, `helm_affinities`, `helm_routines`) | Already on roadmap (`Helm_Brain_Object_Types.md` §Tier 3); T2/T3 ambient infrastructure dependency. Captured in Finding #002.                 |
+| Schema apply-and-verify CI (Finding #006)                                                                                                                           | Reversibility check is sufficient for T1; full apply-and-verify is hardening pass.                                                            |
+| APScheduler for T2 scheduled Contemplator cycles                                                                                                                    | T1 is on-demand only by design.                                                                                                               |
+| Multi-user OAuth, per-user RLS                                                                                                                                      | Stage 2 — single user at T1.                                                                                                                  |
+| Streaming `/invoke` (token-by-token)                                                                                                                                | Spec'd as Stage 2 in T1.7 §What This Spec Does NOT Cover.                                                                                     |
+| WebSocket alternative to SSE                                                                                                                                        | Same — Stage 2 if bidirectional needed.                                                                                                       |
+| Per-PR Supabase project-partition orphan sweep                                                                                                                      | Manual cleanup acceptable at T1 volume.                                                                                                       |
+| Sentry / error aggregation                                                                                                                                          | Structured logs cover T1 needs.                                                                                                               |
+| Self-hosted CI runners                                                                                                                                              | GitHub-hosted runners fine at T1 scale.                                                                                                       |
+| Manual frame push to Prime (from Frames widget Archive tab)                                                                                                         | Logged as `Post_T1_Findings.md` Finding #007. T1 ships read-only frame surfaces.                                                              |
+| Per-visitor partition within demo brain                                                                                                                             | Current T4.12 design accumulates; revisit if demo brain noise becomes representative-distorting.                                              |
+| `wipe-empty` admin button polish + demo-mode UI badge                                                                                                               | Minor demo-side UX; defer to Stage 1.5 pass.                                                                                                  |
+
+**Naming convention going forward:** historical Phase 0A items keep their `T0.A1`–`T0.A15` IDs (already shipped). New Stage-1 work uses `S1T0.B1`, `S1T1.7`, `S1T4.12`, etc. Stage 1.5 work uses `S1.5T*.*`. Stage 2+ uses `S2T*.*`. Confirmed 2026-04-26.
 
 ---
 
@@ -2603,19 +2922,20 @@ Anything noticed but not addressed; cross-link to follow-up issue or new task.
 
 ADRs created during V2 execution:
 
-| ID | Title | Created in | Status |
-|---|---|---|---|
-| ADR-001 | helm-ui type discipline (TS conversion vs JSDoc + ESLint strict) | T0.A5 | Pending |
-| ADR-002 | Migration reversibility policy | T0.A9 | Pending |
-| ADR-003 | T1 deployment target (localhost vs persistent dev free vs paid isolated) | T4.4 | Pending — V2 recommends Path B (Vercel + Render + Supabase project partition) |
-| ADR-004 | Anthropic vs LiteLLM for prompt caching pass-through | T2.3 | **Superseded by ADR-010** — provider chain abstraction subsumes the LiteLLM-vs-direct decision |
-| ADR-005 | GHCR public vs private image visibility | T0.A12 | Pending |
-| ADR-006 | Dependabot vs Renovate for dependency automation | T0.A14 | Pending — V2 picks Dependabot, ADR records the rejected option |
-| ADR-007 | PR preview stack (Vercel native previews + Render per-PR + Supabase project-column partitioning) | T4.6 | Pending — all-free stack, reuses T4.11 deployment dependencies |
-| ADR-008 | Versioning policy + release-please configuration | T4.10 | Pending |
-| ADR-009 | (placeholder for any architectural decision discovered during execution) | — | — |
-| ADR-010 | **Model Provider Abstraction** — three-backend chain (`claude-sdk` / `local` / `anthropic-api`) with per-agent config, ordered fallback, per-provider guardrail wiring | T2.3 | Pending — foundational. Supersedes ADR-004. Enables Pro Max via SDK on laptop + Thor via Tailscale on Render + paid API fallback. |
-| ADR-011 | **UI Smart Routing** — probe + auto-failover state machine for `LOCAL_URL` / `REMOTE_URL`, banner UX, per-session stickiness | T1.7 | Pending — locked in T1.7 spec, implemented in T1.5b. |
+| ID      | Title                                                                                                                                                                                                                                                              | Created in | Status                                                                                                                                                                                                                        |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ADR-001 | helm-ui type discipline (TS conversion vs JSDoc + ESLint strict)                                                                                                                                                                                                   | T0.A5      | Pending                                                                                                                                                                                                                       |
+| ADR-002 | Migration reversibility policy                                                                                                                                                                                                                                     | T0.A9      | Pending                                                                                                                                                                                                                       |
+| ADR-003 | T1 deployment target (localhost vs persistent dev free vs paid isolated)                                                                                                                                                                                           | T4.4       | Pending — V2 recommends Path B (Vercel + Render + Supabase project partition)                                                                                                                                                 |
+| ADR-004 | Anthropic vs LiteLLM for prompt caching pass-through                                                                                                                                                                                                               | T2.3       | **Superseded by ADR-010** — provider chain abstraction subsumes the LiteLLM-vs-direct decision                                                                                                                                |
+| ADR-005 | GHCR public vs private image visibility                                                                                                                                                                                                                            | T0.A12     | Pending                                                                                                                                                                                                                       |
+| ADR-006 | Dependabot vs Renovate for dependency automation                                                                                                                                                                                                                   | T0.A14     | Pending — V2 picks Dependabot, ADR records the rejected option                                                                                                                                                                |
+| ADR-007 | PR preview stack (Vercel native previews + Render per-PR + Supabase project-column partitioning)                                                                                                                                                                   | T4.6       | Pending — all-free stack, reuses T4.11 deployment dependencies                                                                                                                                                                |
+| ADR-008 | Versioning policy + release-please configuration                                                                                                                                                                                                                   | T4.10      | Pending                                                                                                                                                                                                                       |
+| ADR-009 | (placeholder for any architectural decision discovered during execution)                                                                                                                                                                                           | —          | —                                                                                                                                                                                                                             |
+| ADR-010 | **Model Provider Abstraction** — **(V2.1) four-backend chain** (`claude-sdk` / `anthropic-api` / `local-ollama` / `remote-openai-compat`) with per-agent config, ordered fallback, per-provider guardrail wiring                                                   | T2.3       | Pending — foundational. Supersedes ADR-004. Enables Pro Max via SDK on laptop + Anthropic API + Thor via Tailscale + any OpenAI-compatible endpoint (vLLM, LM Studio, Hammerfall Cloud, BYOH) — the productization-path tier. |
+| ADR-011 | **UI Smart Routing** — probe + auto-failover state machine for `LOCAL_URL` / `REMOTE_URL`, banner UX, per-session stickiness                                                                                                                                       | T1.7       | Pending — locked in T1.7 spec, implemented in T1.5b.                                                                                                                                                                          |
+| ADR-012 | **(V2.1) Demo Sandbox Architecture** — separate Supabase project + separate Render service + cross-surface admin auth (`HELM_ADMIN_TOKEN`) + curated brain seed. Hard isolation over single-runtime-with-flag (rejected). Same cognitive identity, separate brain. | T4.12      | Pending — implements productization proof-of-concept; bridges Maxwell's personal instance to "any user with any infrastructure" model.                                                                                        |
 
 ---
 
@@ -2623,28 +2943,29 @@ ADRs created during V2 execution:
 
 Runbooks created during V2 execution:
 
-| ID | Title | Created in |
-|---|---|---|
-| 0000 | Template | T0.A1 |
-| 0001 | API token rotation | T0.A8 |
-| 0002 | Supabase backup + restore | T0.A10 |
-| 0003 | Supabase outage / circuit breaker open | T4.1 |
-| 0004 | Runtime container OOM | T4.1 |
-| 0005 | Anthropic API down | T4.1 |
-| 0006 | Ollama model missing | T4.1 |
-| 0007 | Frontend disconnected | T4.1 |
-| 0008 | Guardrail tripped — rate alarm / Pro Max weekly / dollar cap (per ADR-010 + T0.A11 layers) | T4.1 |
-| 0009 | Outbox dead-letter accumulating | T4.1 |
-| 0010 | Schema migration failure | T4.1 |
-| 0011 | Deployment via paid isolated stack — Fly.io + Supabase Pro (deferred to Stage 2) | T4.4 |
-| 0012 | Release PR management (release-please workflow) | T4.10 |
-| 0013 | Preview environment teardown / Supabase project-partition orphan cleanup | T4.6 |
-| 0014 | Bench baseline reset procedure | T4.8 |
-| 0015 | Container image pruning (GHCR storage management) | T0.A12 |
-| 0016 | Dependabot grouping rules + skip rationale | T0.A14 |
-| 0017 | Persistent dev deployment — Vercel project setup + Render service config + warmup cron management | T4.11 |
-| 0018 | Tailscale + Thor setup — install on Thor / laptop / Render container, auth key generation + rotation, magic DNS verification, troubleshooting `local` provider unreachability | T4.11 |
-| 0019 | Smart routing failure modes — UI banner states, manual retry, when to clear `REMOTE_URL`, debugging probe failures | T1.5b |
+| ID   | Title                                                                                                                                                                                                                                                                 | Created in |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 0000 | Template                                                                                                                                                                                                                                                              | T0.A1      |
+| 0001 | API token rotation                                                                                                                                                                                                                                                    | T0.A8      |
+| 0002 | Supabase backup + restore                                                                                                                                                                                                                                             | T0.A10     |
+| 0003 | Supabase outage / circuit breaker open                                                                                                                                                                                                                                | T4.1       |
+| 0004 | Runtime container OOM                                                                                                                                                                                                                                                 | T4.1       |
+| 0005 | Anthropic API down                                                                                                                                                                                                                                                    | T4.1       |
+| 0006 | Ollama model missing                                                                                                                                                                                                                                                  | T4.1       |
+| 0007 | Frontend disconnected                                                                                                                                                                                                                                                 | T4.1       |
+| 0008 | Guardrail tripped — rate alarm / Pro Max weekly / dollar cap (per ADR-010 + T0.A11 layers)                                                                                                                                                                            | T4.1       |
+| 0009 | Outbox dead-letter accumulating                                                                                                                                                                                                                                       | T4.1       |
+| 0010 | Schema migration failure                                                                                                                                                                                                                                              | T4.1       |
+| 0011 | Deployment via paid isolated stack — Fly.io + Supabase Pro (deferred to Stage 2)                                                                                                                                                                                      | T4.4       |
+| 0012 | Release PR management (release-please workflow)                                                                                                                                                                                                                       | T4.10      |
+| 0013 | Preview environment teardown / Supabase project-partition orphan cleanup                                                                                                                                                                                              | T4.6       |
+| 0014 | Bench baseline reset procedure                                                                                                                                                                                                                                        | T4.8       |
+| 0015 | Container image pruning (GHCR storage management)                                                                                                                                                                                                                     | T0.A12     |
+| 0016 | Dependabot grouping rules + skip rationale                                                                                                                                                                                                                            | T0.A14     |
+| 0017 | Persistent dev deployment — Vercel project setup + Render service config + warmup cron management                                                                                                                                                                     | T4.11      |
+| 0018 | Tailscale + Thor setup — install on Thor / laptop / Render container, auth key generation + rotation, magic DNS verification, troubleshooting `local` provider unreachability                                                                                         | T4.11      |
+| 0019 | Smart routing failure modes — UI banner states, manual retry, when to clear `REMOTE_URL`, debugging probe failures                                                                                                                                                    | T1.5b      |
+| 0020 | **(V2.1)** Demo sandbox operations — purge procedure (button + curl alternative), admin token rotation, demo brain seed re-application, visitor session troubleshooting, demo cost monitoring (separate dollar-cap from production), Vercel password change procedure | T4.12      |
 
 ---
 
@@ -2680,11 +3001,11 @@ moves to §Resolved in the queue doc.
   SITREP.
 - If a PR surfaces an architectural insight about brain types specifically
   (new type, schema refinement, write/read pattern), reflect it in
-  `Helm_Brain_Object_Types.md` *and* leave a pointer in
+  `Helm_Brain_Object_Types.md` _and_ leave a pointer in
   `Post_T1_Findings.md`.
 - Never amend V2 spec mid-T1 to absorb a finding. The spec is frozen for
   the duration of T1 execution; findings are the queue for the next cycle.
-  (Finding #001 was an exception decided *before* T1 execution started.)
+  (Finding #001 was an exception decided _before_ T1 execution started.)
 
 ---
 
@@ -2692,60 +3013,67 @@ moves to §Resolved in the queue doc.
 
 Direct mapping of v1 issues raised in the comprehensive review to V2 task that resolves them.
 
-| V1 issue | V2 resolution |
-|---|---|
-| `supabase_client.py` docstring canonizes the brain.sh divergence | T0.B6 — rewrites docstring + renames file to `read_client.py` |
-| JSONL outbox concurrency race | T0.B2 — SQLite outbox replaces JSONL |
-| Narrow MemoryType enum (no FRAME, BELIEF_UPDATE, etc.) | T0.B1 — expanded enum |
-| Em-dash unicode coupling for "Pattern —" | T0.B6 — write-time normalization |
-| Circuit breaker has no observability | T0.B1 — emits state-change events; T2.3 wires to SSE |
-| 12+ scattered `emit_event` calls in main.py | T2.3 — moved into hook decorators + post-write hooks |
-| Misleading commit message risk | T0.A1 + T0.A2 — Conventional Commits + commitlint |
-| Atomic write uses `Path.rename` (not Windows-safe) | T0.B4 — uses `os.replace` |
-| `/tmp` outbox path not portable | T0.B1 — `Path.home() / .helm` default |
-| `datetime.utcnow()` deprecated | T0.B1 — UTC-aware `utc_now()` helper |
-| Four prompt/doc files still encode brain.sh paradigm | T0.B6 expanded scope to all four |
-| No vendor-neutral agent operating contract | T0.A1 — `AGENTS.md` |
-| No tests directory | T0.A3 |
-| No CI | T0.A4 |
-| No type checking | T0.A5 |
-| No structured logging convention | T0.A6 |
-| No correlation IDs | T0.A6 |
-| Dockerfile builds as root, no HEALTHCHECK | T0.A7 |
-| No API auth | T0.A8 |
-| No migration discipline / baseline | T0.A9 |
-| No backup procedure | T0.A10 |
-| No cost guardrails | T0.A11 |
-| No runbooks | T0.A1 (template) + T4.1 (set) |
-| No rate limiting | T4.2 |
-| No SSE session resumption | T4.3 |
-| Deployment target undecided | T4.4 (ADR-003 — recommends persistent dev free stack) |
-| No persistent dev deployment for 24/7 access from any device | T4.11 — Vercel + Render + Supabase, stable URL, all-free stack |
-| Dual-write transaction safety unspecified | T2.6 V2 notes — explicit semantics + outbox retry |
-| `subsystems_invoked` semantics underspecified | T1.7 V2 notes — locked in spec + tested in T1.1 |
-| No agent behavior regression net | T2.9 — agent simulation harness with 10 scenarios |
-| No container artifact pipeline | T0.A12 — GHCR build + publish on every merge |
-| No accidental-secret commit protection | T0.A13 — gitleaks on every push |
-| No dependency upgrade discipline | T0.A14 — Dependabot grouped weekly PRs |
-| No spend visibility (only the cap) | T0.A15 — weekly cost summary issue |
-| No ephemeral environment for behavior review | T4.6 — per-PR runtime + UI + Supabase project-column partition (all-free) |
-| No external operational signal | T4.7 — scheduled health + canary checks |
-| No latency regression detection | T4.8 — perf bench on PRs that touch runtime / prompt |
-| No browseable docs surface | T4.9 — MkDocs site auto-deployed to GitHub Pages |
-| No version concept / changelog | T4.10 — release-please + Conventional-Commit-driven releases |
-| No CI migration safety net | T0.A9 enhanced — ephemeral Supabase branch + reversibility check |
-| Brain only has Tier 1 types — no curiosity carryover, no promise-keeping, shallow entity model | T0.B7 — pulls Tier 2 (`helm_curiosities`, `helm_promises`, deepened `helm_entities` + relationships) into T1 right after T0.B6 |
+| V1 issue                                                                                                                                                                                                                                                                           | V2 resolution                                                                                                                                                                                                                                                                                                     |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `supabase_client.py` docstring canonizes the brain.sh divergence                                                                                                                                                                                                                   | T0.B6 — rewrites docstring + renames file to `read_client.py`                                                                                                                                                                                                                                                     |
+| JSONL outbox concurrency race                                                                                                                                                                                                                                                      | T0.B2 — SQLite outbox replaces JSONL                                                                                                                                                                                                                                                                              |
+| Narrow MemoryType enum (no FRAME, BELIEF_UPDATE, etc.)                                                                                                                                                                                                                             | T0.B1 — expanded enum                                                                                                                                                                                                                                                                                             |
+| Em-dash unicode coupling for "Pattern —"                                                                                                                                                                                                                                           | T0.B6 — write-time normalization                                                                                                                                                                                                                                                                                  |
+| Circuit breaker has no observability                                                                                                                                                                                                                                               | T0.B1 — emits state-change events; T2.3 wires to SSE                                                                                                                                                                                                                                                              |
+| 12+ scattered `emit_event` calls in main.py                                                                                                                                                                                                                                        | T2.3 — moved into hook decorators + post-write hooks                                                                                                                                                                                                                                                              |
+| Misleading commit message risk                                                                                                                                                                                                                                                     | T0.A1 + T0.A2 — Conventional Commits + commitlint                                                                                                                                                                                                                                                                 |
+| Atomic write uses `Path.rename` (not Windows-safe)                                                                                                                                                                                                                                 | T0.B4 — uses `os.replace`                                                                                                                                                                                                                                                                                         |
+| `/tmp` outbox path not portable                                                                                                                                                                                                                                                    | T0.B1 — `Path.home() / .helm` default                                                                                                                                                                                                                                                                             |
+| `datetime.utcnow()` deprecated                                                                                                                                                                                                                                                     | T0.B1 — UTC-aware `utc_now()` helper                                                                                                                                                                                                                                                                              |
+| Four prompt/doc files still encode brain.sh paradigm                                                                                                                                                                                                                               | T0.B6 expanded scope to all four                                                                                                                                                                                                                                                                                  |
+| No vendor-neutral agent operating contract                                                                                                                                                                                                                                         | T0.A1 — `AGENTS.md`                                                                                                                                                                                                                                                                                               |
+| No tests directory                                                                                                                                                                                                                                                                 | T0.A3                                                                                                                                                                                                                                                                                                             |
+| No CI                                                                                                                                                                                                                                                                              | T0.A4                                                                                                                                                                                                                                                                                                             |
+| No type checking                                                                                                                                                                                                                                                                   | T0.A5                                                                                                                                                                                                                                                                                                             |
+| No structured logging convention                                                                                                                                                                                                                                                   | T0.A6                                                                                                                                                                                                                                                                                                             |
+| No correlation IDs                                                                                                                                                                                                                                                                 | T0.A6                                                                                                                                                                                                                                                                                                             |
+| Dockerfile builds as root, no HEALTHCHECK                                                                                                                                                                                                                                          | T0.A7                                                                                                                                                                                                                                                                                                             |
+| No API auth                                                                                                                                                                                                                                                                        | T0.A8                                                                                                                                                                                                                                                                                                             |
+| No migration discipline / baseline                                                                                                                                                                                                                                                 | T0.A9                                                                                                                                                                                                                                                                                                             |
+| No backup procedure                                                                                                                                                                                                                                                                | T0.A10                                                                                                                                                                                                                                                                                                            |
+| No cost guardrails                                                                                                                                                                                                                                                                 | T0.A11                                                                                                                                                                                                                                                                                                            |
+| No runbooks                                                                                                                                                                                                                                                                        | T0.A1 (template) + T4.1 (set)                                                                                                                                                                                                                                                                                     |
+| No rate limiting                                                                                                                                                                                                                                                                   | T4.2                                                                                                                                                                                                                                                                                                              |
+| No SSE session resumption                                                                                                                                                                                                                                                          | T4.3                                                                                                                                                                                                                                                                                                              |
+| Deployment target undecided                                                                                                                                                                                                                                                        | T4.4 (ADR-003 — recommends persistent dev free stack)                                                                                                                                                                                                                                                             |
+| No persistent dev deployment for 24/7 access from any device                                                                                                                                                                                                                       | T4.11 — Vercel + Render + Supabase, stable URL, all-free stack                                                                                                                                                                                                                                                    |
+| Dual-write transaction safety unspecified                                                                                                                                                                                                                                          | T2.6 V2 notes — explicit semantics + outbox retry                                                                                                                                                                                                                                                                 |
+| `subsystems_invoked` semantics underspecified                                                                                                                                                                                                                                      | T1.7 V2 notes — locked in spec + tested in T1.1                                                                                                                                                                                                                                                                   |
+| No agent behavior regression net                                                                                                                                                                                                                                                   | T2.9 — agent simulation harness with 10 scenarios                                                                                                                                                                                                                                                                 |
+| No container artifact pipeline                                                                                                                                                                                                                                                     | T0.A12 — GHCR build + publish on every merge                                                                                                                                                                                                                                                                      |
+| No accidental-secret commit protection                                                                                                                                                                                                                                             | T0.A13 — gitleaks on every push                                                                                                                                                                                                                                                                                   |
+| No dependency upgrade discipline                                                                                                                                                                                                                                                   | T0.A14 — Dependabot grouped weekly PRs                                                                                                                                                                                                                                                                            |
+| No spend visibility (only the cap)                                                                                                                                                                                                                                                 | T0.A15 — weekly cost summary issue                                                                                                                                                                                                                                                                                |
+| No ephemeral environment for behavior review                                                                                                                                                                                                                                       | T4.6 — per-PR runtime + UI + Supabase project-column partition (all-free)                                                                                                                                                                                                                                         |
+| No external operational signal                                                                                                                                                                                                                                                     | T4.7 — scheduled health + canary checks                                                                                                                                                                                                                                                                           |
+| No latency regression detection                                                                                                                                                                                                                                                    | T4.8 — perf bench on PRs that touch runtime / prompt                                                                                                                                                                                                                                                              |
+| No browseable docs surface                                                                                                                                                                                                                                                         | T4.9 — MkDocs site auto-deployed to GitHub Pages                                                                                                                                                                                                                                                                  |
+| No version concept / changelog                                                                                                                                                                                                                                                     | T4.10 — release-please + Conventional-Commit-driven releases                                                                                                                                                                                                                                                      |
+| No CI migration safety net                                                                                                                                                                                                                                                         | T0.A9 enhanced — ephemeral Supabase branch + reversibility check                                                                                                                                                                                                                                                  |
+| Brain only has Tier 1 types — no curiosity carryover, no promise-keeping, shallow entity model                                                                                                                                                                                     | T0.B7 — pulls Tier 2 (`helm_curiosities`, `helm_promises`, deepened `helm_entities` + relationships) into T1 right after T0.B6                                                                                                                                                                                    |
+| **(V2.1)** Provider chain only enumerated 3 backends — `remote-openai-compat` (vLLM/LM Studio/Hammerfall Cloud/BYOH path) was implementation-present (`custom` provider type in `model_router.py`) but spec-absent. Productization story collapsed without it.                     | ADR-010 amended — 4 backends explicit; T2.3 implements all four under chain abstraction                                                                                                                                                                                                                           |
+| **(V2.1)** No way to share Helm with friends/family without polluting Maxwell's brain                                                                                                                                                                                              | T4.12 — Demo sandbox: separate Supabase project + separate Render service + curated seed + cross-surface admin purge                                                                                                                                                                                              |
+| **(V2.1)** No widgets for `helm_frames` or `helm_curiosities` — "frames are traded, curiosity happens" was unobservable                                                                                                                                                            | T1.7 widget vocabulary expanded from 7 to 9 (`frames` with Prime/Projectionist/Archive tabs + `curiosities`)                                                                                                                                                                                                      |
+| **(V2.1)** `/health` + `/config/agents` returned per-agent boolean — gave no visibility into which provider in the chain actually served the last turn                                                                                                                             | T2.3 amended — chain-aware response shapes; Agent Status widget renders chain visually                                                                                                                                                                                                                            |
+| **(V2.1)** `mockData.js` shipping in production bundle could silently mask brain state on Supabase failure                                                                                                                                                                         | T3.3 amended — mockData purged from production, moved to `__tests__/fixtures/`; explicit empty + failure states required per widget                                                                                                                                                                               |
+| **(V2.1)** Several runtime behaviors machine-bound to Maxwell's local — `hammerfall-config.md` local file, `session_watchdog.sh`/`ping_session.sh`/`activity_ping.sh` bash scripts, IDE/shell assumptions baked into `helm_prompt.md`. Violated infrastructure-portable directive. | T0.B5b — config tunables migrated to `config.yaml`. T0.B6 expanded — bash scripts deleted, orphaned snapshot `.md` files deleted, all surface assumptions stripped from `helm_prompt.md` (UUID gen, curl invocations, Antigravity/Claude-Code naming, PowerShell push fallback). Prompt becomes surface-agnostic. |
 
 ---
 
-## Maxwell Sign-off (V2)
+## Maxwell Sign-off (V2.1)
 
 By merging this PR, Maxwell agrees:
 
-- V2 supersedes v1 as the canonical T1 build spec
+- V2.1 supersedes V2 as the canonical T1 build spec
 - The execution order in §Execution Order is the agreed-upon sequence (changes go through STOP gates)
 - Single-dev (Helm IDE / me) executes; Maxwell reviews at every STOP gate; Architect consulted on ARCH-tier tasks
-- The 54–62 PR count is the realistic shape of "T1 close on a solid foundation with full CI/CD + persistent dev deployment + Tier 2 brain types (T0.B7)"
+- The **58–66** PR count is the realistic shape of "T1 close on a solid foundation with full CI/CD + persistent dev deployment + Tier 2 brain types (T0.B7) + four-backend provider chain (ADR-010 amended) + demo sandbox (T4.12) + infrastructure-portable architecture (T0.B5b + T0.B6 expanded)"
 - T1 close = `T4.5` SITREP merged; not before
+- The infrastructure-portable directive is durable: all functionality must run on any conforming infrastructure. Maxwell's machine is hardware/vehicle only, never a hard dependency. Surfaces, brains, and runtimes are interchangeable; cognitive identity is the constant.
 
-V2 is a contract between Maxwell and the dev. Where reality forces deviation, the deviation is documented (PR description or new ADR), not silently absorbed.
+V2.1 is a contract between Maxwell and the dev. Where reality forces deviation, the deviation is documented (PR description or new ADR), not silently absorbed.

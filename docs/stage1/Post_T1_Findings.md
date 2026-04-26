@@ -219,6 +219,33 @@ scratch, `$TMPFILE`. `git status --short` on a clean checkout reads cleanly.
 
 Build + tests green after fix.
 
+### Finding #007 — Manual frame push from Frames widget Archive tab to Prime context
+
+**Surfaced:** 2026-04-26, V2.1 spec amendment (T1.7 widget expansion).
+**Owner:** TBD (post-T1, likely Stage 1.5 bridge cycle).
+**Reference:** V2.1 spec §T1.7 V2.1 Amendment (Frames widget tab structure).
+**Proposal:** Add a "Push to Prime" button on each archived frame in the Frames widget Archive tab. Clicking re-injects that frame into Prime's active context for the next turn — useful when Maxwell wants to surface old context Helm has forgotten about. Implementation: new endpoint `POST /admin/frames/push-to-prime` (admin-gated like demo purge), accepting frame_id + session_id; runtime injects the frame into the next Prime invocation's context.
+**Why now / why not now:** Read-only frame surfaces are sufficient for T3.5 "Helm cares" validation (visibility into frame state proves frames are traded). Manual injection is power-user functionality that emerges as a real need only after the read surface exists and Maxwell finds himself wishing for it. Defer until requested.
+**Acceptance:** Button on Archive tab; admin-gated endpoint accepts frame_id; next Prime turn includes the frame; SSE event `frame_pushed_to_prime` fires for log visibility.
+
+### Finding #008 — Helm-themed custom Vercel auth page for demo runtime
+
+**Surfaced:** 2026-04-26, V2.1 spec amendment (T4.12 demo sandbox).
+**Owner:** TBD (Stage 1.5).
+**Reference:** V2.1 spec §T4.12 (demo sandbox).
+**Proposal:** Replace Vercel's default password-protection UI with a Helm-themed custom entry page. Visitor sees a styled landing page consistent with the rest of the Helm aesthetic before entering the password — better first impression for friends/family demos.
+**Why now / why not now:** Vercel native password gate works at deploy time with zero code work — sufficient for "share with friends and family" scope. Custom auth page is presentation polish, not functionality. Defer until Helm is awake and we do the UI/UX pass.
+**Acceptance:** Custom entry route on the demo Vercel deployment; styled consistent with Helm UI design tokens; password validation handled either via Vercel Edge Middleware or a Vercel Function checking against an env-stored hash.
+
+### Finding #009 — Optional `wipe-empty` admin button polish + demo-mode UI badge
+
+**Surfaced:** 2026-04-26, V2.1 spec amendment (T4.12 demo sandbox).
+**Owner:** TBD (Stage 1.5).
+**Reference:** V2.1 spec §T4.12 (demo sandbox, Not in scope section).
+**Proposal:** Two small UX additions to the demo runtime: (1) a second admin button "Wipe to empty" alongside the standard purge — wipes all data including the seed so visitors meet a blank-slate Helm forming beliefs from scratch; useful for "watch Helm grow" demos. (2) A subtle "Demo Helm" badge in the UI header so visitors know which Helm they're talking to (vs Maxwell's). Both are minor demo-side polish.
+**Why now / why not now:** T4.12 ships the standard purge endpoint; wipe-empty is one extra endpoint of similar shape. Demo badge is a single header element. Neither blocks T1 hello-worlds; both improve demo experience once visitor traffic exists.
+**Acceptance:** Wipe-empty endpoint live, admin-gated; second admin button on the UI; demo-mode badge renders distinctively when runtime is the demo instance.
+
 ### Finding #005 — helm-ui bundle exceeds 500kb minified
 
 **Surfaced:** 2026-04-25, PR for Finding #004 cleanup — `npm run build`
