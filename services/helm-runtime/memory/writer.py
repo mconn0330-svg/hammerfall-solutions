@@ -26,18 +26,31 @@ from uuid import UUID
 
 from observability import get_logger, tracer
 
-from .client import MemoryClient
+from .circuit_breaker import CircuitBreakerOpen
+from .client import MemoryClient, MemoryWriteFailed
 from .models import MemoryEntry, MemoryType, slugify
+from .outbox import Outbox
 
 logger = get_logger("helm.memory.writer")
 
 
 class MemoryWriter:
     """Write helmet for `helm_memory`. Wraps a `MemoryClient` with
-    type-aware helpers."""
+    type-aware helpers.
 
-    def __init__(self, client: MemoryClient) -> None:
+    Optional outbox: if provided, transport failures (`MemoryWriteFailed`,
+    `CircuitBreakerOpen`) are caught and the entry is enqueued to the
+    outbox for the drain loop to retry later. Caller sees a successful
+    write — the data is durable either way.
+
+    Without outbox, the original exception propagates so callers can decide
+    how to handle. T0.B2 wires the outbox in production. Tests can omit it
+    to assert the raw client-failure path.
+    """
+
+    def __init__(self, client: MemoryClient, outbox: Outbox | None = None) -> None:
         self._client = client
+        self._outbox = outbox
 
     async def write(
         self,
@@ -60,7 +73,21 @@ class MemoryWriter:
 
         Returns the entry as constructed locally — id and timestamps are
         client-generated, so callers can reference them before Supabase
-        confirms the insert (useful for outbox bookkeeping in T0.B2).
+        confirms the insert.
+
+        Failure semantics:
+          - Synchronous client succeeds → returns the entry, span tagged
+            `memory.delivery=direct`.
+          - Synchronous client fails (`MemoryWriteFailed`,
+            `CircuitBreakerOpen`) AND outbox is configured → entry is
+            enqueued to outbox, returns the entry, span tagged
+            `memory.delivery=queued`. The drain loop will retry until
+            success or dead-letter.
+          - Synchronous client fails AND no outbox → the underlying
+            exception propagates. Callers decide how to handle.
+          - Validation failure (Pydantic) → `ValidationError` propagates.
+            That's a caller bug, not a transport problem; outbox doesn't
+            catch it.
         """
         if isinstance(memory_type, str):
             memory_type = MemoryType(memory_type)
@@ -84,16 +111,39 @@ class MemoryWriter:
             span.set_attribute("memory.entry_id", str(entry.id))
 
             payload = entry.to_supabase_payload()
-            await self._client.insert("helm_memory", payload)
-            logger.info(
-                "memory.write",
-                project=project,
-                agent=agent,
-                memory_type=memory_type.value,
-                entry_id=str(entry.id),
-                sync_ready=sync_ready,
-            )
-            return entry
+            try:
+                await self._client.insert("helm_memory", payload)
+                span.set_attribute("memory.delivery", "direct")
+                logger.info(
+                    "memory.write",
+                    project=project,
+                    agent=agent,
+                    memory_type=memory_type.value,
+                    entry_id=str(entry.id),
+                    sync_ready=sync_ready,
+                    delivery="direct",
+                )
+                return entry
+            except (MemoryWriteFailed, CircuitBreakerOpen) as e:
+                if self._outbox is None:
+                    # No durable backstop — caller wanted to see this.
+                    span.set_attribute("memory.delivery", "failed")
+                    raise
+                # Enqueue + return — caller sees success, drain loop retries.
+                row_id = await self._outbox.enqueue("helm_memory", payload)
+                span.set_attribute("memory.delivery", "queued")
+                span.set_attribute("memory.outbox_row_id", row_id)
+                logger.warning(
+                    "memory.write.queued",
+                    project=project,
+                    agent=agent,
+                    memory_type=memory_type.value,
+                    entry_id=str(entry.id),
+                    outbox_row_id=row_id,
+                    reason=type(e).__name__,
+                    error=str(e)[:300],
+                )
+                return entry
 
     # ── Type-specific helpers — thin wrappers, all funnel through write() ──
 

@@ -387,3 +387,126 @@ async def test_writer_through_real_client_with_mock_transport() -> None:
     assert "session_date" in body
 
     await client.aclose()
+
+
+# ─── Outbox integration (T0.B2) ─────────────────────────────────────────────
+
+
+class _FailingClient:
+    """Client that always raises MemoryWriteFailed on insert."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, dict[str, Any]]] = []
+
+    async def insert(self, table: str, payload: dict[str, Any]) -> dict[str, Any]:
+        from memory.client import MemoryWriteFailed
+
+        self.calls.append((table, payload))
+        raise MemoryWriteFailed("simulated transport failure", attempts=3)
+
+
+class _CircuitOpenClient:
+    """Client that always raises CircuitBreakerOpen on insert."""
+
+    async def insert(self, table: str, payload: dict[str, Any]) -> dict[str, Any]:
+        from memory.circuit_breaker import CircuitBreakerOpen
+
+        raise CircuitBreakerOpen("simulated open circuit")
+
+
+async def test_writer_propagates_failure_when_no_outbox() -> None:
+    """Without outbox, transport failures bubble up as before — preserves
+    the T0.B1 behavior so callers can opt out of the durable backstop."""
+    from memory.client import MemoryWriteFailed
+
+    w = MemoryWriter(_FailingClient())  # type: ignore[arg-type]
+    with pytest.raises(MemoryWriteFailed):
+        await w.write(
+            project="p",
+            agent="helm",
+            memory_type=MemoryType.SCRATCHPAD,
+            content="x",
+        )
+
+
+async def test_writer_enqueues_to_outbox_on_transport_failure(tmp_path: Any) -> None:
+    """With outbox configured, MemoryWriteFailed → enqueue → caller sees
+    a normal MemoryEntry return."""
+    from memory.outbox import Outbox
+
+    outbox = Outbox(tmp_path / "outbox.db")
+    await outbox.connect()
+    try:
+        client = _FailingClient()
+        w = MemoryWriter(client, outbox=outbox)  # type: ignore[arg-type]
+
+        entry = await w.write(
+            project="hammerfall-solutions",
+            agent="helm",
+            memory_type=MemoryType.BEHAVIORAL,
+            content="Decision: route through outbox on failure",
+        )
+
+        # Caller sees a normal entry — write was "accepted"
+        assert isinstance(entry, MemoryEntry)
+        # But it landed in the outbox, not Supabase
+        stats = await outbox.stats()
+        assert stats.queued_count == 1
+        assert stats.dead_letter_count == 0
+    finally:
+        await outbox.aclose()
+
+
+async def test_writer_enqueues_to_outbox_when_circuit_open(tmp_path: Any) -> None:
+    """CircuitBreakerOpen also routes to outbox — fail-fast on the client
+    side becomes durable on the caller side."""
+    from memory.outbox import Outbox
+
+    outbox = Outbox(tmp_path / "outbox.db")
+    await outbox.connect()
+    try:
+        w = MemoryWriter(_CircuitOpenClient(), outbox=outbox)  # type: ignore[arg-type]
+        entry = await w.write(
+            project="p",
+            agent="helm",
+            memory_type=MemoryType.SCRATCHPAD,
+            content="x",
+        )
+        assert isinstance(entry, MemoryEntry)
+        s = await outbox.stats()
+        assert s.queued_count == 1
+    finally:
+        await outbox.aclose()
+
+
+async def test_writer_outbox_payload_round_trips_through_drain(tmp_path: Any) -> None:
+    """Enqueued payload deserializes correctly when the drain loop sends
+    it later — the JSON round-trip preserves the entry shape."""
+    from memory.outbox import Outbox
+
+    outbox = Outbox(tmp_path / "outbox.db")
+    await outbox.connect()
+    try:
+        # First write fails → enqueued
+        w_failing = MemoryWriter(_FailingClient(), outbox=outbox)  # type: ignore[arg-type]
+        entry = await w_failing.write(
+            project="hammerfall-solutions",
+            agent="helm",
+            memory_type=MemoryType.BEHAVIORAL,
+            content="Decision: enqueue then drain",
+            full_content={"key": "value"},
+        )
+
+        # Now drain via a healthy client — confirm payload survives
+        recorder = _RecordingClient()
+        result = await outbox.drain(recorder)
+        assert result.drained == 1
+        assert len(recorder.calls) == 1
+        table, payload = recorder.calls[0]
+        assert table == "helm_memory"
+        assert payload["id"] == str(entry.id)
+        assert payload["content"] == "Decision: enqueue then drain"
+        assert payload["full_content"] == {"key": "value"}
+        assert payload["memory_type"] == "behavioral"
+    finally:
+        await outbox.aclose()
