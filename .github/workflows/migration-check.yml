@@ -1,0 +1,77 @@
+# T0.A9 — Migration safety check.
+# Spec: docs/stage1/Helm_T1_Launch_Spec_V2.md §T0.A9
+# Policy: docs/adr/0002-migration-reversibility-policy.md
+#
+# Runs only on PRs that touch supabase/migrations/. Two checks:
+#   1. Reversibility — every migration declares a class per ADR-002
+#      (script enforces; pre-cutoff migrations grandfathered)
+#   2. Apply-and-verify — creates an ephemeral Supabase branch, applies
+#      all migrations against it, captures the schema diff, then deletes
+#      the branch.
+#
+# Prerequisite: SUPABASE_ACCESS_TOKEN repo secret. Branching requires the
+# Supabase project to be on Pro tier; if free-tier, the apply-and-verify
+# job will fail and we'll either upgrade or downscope this check to
+# reversibility-only.
+
+name: Migration Safety
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'scripts/check_migration_reversibility.py'
+      - '.github/workflows/migration-check.yml'
+
+jobs:
+  reversibility:
+    name: reversibility (ADR-002)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run reversibility check
+        run: python3 scripts/check_migration_reversibility.py supabase/migrations/
+
+  # apply-and-verify (DISABLED) — see Finding #006 in Post_T1_Findings.md.
+  #
+  # Status: deferred to the post-T1 / pre-T2 cycle (same window as Finding #002,
+  #         the ambient-bridge batch).
+  #
+  # Why deferred: the spec yaml's command sequence (`supabase db push --linked
+  # --branch X`) does not match current Supabase CLI behavior. Real branching
+  # requires:
+  #   1. `supabase branches create` returns a NEW project ref for the branch
+  #   2. Re-link to that ref (or build a --db-url from it)
+  #   3. THEN `db push`
+  # Five iterations on this PR (#108) confirmed the spec is aspirational; the
+  # current CLI surface needs deliberate re-derivation against live docs.
+  #
+  # What still works without it: the `reversibility` job above is the load-
+  # bearing gate (catches missing DOWN blocks per ADR-002). Apply-and-verify
+  # was a nice-to-have for catching SQL syntax / ordering / FK errors; while
+  # we're single-dev, those are caught when the contributor runs
+  # `supabase db push` locally before merging.
+  #
+  # When to revive: second contributor lands, OR migration cadence picks up,
+  # OR we get burned by a migration that passed reversibility but broke on
+  # apply. See Finding #006 for the full re-implementation scope.
+  #
+  # apply-and-verify:
+  #   name: apply-and-verify (ephemeral branch)
+  #   runs-on: ubuntu-latest
+  #   if: ${{ vars.SUPABASE_BRANCHING_ENABLED == 'true' }}
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: supabase/setup-cli@v1
+  #       with: { version: latest }
+  #     - name: Create ephemeral Supabase branch
+  #       env: { SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }} }
+  #       run: |
+  #         supabase branches create "ci-pr-${{ github.event.pull_request.number }}" \
+  #           --project-ref "${{ vars.SUPABASE_PROJECT_REF }}"
+  #     # ... (rest of original implementation; see PR #108 history)
