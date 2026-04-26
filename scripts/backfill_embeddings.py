@@ -30,9 +30,9 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 
 EMBEDDING_MODEL = "text-embedding-3-small"
-BATCH_SIZE = 20          # rows per batch before sleeping
-BATCH_SLEEP = 1.0        # seconds between batches (rate limit headroom)
-REQUEST_TIMEOUT = 20     # seconds per OpenAI API call
+BATCH_SIZE = 20  # rows per batch before sleeping
+BATCH_SLEEP = 1.0  # seconds between batches (rate limit headroom)
+REQUEST_TIMEOUT = 20  # seconds per OpenAI API call
 
 SCRIPT_DIR = Path(__file__).parent
 CONFIG_FILE = SCRIPT_DIR.parent / "hammerfall-config.md"
@@ -48,7 +48,9 @@ def read_config() -> tuple[str, str]:
     if not url_match:
         sys.exit("ERROR: supabase_brain_url not found in hammerfall-config.md")
     if not key_env_match:
-        sys.exit("ERROR: supabase_brain_service_key_env not found in hammerfall-config.md")
+        sys.exit(
+            "ERROR: supabase_brain_service_key_env not found in hammerfall-config.md"
+        )
 
     brain_url = url_match.group(1).rstrip("/")
     key_env = key_env_match.group(1)
@@ -71,6 +73,7 @@ def get_openai_key() -> str:
 # API helpers
 # ---------------------------------------------------------------------------
 
+
 def supabase_get(brain_url: str, service_key: str, path: str) -> list:
     """GET from Supabase REST API."""
     req = urllib.request.Request(
@@ -84,7 +87,9 @@ def supabase_get(brain_url: str, service_key: str, path: str) -> list:
         return json.load(resp)
 
 
-def supabase_patch(brain_url: str, service_key: str, table: str, row_id: str, payload: dict) -> None:
+def supabase_patch(
+    brain_url: str, service_key: str, table: str, row_id: str, payload: dict
+) -> None:
     """PATCH a single row by id."""
     data = json.dumps(payload).encode()
     req = urllib.request.Request(
@@ -127,7 +132,10 @@ def generate_embedding(text: str, openai_key: str) -> list[float] | None:
 # Table backfills
 # ---------------------------------------------------------------------------
 
-def backfill_beliefs(brain_url: str, service_key: str, openai_key: str, dry_run: bool) -> tuple[int, int]:
+
+def backfill_beliefs(
+    brain_url: str, service_key: str, openai_key: str, dry_run: bool
+) -> tuple[int, int]:
     """
     Backfill helm_beliefs rows with embedding IS NULL.
     Embed the belief text (the main semantic content).
@@ -135,7 +143,8 @@ def backfill_beliefs(brain_url: str, service_key: str, openai_key: str, dry_run:
     """
     print("\n--- helm_beliefs ---")
     rows = supabase_get(
-        brain_url, service_key,
+        brain_url,
+        service_key,
         "helm_beliefs?select=id,belief&embedding=is.null&active=eq.true",
     )
     print(f"  {len(rows)} rows with null embedding")
@@ -166,7 +175,13 @@ def backfill_beliefs(brain_url: str, service_key: str, openai_key: str, dry_run:
                 failed += 1
             else:
                 try:
-                    supabase_patch(brain_url, service_key, "helm_beliefs", row_id, {"embedding": embedding})
+                    supabase_patch(
+                        brain_url,
+                        service_key,
+                        "helm_beliefs",
+                        row_id,
+                        {"embedding": embedding},
+                    )
                     success += 1
                 except Exception as e:
                     print(f"    ERROR: patch failed — {e}")
@@ -179,7 +194,9 @@ def backfill_beliefs(brain_url: str, service_key: str, openai_key: str, dry_run:
     return success, failed
 
 
-def backfill_entities(brain_url: str, service_key: str, openai_key: str, dry_run: bool) -> tuple[int, int]:
+def backfill_entities(
+    brain_url: str, service_key: str, openai_key: str, dry_run: bool
+) -> tuple[int, int]:
     """
     Backfill helm_entities rows with embedding IS NULL.
     Embed "name — summary" when summary is present, else just name.
@@ -187,7 +204,8 @@ def backfill_entities(brain_url: str, service_key: str, openai_key: str, dry_run
     """
     print("\n--- helm_entities ---")
     rows = supabase_get(
-        brain_url, service_key,
+        brain_url,
+        service_key,
         "helm_entities?select=id,name,summary&embedding=is.null&active=eq.true",
     )
     print(f"  {len(rows)} rows with null embedding")
@@ -220,7 +238,13 @@ def backfill_entities(brain_url: str, service_key: str, openai_key: str, dry_run
                 failed += 1
             else:
                 try:
-                    supabase_patch(brain_url, service_key, "helm_entities", row_id, {"embedding": embedding})
+                    supabase_patch(
+                        brain_url,
+                        service_key,
+                        "helm_entities",
+                        row_id,
+                        {"embedding": embedding},
+                    )
                     success += 1
                 except Exception as e:
                     print(f"    ERROR: patch failed — {e}")
@@ -237,9 +261,16 @@ def backfill_entities(brain_url: str, service_key: str, openai_key: str, dry_run
 # Entry point
 # ---------------------------------------------------------------------------
 
+
 def main():
-    parser = argparse.ArgumentParser(description="Backfill embeddings for helm_beliefs and helm_entities.")
-    parser.add_argument("--dry-run", action="store_true", help="Query rows and print plan without writing.")
+    parser = argparse.ArgumentParser(
+        description="Backfill embeddings for helm_beliefs and helm_entities."
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Query rows and print plan without writing.",
+    )
     args = parser.parse_args()
 
     if args.dry_run:
@@ -251,13 +282,17 @@ def main():
     print(f"Brain URL: {brain_url}")
     print(f"Model:     {EMBEDDING_MODEL}")
 
-    b_success, b_failed = backfill_beliefs(brain_url, service_key, openai_key, args.dry_run)
-    e_success, e_failed = backfill_entities(brain_url, service_key, openai_key, args.dry_run)
+    b_success, b_failed = backfill_beliefs(
+        brain_url, service_key, openai_key, args.dry_run
+    )
+    e_success, e_failed = backfill_entities(
+        brain_url, service_key, openai_key, args.dry_run
+    )
 
     total_success = b_success + e_success
     total_failed = b_failed + e_failed
 
-    print(f"\n=== Backfill complete ===")
+    print("\n=== Backfill complete ===")
     print(f"  helm_beliefs:  {b_success} embedded, {b_failed} failed/skipped")
     print(f"  helm_entities: {e_success} embedded, {e_failed} failed/skipped")
     print(f"  Total:         {total_success} embedded, {total_failed} failed/skipped")

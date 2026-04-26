@@ -1,0 +1,59 @@
+# T0.A15 — Weekly cost summary.
+# Spec: docs/stage1/Helm_T1_Launch_Spec_V2.md §T0.A15
+#
+# At T1, no cost events flow yet. Schedule trigger is INTENTIONALLY DISABLED
+# until both:
+#   1. T2.3 wires the provider chain to actually emit cost.recorded events
+#      (DollarCap.check_and_record from T0.A11), AND
+#   2. A log destination exists that this workflow can fetch from
+#      (HELM_COST_LOG_URL endpoint, established by T4.11 deploy or earlier).
+#
+# Until then: workflow_dispatch only. Maxwell can manually invoke to confirm
+# the wiring works (it'll produce a "no cost events recorded" issue body —
+# the signal-of-life summary cost_summary.py emits on empty input).
+#
+# To enable scheduled runs once both prerequisites are met:
+#   1. Uncomment the `schedule:` block below
+#   2. Set HELM_COST_LOG_URL secret/var to the live cost log endpoint
+#   3. Validate one manual workflow_dispatch run produces a sensible issue
+#   4. Commit the schedule activation as a separate `ci(infra)` PR for clarity
+
+name: Weekly Cost Summary
+
+on:
+  # schedule:
+  #   - cron: '0 14 * * MON'   # Monday 14:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  summarize:
+    name: cost summary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Fetch last 7d cost events
+        env:
+          HELM_COST_LOG_URL: ${{ secrets.HELM_COST_LOG_URL }}
+        run: python3 scripts/fetch_cost_events.py --days 7 > cost_events.json
+
+      - name: Build markdown summary
+        run: python3 scripts/cost_summary.py cost_events.json > summary.md
+
+      - name: Show summary in run log
+        run: cat summary.md
+
+      - name: Open weekly cost summary issue
+        uses: peter-evans/create-issue-from-file@v5
+        with:
+          title: 'Weekly cost summary — ${{ github.run_started_at }}'
+          content-filepath: summary.md
+          labels: cost,automation
