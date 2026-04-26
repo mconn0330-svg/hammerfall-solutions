@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Helm Ecosystem Architecture</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;600;700;800&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0a0d14;
+    --bg2:       #0f1420;
+    --bg3:       #141926;
+    --border:    rgba(255,255,255,0.07);
+    --border2:   rgba(255,255,255,0.12);
+
+    --prime:     #6C8EFF;
+    --prime-dim: rgba(108,142,255,0.15);
+    --teal:      #2DD4BF;
+    --teal-dim:  rgba(45,212,191,0.12);
+    --amber:     #F59E0B;
+    --amber-dim: rgba(245,158,11,0.12);
+    --green:     #34D399;
+    --green-dim: rgba(52,211,153,0.12);
+    --red:       #F87171;
+    --red-dim:   rgba(248,113,113,0.12);
+    --purple:    #A78BFA;
+    --purple-dim:rgba(167,139,250,0.12);
+    --gray:      #6B7280;
+    --gray-dim:  rgba(107,114,128,0.12);
+
+    --text:      #E2E8F0;
+    --text-dim:  #64748B;
+    --text-mid:  #94A3B8;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    padding: 40px 24px 60px;
+  }
+
+  /* ── Header ── */
+  .header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+  .header h1 {
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: var(--text);
+  }
+  .header h1 span { color: var(--prime); }
+  .header p {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    margin-top: 8px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* ── Layout ── */
+  .diagram {
+    max-width: 1300px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  /* ── Lane ── */
+  .lane {
+    display: grid;
+    gap: 6px;
+    align-items: stretch;
+  }
+  .lane-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    padding: 0 4px 6px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 2px;
+  }
+
+  /* ── Card ── */
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    position: relative;
+    transition: border-color 0.2s;
+  }
+  .card:hover { border-color: var(--border2); }
+  .card-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    margin-bottom: 4px;
+  }
+  .card-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+  .card-badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.55rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 3px 7px;
+    border-radius: 4px;
+  }
+
+  /* color variants */
+  .c-prime  { border-left: 3px solid var(--prime);  background: linear-gradient(135deg, var(--prime-dim), var(--bg2)); }
+  .c-teal   { border-left: 3px solid var(--teal);   background: linear-gradient(135deg, var(--teal-dim), var(--bg2)); }
+  .c-amber  { border-left: 3px solid var(--amber);  background: linear-gradient(135deg, var(--amber-dim), var(--bg2)); }
+  .c-green  { border-left: 3px solid var(--green);  background: linear-gradient(135deg, var(--green-dim), var(--bg2)); }
+  .c-red    { border-left: 3px solid var(--red);    background: linear-gradient(135deg, var(--red-dim), var(--bg2)); }
+  .c-purple { border-left: 3px solid var(--purple); background: linear-gradient(135deg, var(--purple-dim), var(--bg2)); }
+  .c-gray   { border-left: 3px solid var(--gray);   background: linear-gradient(135deg, var(--gray-dim), var(--bg2)); }
+
+  .badge-prime  { background: var(--prime-dim);  color: var(--prime); }
+  .badge-teal   { background: var(--teal-dim);   color: var(--teal); }
+  .badge-amber  { background: var(--amber-dim);  color: var(--amber); }
+  .badge-green  { background: var(--green-dim);  color: var(--green); }
+  .badge-red    { background: var(--red-dim);    color: var(--red); }
+  .badge-purple { background: var(--purple-dim); color: var(--purple); }
+  .badge-gray   { background: var(--gray-dim);   color: var(--gray); }
+
+  /* title colors */
+  .c-prime  .card-title { color: var(--prime); }
+  .c-teal   .card-title { color: var(--teal); }
+  .c-amber  .card-title { color: var(--amber); }
+  .c-green  .card-title { color: var(--green); }
+  .c-red    .card-title { color: var(--red); }
+  .c-purple .card-title { color: var(--purple); }
+  .c-gray   .card-title { color: var(--gray); }
+
+  /* ── Connector arrows ── */
+  .arrow-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    padding: 2px 0;
+    position: relative;
+  }
+  .arrow-line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border2), transparent);
+  }
+  .arrow-center {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 16px;
+  }
+  .arrow-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.58rem;
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .arrow-down {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 4px 0;
+  }
+  .arrow-down-line {
+    width: 1px;
+    height: 20px;
+    background: linear-gradient(180deg, var(--border2), transparent);
+  }
+  .arrow-down-tip {
+    color: var(--text-dim);
+    font-size: 0.7rem;
+    line-height: 1;
+  }
+
+  /* ── Section dividers ── */
+  .section-divider {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 12px 0 6px;
+  }
+  .section-divider-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  .section-divider-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  /* ── Zone wrappers ── */
+  .zone {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px;
+    position: relative;
+  }
+  .zone-label {
+    position: absolute;
+    top: -10px;
+    left: 20px;
+    background: var(--bg);
+    padding: 0 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .zone-prime  { border-color: rgba(108,142,255,0.2); }
+  .zone-teal   { border-color: rgba(45,212,191,0.2); }
+  .zone-amber  { border-color: rgba(245,158,11,0.2); }
+  .zone-green  { border-color: rgba(52,211,153,0.2); }
+  .zone-purple { border-color: rgba(167,139,250,0.2); }
+  .zone-gray   { border-color: rgba(107,114,128,0.15); }
+
+  .zone-label-prime  { color: var(--prime); }
+  .zone-label-teal   { color: var(--teal); }
+  .zone-label-amber  { color: var(--amber); }
+  .zone-label-green  { color: var(--green); }
+  .zone-label-purple { color: var(--purple); }
+
+  /* ── Grid helpers ── */
+  .g2  { grid-template-columns: 1fr 1fr; }
+  .g3  { grid-template-columns: 1fr 1fr 1fr; }
+  .g4  { grid-template-columns: 1fr 1fr 1fr 1fr; }
+  .g5  { grid-template-columns: 1fr 1fr 1fr 1fr 1fr; }
+  .g14 { grid-template-columns: 1fr 3fr; }
+  .g41 { grid-template-columns: 3fr 1fr; }
+  .g13 { grid-template-columns: 1fr 2fr; }
+  .g31 { grid-template-columns: 2fr 1fr; }
+  .g23 { grid-template-columns: 2fr 3fr; }
+  .g123{ grid-template-columns: 1fr 2fr 3fr; }
+
+  /* ── Provider chain pill ── */
+  .chain {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+  .chain-pill {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.55rem;
+    padding: 2px 7px;
+    border-radius: 3px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+  }
+  .chain-arrow {
+    color: var(--text-dim);
+    font-size: 0.6rem;
+  }
+
+  /* ── Tier table ── */
+  .tier-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    margin-top: 10px;
+  }
+  .tier-table th {
+    text-align: left;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border2);
+    color: var(--text-dim);
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-size: 0.58rem;
+  }
+  .tier-table td {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-mid);
+    vertical-align: top;
+    line-height: 1.5;
+  }
+  .tier-table tr:last-child td { border-bottom: none; }
+  .tier-table td:first-child { font-weight: 700; }
+  .t-free   td:first-child { color: var(--gray); }
+  .t-pro    td:first-child { color: var(--teal); }
+  .t-ambient td:first-child { color: var(--prime); }
+  .t-byoh   td:first-child { color: var(--amber); }
+
+  /* ── Legend ── */
+  .legend {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-top: 32px;
+    padding: 14px 18px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--text-dim);
+  }
+  .legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  /* ── Flow line between big sections ── */
+  .flow-connector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 0;
+    gap: 12px;
+  }
+  .flow-connector-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+    max-width: 200px;
+  }
+  .flow-connector-node {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.58rem;
+    color: var(--text-dim);
+    padding: 3px 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Helm <span>Ecosystem</span> Architecture</h1>
+  <p>Personal instance → productization · all tiers · all components</p>
+</div>
+
+<div class="diagram">
+
+  <!-- ════════════════════════════════════════════════
+       SURFACES
+  ═══════════════════════════════════════════════════ -->
+  <div class="lane-label">Surfaces — where users meet Helm</div>
+  <div class="lane g5">
+    <div class="card c-prime">
+      <span class="card-badge badge-prime">desktop</span>
+      <div class="card-title">Desktop App</div>
+      <div class="card-sub">Tauri wrapper<br>native window<br>dock icon · notifs</div>
+    </div>
+    <div class="card c-prime">
+      <span class="card-badge badge-prime">web</span>
+      <div class="card-title">Web App</div>
+      <div class="card-sub">Browser<br>hosted on Vercel<br>no install needed</div>
+    </div>
+    <div class="card c-prime">
+      <span class="card-badge badge-prime">mobile</span>
+      <div class="card-title">Mobile</div>
+      <div class="card-sub">PWA or native<br>calls Render<br>always reachable</div>
+    </div>
+    <div class="card c-prime">
+      <span class="card-badge badge-prime">watch</span>
+      <div class="card-title">Watch</div>
+      <div class="card-sub">Glanceable<br>thin client<br>via Render</div>
+    </div>
+    <div class="card c-gray">
+      <span class="card-badge badge-gray">T3</span>
+      <div class="card-title">Home / Voice</div>
+      <div class="card-sub">Ambient sensing<br>always-on audio<br>future surface</div>
+    </div>
+  </div>
+
+  <div class="flow-connector">
+    <div class="flow-connector-line"></div>
+    <div class="flow-connector-node">↓ all surfaces call one of two endpoints ↓</div>
+    <div class="flow-connector-line"></div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════
+       HOSTING
+  ═══════════════════════════════════════════════════ -->
+  <div class="lane-label">Hosting — the public doors</div>
+  <div class="lane g2">
+    <div class="card c-amber">
+      <span class="card-badge badge-amber">vercel</span>
+      <div class="card-title">Vercel</div>
+      <div class="card-sub">Hosts UI files (HTML / CSS / JS)<br>CDN · global · always on<br>auto-deploys from repo on push<br>zero intelligence — just files</div>
+    </div>
+    <div class="card c-amber">
+      <span class="card-badge badge-amber">render</span>
+      <div class="card-title">Render</div>
+      <div class="card-sub">Runs FastAPI runtime (your code)<br>public URL · always on<br>the door to all intelligence<br>no models live here</div>
+    </div>
+  </div>
+
+  <div class="flow-connector">
+    <div class="flow-connector-line"></div>
+    <div class="flow-connector-node">↓ Render runs your code · routes every call ↓</div>
+    <div class="flow-connector-line"></div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════
+       RUNTIME / APP
+  ═══════════════════════════════════════════════════ -->
+  <div class="lane-label">Runtime — your repo code, running</div>
+  <div class="zone zone-teal" style="padding:18px;">
+    <span class="zone-label zone-label-teal">FastAPI · model_router.py · memory module · provider chain</span>
+    <div class="lane g4" style="margin-top:8px;">
+      <div class="card c-teal">
+        <div class="card-title">FastAPI</div>
+        <div class="card-sub">Web framework<br>/invoke/{agent_role}<br>/events (SSE)<br>/health</div>
+      </div>
+      <div class="card c-teal">
+        <div class="card-title">model_router.py</div>
+        <div class="card-sub">Reads config.yaml<br>routes each agent slot<br>to correct provider<br>LiteLLM wrapper</div>
+      </div>
+      <div class="card c-teal">
+        <div class="card-title">Memory Module</div>
+        <div class="card-sub">All Brain writes<br>via brain.sh discipline<br>outbox · circuit breaker<br>frames · beliefs · entities</div>
+      </div>
+      <div class="card c-teal">
+        <div class="card-title">Provider Chain</div>
+        <div class="card-sub">Ordered fallback<br>claude-sdk → local<br>→ anthropic-api<br>per agent slot</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-connector">
+    <div class="flow-connector-line"></div>
+    <div class="flow-connector-node">↓ router dispatches to correct subsystem + model ↓</div>
+    <div class="flow-connector-line"></div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════
+       SUBSYSTEMS
+  ═══════════════════════════════════════════════════ -->
+  <div class="lane-label">Cognitive subsystems — Helm's mind</div>
+  <div class="lane g4">
+    <div class="card c-prime">
+      <span class="card-badge badge-prime">prime</span>
+      <div class="card-title">Helm Prime</div>
+      <div class="card-sub">Conscious reasoning<br>voice · identity<br>all user-facing output</div>
+      <div class="chain">
+        <span class="chain-pill" style="background:var(--prime-dim);color:var(--prime)">claude-sdk</span>
+        <span class="chain-arrow">→</span>
+        <span class="chain-pill" style="background:var(--teal-dim);color:var(--teal)">local 70B</span>
+        <span class="chain-arrow">→</span>
+        <span class="chain-pill" style="background:var(--amber-dim);color:var(--amber)">api</span>
+      </div>
+    </div>
+    <div class="card c-teal">
+      <span class="card-badge badge-teal">memory</span>
+      <div class="card-title">Projectionist</div>
+      <div class="card-sub">Short-term memory<br>writes frames<br>session coherence</div>
+      <div class="chain">
+        <span class="chain-pill" style="background:var(--teal-dim);color:var(--teal)">local · Qwen3 4B</span>
+      </div>
+    </div>
+    <div class="card c-teal">
+      <span class="card-badge badge-teal">memory</span>
+      <div class="card-title">Archivist</div>
+      <div class="card-sub">Long-term memory<br>frame retrieval<br>photographic storage</div>
+      <div class="chain">
+        <span class="chain-pill" style="background:var(--teal-dim);color:var(--teal)">local · Qwen3 14B</span>
+      </div>
+    </div>
+    <div class="card c-purple">
+      <span class="card-badge badge-purple">subconscious</span>
+      <div class="card-title">Contemplator</div>
+      <div class="card-sub">Runs between sessions<br>curiosity · beliefs<br>rumination · patterns</div>
+      <div class="chain">
+        <span class="chain-pill" style="background:var(--purple-dim);color:var(--purple)">local · Qwen3 14B</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-connector">
+    <div class="flow-connector-line"></div>
+    <div class="flow-connector-node">↓ models live on hardware · Brain persists to Supabase ↓</div>
+    <div class="flow-connector-line"></div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════
+       INFRASTRUCTURE SPLIT
+  ═══════════════════════════════════════════════════ -->
+  <div class="lane-label">Infrastructure — hardware + persistent storage</div>
+  <div class="lane g3">
+
+    <!-- Cloud always-on -->
+    <div class="zone zone-green">
+      <span class="zone-label zone-label-green">cloud · always on · managed</span>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-top:10px;">
+        <div class="card c-green">
+          <span class="card-badge badge-green">supabase</span>
+          <div class="card-title">The Brain</div>
+          <div class="card-sub">Postgres + pgvector<br>helm_memory · helm_beliefs<br>helm_frames · helm_entities<br>helm_personality · relationships<br>single source of truth · always on</div>
+        </div>
+        <div class="card c-amber">
+          <span class="card-badge badge-amber">anthropic</span>
+          <div class="card-title">Anthropic API</div>
+          <div class="card-sub">Fallback for Prime<br>pay per token<br>when local unavailable<br>Render → mobile path</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Local T1/T2 -->
+    <div class="zone zone-prime">
+      <span class="zone-label zone-label-prime">local · T1 / T2 · your workstation</span>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-top:10px;">
+        <div class="card c-prime">
+          <span class="card-badge badge-prime">claude sdk</span>
+          <div class="card-title">Claude Max (SDK)</div>
+          <div class="card-sub">Prime on desktop<br>flat subscription<br>$0 per token<br>credentials local only</div>
+        </div>
+        <div class="card c-prime">
+          <span class="card-badge badge-prime">ollama</span>
+          <div class="card-title">Ollama · RTX 4090</div>
+          <div class="card-sub">Serves Qwen3 4B + 14B<br>Projectionist · Archivist<br>Contemplator (cron at T2)<br>24GB VRAM</div>
+        </div>
+        <div class="card c-amber">
+          <span class="card-badge badge-amber">tailscale</span>
+          <div class="card-title">Tailscale Tunnel</div>
+          <div class="card-sub">Connects Render<br>to local machine<br>T1.5 bridge<br>makes SDK reachable remotely</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Thor T3 -->
+    <div class="zone zone-amber">
+      <span class="zone-label zone-label-amber">Thor · T3 · always-on local AI server</span>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-top:10px;">
+        <div class="card c-amber">
+          <span class="card-badge badge-amber">MIG-0 · 40GB</span>
+          <div class="card-title">Prime partition</div>
+          <div class="card-sub">Local 70B model<br>Llama 3.3 or equiv<br>replaces API cost<br>always warm</div>
+        </div>
+        <div class="card c-amber">
+          <span class="card-badge badge-amber">MIG-1 · 20GB</span>
+          <div class="card-title">Archivist partition</div>
+          <div class="card-sub">Qwen3 14B<br>permanently loaded<br>instant retrieval</div>
+        </div>
+        <div class="card c-amber">
+          <span class="card-badge badge-amber">MIG-2 · 20GB</span>
+          <div class="card-title">Contemplator partition</div>
+          <div class="card-sub">Qwen3 14B<br>always-on background<br>true inner life</div>
+        </div>
+        <div class="card c-amber">
+          <span class="card-badge badge-amber">MIG-3 · 5GB</span>
+          <div class="card-title">Projectionist partition</div>
+          <div class="card-sub">Qwen3 4B<br>fast · lightweight<br>session framing</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ════════════════════════════════════════════════
+       PRODUCTIZATION LANE
+  ═══════════════════════════════════════════════════ -->
+  <div class="section-divider" style="margin-top:24px;">
+    <div class="section-divider-line"></div>
+    <div class="section-divider-label">── Productization lane — multi-user infrastructure ──</div>
+    <div class="section-divider-line"></div>
+  </div>
+
+  <div class="lane-label">Productization — same code · different infrastructure · per-user Brain</div>
+
+  <div class="zone zone-purple">
+    <span class="zone-label zone-label-purple">cloud GPU cluster · shared inference · per-user Brain isolation</span>
+    <div style="margin-top:14px;">
+
+      <div class="lane g4" style="margin-bottom:6px;">
+        <div class="card c-purple">
+          <span class="card-badge badge-purple">gateway</span>
+          <div class="card-title">API Gateway</div>
+          <div class="card-sub">Auth · rate limiting<br>user identification<br>routes to correct Brain<br>Render / Cloudflare</div>
+        </div>
+        <div class="card c-purple">
+          <span class="card-badge badge-purple">orchestration</span>
+          <div class="card-title">Orchestration Service</div>
+          <div class="card-sub">Multi-tenant routing<br>loads user Brain from Supabase<br>manages session lifecycle<br>new build — not in T1</div>
+        </div>
+        <div class="card c-purple">
+          <span class="card-badge badge-purple">inference</span>
+          <div class="card-title">vLLM Cluster</div>
+          <div class="card-sub">Shared GPU pool<br>one model · many users<br>Lambda / CoreWeave<br>replaces per-user Ollama</div>
+        </div>
+        <div class="card c-purple">
+          <span class="card-badge badge-purple">jobs</span>
+          <div class="card-title">Job Queue</div>
+          <div class="card-sub">Celery / async<br>Contemplator per user<br>scheduled independently<br>per pricing tier</div>
+        </div>
+      </div>
+
+      <!-- Tier table -->
+      <div class="card" style="margin-top:6px;border-left:3px solid var(--purple);">
+        <div class="card-title" style="color:var(--purple);margin-bottom:10px;">User Tiers — deployment model per user</div>
+        <table class="tier-table">
+          <thead>
+            <tr>
+              <th>Tier</th>
+              <th>Surface</th>
+              <th>Prime</th>
+              <th>Subsystems</th>
+              <th>Contemplator</th>
+              <th>Cost to user</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="t-free">
+              <td>Free</td>
+              <td>Browser only</td>
+              <td>Shared cloud (small model)</td>
+              <td>Shared cloud vLLM</td>
+              <td>Disabled</td>
+              <td>$0</td>
+            </tr>
+            <tr class="t-pro">
+              <td>Pro</td>
+              <td>App + web</td>
+              <td>Shared cloud (Opus-class)</td>
+              <td>Cloud or local toggle</td>
+              <td>Scheduled 2×/day</td>
+              <td>~$29/mo</td>
+            </tr>
+            <tr class="t-ambient">
+              <td>Ambient</td>
+              <td>All surfaces</td>
+              <td>Priority cloud queue</td>
+              <td>Cloud + local toggle</td>
+              <td>Always-on</td>
+              <td>~$79/mo</td>
+            </tr>
+            <tr class="t-byoh">
+              <td>BYOH</td>
+              <td>All surfaces</td>
+              <td>User's local hardware</td>
+              <td>User's local hardware</td>
+              <td>Always-on (local)</td>
+              <td>~$19/mo + hardware</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════
+       LEGEND
+  ═══════════════════════════════════════════════════ -->
+  <div class="legend">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text-dim);font-weight:700;letter-spacing:0.1em;text-transform:uppercase;margin-right:8px;">Legend</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--prime)"></div>Helm subsystems / surfaces</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--teal)"></div>Runtime / FastAPI layer</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--amber)"></div>Hosting / hardware / network</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Always-on cloud services</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div>Productization infrastructure</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--gray)"></div>Future / T3 surface</div>
+    <div class="legend-item" style="margin-left:auto;">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:0.58rem;color:var(--text-dim);">
+        Brain (Supabase) is the only component shared across ALL tiers and ALL users. Everything else is swappable.
+      </span>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
