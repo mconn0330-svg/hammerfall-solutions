@@ -14,7 +14,7 @@ Hammerfall is a single-developer project (Maxwell McConnell), but the discipline
 Every commit follows [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/). Enforced by `commitlint.config.js` locally (T0.A2 hook) and in CI (T0.A4).
 
 Allowed types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `ci`, `build`, `perf`, `style`, `revert`.
-Allowed scopes: `memory`, `runtime`, `ui`, `agent`, `prompt`, `infra`, `ci`, `docs`, `migration`, `repo`, `auth`, `obs`, `ops`.
+Allowed scopes: `memory`, `runtime`, `ui`, `agent`, `prompt`, `infra`, `ci`, `docs`, `migration`, `repo`, `auth`, `obs`, `ops`. Plus `deps` / `deps-dev` for Dependabot.
 
 Format: `type(scope): subject in lowercase, no trailing period`
 

@@ -39,6 +39,11 @@ module.exports = {
         'auth',
         'obs',
         'ops',
+        // Dependabot's default scopes for pip / npm / github-actions / docker
+        // bumps. Added so its PRs pass commitlint without per-ecosystem
+        // commit-message overrides in dependabot.yml.
+        'deps',
+        'deps-dev',
       ],
     ],
     'scope-empty': [2, 'never'],
@@ -47,4 +52,4 @@ module.exports = {
     'subject-full-stop': [2, 'never', '.'],
     'header-max-length': [2, 'always', 100],
   },
-};
+}

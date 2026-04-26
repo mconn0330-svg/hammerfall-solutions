@@ -10,7 +10,7 @@ Hammerfall is the runtime + UI for Helm — an ambient AI presence Maxwell McCon
 
 1. **V2 spec is canonical.** When in doubt about scope, intent, or shape, read `docs/stage1/Helm_T1_Launch_Spec_V2.md` first. ARCH-tier tasks have additional design notes in `docs/stage1/arch_notes/`.
 
-2. **Conventional Commits required.** Every commit message follows [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/). `commitlint` enforces this locally (T0.A2) and in CI (T0.A4). Allowed types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `ci`, `build`, `perf`, `style`, `revert`. Allowed scopes: `memory`, `runtime`, `ui`, `agent`, `prompt`, `infra`, `ci`, `docs`, `migration`, `repo`, `auth`, `obs`, `ops`. See `commitlint.config.js`.
+2. **Conventional Commits required.** Every commit message follows [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/). `commitlint` enforces this locally (T0.A2) and in CI (T0.A4). Allowed types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `ci`, `build`, `perf`, `style`, `revert`. Allowed scopes: `memory`, `runtime`, `ui`, `agent`, `prompt`, `infra`, `ci`, `docs`, `migration`, `repo`, `auth`, `obs`, `ops`. Plus `deps` / `deps-dev` for Dependabot's automated PRs. See `commitlint.config.js`.
 
 3. **STOP gates are non-optional.** Any task tagged `STOP` in the V2 spec requires Maxwell's explicit approval before merge. Any task tagged `ARCH` requires the architect's approval of the matching one-pager in `docs/stage1/arch_notes/` before build starts. Do not relabel mid-build to skip a gate.
 
