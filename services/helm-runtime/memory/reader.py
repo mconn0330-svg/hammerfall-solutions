@@ -121,3 +121,68 @@ async def read_entities(
     if limit is not None:
         params["limit"] = str(limit)
     return await client.select("helm_entities", params)
+
+
+async def read_open_curiosities(
+    client: _SelectCapable,
+    *,
+    project: str,
+    agent: str = "helm",
+    select_cols: str = "*",
+    order: str = "formed_at.desc",
+    limit: int | None = None,
+) -> list[dict[str, Any]]:
+    """Read open curiosities (status = open) from `helm_curiosities`. T0.B7b.
+
+    Used by the Prime context loader (top-N open curiosities to surface
+    at session start) and by the future Curiosities widget (T1.7).
+
+    Args:
+        client: anything with a `select(table, params)` method (Protocol).
+        project: project scope filter (required — curiosities are
+            project-scoped per the schema).
+        agent: defaults to 'helm' — the only agent that forms curiosities
+            today, but the column exists for forward compat.
+        select_cols: PostgREST select expression. Defaults to all columns.
+        order: PostgREST order expression. Defaults to most-recently-formed
+            first (the natural reading order for "what is Helm wondering").
+        limit: optional cap on rows returned (e.g., top 5 for context loader).
+
+    Returns:
+        List of curiosity rows (dicts). Empty list if no opens exist.
+
+    Filter is `status = 'open'` — investigating/resolved/abandoned are
+    excluded. To read by id (any status), use `read_curiosity()`.
+    """
+    params: dict[str, Any] = {
+        "select": select_cols,
+        "order": order,
+        "project": f"eq.{project}",
+        "agent": f"eq.{agent}",
+        "status": "eq.open",
+    }
+    if limit is not None:
+        params["limit"] = str(limit)
+    return await client.select("helm_curiosities", params)
+
+
+async def read_curiosity(
+    client: _SelectCapable,
+    *,
+    curiosity_id: str,
+    select_cols: str = "*",
+) -> dict[str, Any] | None:
+    """Read a single curiosity by id. T0.B7b.
+
+    Returns None if no row exists (rather than raising) — caller decides
+    whether absence is an error in their context.
+    """
+    rows = await client.select(
+        "helm_curiosities",
+        {
+            "id": f"eq.{curiosity_id}",
+            "select": select_cols,
+            "limit": "1",
+        },
+    )
+    return rows[0] if rows else None

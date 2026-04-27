@@ -115,27 +115,36 @@ additive.
 template), curiosities second (first new type, end-to-end), promises
 third (second new type, proof the pattern holds):
 
-### `helm_curiosities` (NEW — T0.B7b)
+### `helm_curiosities` (NEW — T0.B7b) — ✓ SHIPPED
 
-A queue of open questions Helm has formed but not resolved. Without curiosity, Helm only responds — he never drives. Curiosity is the substrate that makes T2 (scheduled passes) actually *do* something.
+**Status:** Shipped in T0.B7b. Migration: `supabase/migrations/20260427071716_t0b7b_create_helm_curiosities.sql`. Memory helpers: `write_helm_curiosity_record()`, `write_curiosity()` event wrapper, `read_open_curiosities()`, `read_curiosity()`, `update_curiosity_status()`. Routine 0 of `helm_prime` v4 loads top 5 open curiosities at session start; Routine 4 documents the curiosity-formation trigger.
 
-- **Schema sketch:**
+A queue of open questions Helm has formed but not resolved. Without curiosity, Helm only responds — he never drives. Curiosity is the substrate that makes T2 (scheduled passes) actually _do_ something.
+
+- **Schema (post-T0.B7b — modest enrichments over the original sketch):**
+
   ```sql
   CREATE TABLE helm_curiosities (
-    id UUID PRIMARY KEY,
-    project TEXT NOT NULL,
-    agent TEXT NOT NULL DEFAULT 'helm',
-    question TEXT NOT NULL,
-    formed_from UUID REFERENCES helm_memory(id),  -- the entry that sparked it
-    priority TEXT CHECK (priority IN ('low', 'medium', 'high')),
-    status TEXT CHECK (status IN ('open', 'investigating', 'resolved', 'abandoned')),
-    resolution TEXT,
-    formed_at TIMESTAMPTZ DEFAULT NOW(),
+    id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    project     TEXT         NOT NULL,
+    agent       TEXT         NOT NULL DEFAULT 'helm',
+    question    TEXT         NOT NULL,
+    formed_from UUID         REFERENCES helm_memory(id) ON DELETE SET NULL,
+    priority    TEXT         CHECK (priority IS NULL OR priority IN ('low', 'medium', 'high')),
+    status      TEXT         NOT NULL DEFAULT 'open'
+                             CHECK (status IN ('open', 'investigating', 'resolved', 'abandoned')),
+    resolution  TEXT,
+    formed_at   TIMESTAMPTZ  DEFAULT NOW(),
     resolved_at TIMESTAMPTZ
   );
+  -- Indexes: (project, status), formed_from (partial WHERE NOT NULL), formed_at DESC
+  -- RLS: enabled, service_role full access
   ```
+
+  Enrichments vs original sketch: `id` gets `DEFAULT gen_random_uuid()`, `status` gets `NOT NULL DEFAULT 'open'`, `formed_from` gets `ON DELETE SET NULL` (curiosities outlive their triggers).
+
 - **Write triggers:** Routine 4 ("I noticed this but didn't have context — flag it"), explicit Maxwell prompt ("be curious about X")
-- **Read patterns:** Prime prompt ("Helm currently wondering about: ..."), T2 scheduled pass picks one to investigate, UI "Helm's open questions" widget
+- **Read patterns:** Prime context loader (top 5 open at session start), T2 scheduled pass picks one to investigate (post-T1), UI "Helm's open questions" widget (T1.7)
 - **Examples from this very session:** "What does Maxwell mean by 'Feats'?" "Why did Helm flip the deployment recommendation twice in one session?" "Is Pro Max weekly budget closer to 5M or 50M tokens — should the default change?"
 
 ### `helm_promises` (NEW — T0.B7c)

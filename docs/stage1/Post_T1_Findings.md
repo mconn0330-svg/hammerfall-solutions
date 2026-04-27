@@ -246,6 +246,49 @@ Build + tests green after fix.
 **Why now / why not now:** T4.12 ships the standard purge endpoint; wipe-empty is one extra endpoint of similar shape. Demo badge is a single header element. Neither blocks T1 hello-worlds; both improve demo experience once visitor traffic exists.
 **Acceptance:** Wipe-empty endpoint live, admin-gated; second admin button on the UI; demo-mode badge renders distinctively when runtime is the demo instance.
 
+### Finding #011 — Archivist integration for canonical helm_curiosities (and helm_promises) writes
+
+**Surfaced:** 2026-04-27, T0.B7b consumer audit. The Archivist handler at
+`services/helm-runtime/agents/archivist.py` processes Contemplator's
+`curiosity_flags` payload by writing to `helm_memory` with
+`memory_type='curiosity_flag'` (legacy literal). T0.B7b shipped the canonical
+`helm_curiosities` table + `write_helm_curiosity_record()` helper, but the
+Archivist still routes new flags to `helm_memory` only — they don't land in
+the canonical store. Routine 0's "load top 5 open curiosities" therefore
+returns empty until this integration lands.
+
+**Owner:** TBD — bundle with T0.B7c if shapes match.
+
+**Proposal:** Update Archivist's curiosity_flag handler to ALSO write a
+canonical `helm_curiosities` row via `writer.write_helm_curiosity_record()`,
+populating `formed_from` from the Contemplator's source-memory link if
+present and inheriting `priority` from the flag's existing priority field.
+Continue writing the helm_memory event for backwards compatibility / audit
+trail. T0.B7c will land an identical-shape integration for `helm_promises`,
+so bundling them in the T0.B7c PR keeps the integration design consistent
+across both Tier 2 types.
+
+**Why deferred from T0.B7b:** keeps the abstraction-validation scope tight
+(arch one-pager's primary concern). T0.B7b's primary deliverables are the
+table + helpers + tests + prompts. The Contemplator → Archivist → canonical
+table integration is genuinely a separate concern with its own design
+choices (dual-write vs single-write, where formed_from comes from, etc.).
+
+**Why now / why not now:** Without this integration, the curiosity surfacing
+loop is open — Contemplator generates flags, but they never reach Routine 0's
+load query. Helm Prime sees empty open-curiosities every session. The hello-
+world "Helm cares" 3-of-5 contract requires this loop closed. Should land
+before T3.5 hello-world (i.e., before T1 close at the latest). Bundling with
+T0.B7c is the cheapest path; otherwise it's its own ~50-line PR.
+
+**Acceptance:**
+
+- Archivist writes canonical helm_curiosities rows from Contemplator payload
+- helm_memory event entries continue (audit trail preserved)
+- Test confirms Routine 0's read_open_curiosities() returns recent contemplator-formed curiosities
+
+---
+
 ### Finding #005 — helm-ui bundle exceeds 500kb minified
 
 **Surfaced:** 2026-04-25, PR for Finding #004 cleanup — `npm run build`
@@ -318,7 +361,7 @@ T4.5).
 **How T0.B7 is structured (see V2 spec for full detail):**
 
 - T0.B7a: `helm_entities` deepening (smallest, sets the template) — **shipped 2026-04-26**
-- T0.B7b: `helm_curiosities` (first new type, end-to-end pattern)
+- T0.B7b: `helm_curiosities` (first new type, end-to-end pattern) — **shipped 2026-04-27**
 - T0.B7c: `helm_promises` (second new type, proves pattern holds)
 - ARCH-tier; STOP gate after the third sub-PR.
 

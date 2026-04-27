@@ -31,9 +31,9 @@ from .client import MemoryClient, MemoryClientError, MemoryWriteFailed
 from .models import MemoryEntry, MemoryType, slugify
 from .outbox import DrainResult, Outbox, OutboxStats, stop_drain_loop
 from .prompt import PromptManager, PromptManagerError, PromptUnavailable
-from .reader import read_entities, read_frames
+from .reader import read_curiosity, read_entities, read_frames, read_open_curiosities
 from .settings import MemorySettings
-from .writer import MemoryWriter
+from .writer import MemoryWriter, update_curiosity_status
 
 __all__ = [
     "CircuitBreaker",
@@ -53,9 +53,12 @@ __all__ = [
     "PromptManagerError",
     "PromptUnavailable",
     "StateChangeCallback",
+    "read_curiosity",
     "read_entities",
     "read_frames",
+    "read_open_curiosities",
     "slugify",
     "stop_drain_loop",
+    "update_curiosity_status",
     "utc_now",
 ]
