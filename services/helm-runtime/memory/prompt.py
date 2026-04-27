@@ -12,7 +12,7 @@ where the on-disk `helm_prompt.md` was the canonical source. Now:
 
 PromptManager is operator infrastructure — push and pull are explicit
 operator actions. Reads use the same Supabase client as everything else
-on the read side. Writes go directly through SupabaseClient (not through
+on the read side. Writes go directly through ReadClient (not through
 MemoryClient/Outbox) — push is an explicit operator action; outbox-style
 queueing on a config write would mask operator-visible failures.
 
@@ -61,10 +61,10 @@ class PromptUnavailable(PromptManagerError):
 
 
 class _SupabaseLike(Protocol):
-    """Subset of SupabaseClient that PromptManager needs.
+    """Subset of ReadClient that PromptManager needs.
 
     Defined as a Protocol so tests can pass any object with matching
-    signatures — no need to construct a full SupabaseClient with httpx.
+    signatures — no need to construct a full ReadClient with httpx.
     """
 
     async def select(self, table: str, params: dict[str, Any]) -> list[dict[str, Any]]: ...
@@ -80,7 +80,7 @@ class _SupabaseLike(Protocol):
 class PromptManager:
     """Manages Helm agent prompts — Supabase canonical, file fallback.
 
-    Initialize once at startup with a SupabaseClient and an optional
+    Initialize once at startup with a ReadClient and an optional
     file-fallback directory. `load(agent_role)` returns the active prompt
     string. `push` and `pull` are operator-facing CLI verbs (T0.B6 wires
     the `python -m memory.prompt` entrypoint).
@@ -287,6 +287,85 @@ class PromptManager:
             bytes=len(content),
         )
         return version
+
+    # ── List / history / activate (T0.B6 CLI surface) ──────────────────────
+
+    async def list_active(self) -> list[dict[str, Any]]:
+        """Return one row per agent_role: the currently active version.
+
+        Cheap query for `python -m memory.prompt list`. Sorted by agent_role
+        so output is deterministic.
+        """
+        rows: list[dict[str, Any]] = await self._supabase.select(
+            self.TABLE,
+            {
+                "active": "eq.true",
+                "select": "agent_role,version,pushed_by,pushed_from,notes,created_at",
+                "order": "agent_role.asc",
+            },
+        )
+        return rows
+
+    async def list_versions(self, agent_role: str) -> list[dict[str, Any]]:
+        """Return full version history for one agent_role, newest first.
+
+        Backs `python -m memory.prompt history <role>`. Includes inactive
+        rows so callers can see the audit trail of what was pushed when.
+        """
+        rows: list[dict[str, Any]] = await self._supabase.select(
+            self.TABLE,
+            {
+                "agent_role": f"eq.{agent_role}",
+                "select": "version,active,pushed_by,pushed_from,notes,created_at",
+                "order": "version.desc",
+            },
+        )
+        return rows
+
+    async def activate(self, agent_role: str, version: int) -> None:
+        """Flip a specific version to active.
+
+        Deactivates the currently active row for this role first, then flips
+        the target version's active flag to true. Raises PromptUnavailable
+        if `version` doesn't exist for this role.
+
+        Used by `python -m memory.prompt activate <role> <version>` for
+        one-command revert to a known-good past prompt.
+        """
+        rows = await self._supabase.select(
+            self.TABLE,
+            {
+                "agent_role": f"eq.{agent_role}",
+                "version": f"eq.{version}",
+                "select": "id,active",
+                "limit": "1",
+            },
+        )
+        if not rows:
+            raise PromptUnavailable(
+                f"PromptManager.activate({agent_role!r}, version={version}): "
+                "no such version exists."
+            )
+        if bool(rows[0].get("active")):
+            logger.info(
+                "prompt.activate.noop",
+                agent_role=agent_role,
+                version=version,
+                reason="already_active",
+            )
+            return
+
+        await self._supabase.patch(
+            self.TABLE,
+            {"agent_role": agent_role, "active": "true"},
+            {"active": False},
+        )
+        await self._supabase.patch(
+            self.TABLE,
+            {"agent_role": agent_role, "version": str(version)},
+            {"active": True},
+        )
+        logger.info("prompt.activated", agent_role=agent_role, version=version)
 
     # ── Helpers ────────────────────────────────────────────────────────────
 

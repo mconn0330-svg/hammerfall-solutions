@@ -8,7 +8,7 @@ T0.B3 starts the read-path migration with a single helper — `read_frames()`
     | match_beliefs()          | Stays in read_client          | Stage 2 |
     | helm_personality reads   | Stays in read_client          | Stage 2 |
 
-T0.B6 renames `supabase_client.py` → `read_client.py` (the cosmetic part).
+T0.B6 renames `read_client.py` → `read_client.py` (the cosmetic part).
 This module grows progressively as read paths migrate over time, but the
 unified WRITE path (writer.py + outbox.py) is the load-bearing part.
 
@@ -24,10 +24,10 @@ from typing import Any, Protocol
 
 
 class _SelectCapable(Protocol):
-    """Subset of SupabaseClient the reader needs.
+    """Subset of ReadClient the reader needs.
 
     Defined as a Protocol so tests can pass any object with a matching
-    signature (no need to construct a full SupabaseClient).
+    signature (no need to construct a full ReadClient).
     """
 
     async def select(self, table: str, params: dict[str, Any]) -> list[dict[str, Any]]: ...

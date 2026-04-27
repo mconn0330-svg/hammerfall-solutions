@@ -1,14 +1,26 @@
 """
-supabase_client.py — Thin Supabase REST client for the Helm Runtime Service.
+read_client.py — Read-side Supabase REST client for the Helm Runtime Service.
 
-Replaces brain.sh subprocess calls inside the Python service.
-Both Projectionist and Archivist use this for all Supabase reads and writes.
+Renamed from `supabase_client.py` in T0.B6 to make the write/read split
+explicit:
 
-Relationship to brain.sh:
-  brain.sh remains the canonical write tool for Claude Code shell contexts
-  (Helm Prime, Routine 4, snapshot.sh). It is NOT replaced globally. This
-  module is the Python equivalent used exclusively within the Helm Runtime
-  Service. Two contexts, two tools, one Supabase endpoint.
+  - Brain WRITES to `helm_memory` go through the memory module
+    (`memory.MemoryWriter`) — durable, retried, outbox-backed.
+  - Brain READS (helm_beliefs, helm_personality, helm_memory queries,
+    `match_memories()` / `match_beliefs()` / `match_entities()` RPCs) come
+    here. No outbox needed; failure means the caller falls back to whatever
+    default makes sense (empty list, warn-and-continue).
+  - SIBLING-TABLE writes that aren't durable cognitive memory — PATCHing
+    helm_beliefs.strength, helm_personality.score, helm_frames.layer —
+    also stay here. They are config-style modifies; failure means the row
+    stays in its prior state, which is the right "queued for retry"
+    behavior implicitly.
+  - Operator config writes for `helm_prompts` (push/pull) also use this
+    client — push is an explicit operator action, outbox queueing on a
+    config write would mask operator-visible failures.
+
+Anything writing to `helm_memory` should go through `memory.MemoryWriter`,
+not here. This is the durable-memory invariant established in T0.B3.
 """
 
 from typing import Any
@@ -22,7 +34,7 @@ class SupabaseError(Exception):
     pass
 
 
-class SupabaseClient:
+class ReadClient:
     def __init__(self, url: str, service_key: str):
         self.url = url.rstrip("/")
         self.service_key = service_key

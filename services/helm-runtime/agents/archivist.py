@@ -11,19 +11,19 @@ Two responsibilities:
 2. Contemplator write handoff — when req.context contains "contemplator_writes",
    executes the structured payload (belief patches, pattern entries, curiosity
    flags, reflection log). Pattern/curiosity/monologue inserts go through the
-   memory module; belief/personality PATCHes stay through SupabaseClient
+   memory module; belief/personality PATCHes stay through ReadClient
    (sibling-table modifies — no outbox semantics needed).
 
 Write paths (T0.B3+):
   helm_memory inserts → memory.MemoryWriter
-  helm_beliefs PATCH  → SupabaseClient (sibling-table modify)
-  helm_personality PATCH → SupabaseClient (sibling-table modify)
-  helm_frames DELETE → SupabaseClient (cleanup after migration confirmed)
+  helm_beliefs PATCH  → ReadClient (sibling-table modify)
+  helm_personality PATCH → ReadClient (sibling-table modify)
+  helm_frames DELETE → ReadClient (cleanup after migration confirmed)
 
 Read paths:
   Cold-frame queue → memory.read_frames(layer="cold") (T0.B3 migration)
-  helm_beliefs SELECT → SupabaseClient (current-strength lookup before PATCH)
-  helm_personality SELECT → SupabaseClient (current-score lookup before PATCH)
+  helm_beliefs SELECT → ReadClient (current-strength lookup before PATCH)
+  helm_personality SELECT → ReadClient (current-score lookup before PATCH)
 
 Safety net: cold frames stay in helm_frames on any write failure —
             retried on next Archivist invocation. Nothing is lost.
@@ -42,7 +42,7 @@ from embedding_client import EmbeddingClient
 from memory import MemoryType, MemoryWriter, PromptManager, read_frames
 from middleware import InvokeRequest
 from model_router import ModelRouter
-from supabase_client import SupabaseClient
+from read_client import ReadClient
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +58,7 @@ PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "archivist.md"
 async def handle(
     req: InvokeRequest,
     router: ModelRouter,
-    supabase: SupabaseClient,
+    supabase: ReadClient,
     writer: MemoryWriter,
     prompt_manager: PromptManager,
     embedding_client: EmbeddingClient | None = None,
@@ -250,7 +250,7 @@ Summarize this turn in 1-3 sentences."""
 
 async def _execute_contemplator_writes(
     payload: dict[str, Any],
-    supabase: SupabaseClient,
+    supabase: ReadClient,
     writer: MemoryWriter,
     embedding_client: EmbeddingClient | None = None,
 ) -> str:
