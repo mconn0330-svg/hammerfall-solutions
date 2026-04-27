@@ -51,6 +51,7 @@ class MemoryType(StrEnum):
     ENTITY = "entity"
     RELATIONSHIP = "relationship"
     SCRATCHPAD = "scratchpad"
+    CURIOSITY = "curiosity"  # T0.B7b — event in helm_memory about a curiosity formation/transition
 
 
 _SLUG_NON_ALNUM = re.compile(r"[^a-z0-9]+")

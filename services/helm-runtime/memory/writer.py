@@ -23,11 +23,12 @@ from __future__ import annotations
 
 import re
 from datetime import date
-from typing import Any
+from typing import Any, Protocol
 from uuid import UUID
 
 from observability import get_logger, tracer
 
+from ._time import utc_now
 from .circuit_breaker import CircuitBreakerOpen
 from .client import MemoryClient, MemoryWriteFailed
 from .models import MemoryEntry, MemoryType, slugify
@@ -412,6 +413,31 @@ class MemoryWriter:
             content=content,
         )
 
+    async def write_curiosity(
+        self,
+        *,
+        project: str,
+        agent: str,
+        content: str,
+        full_content: dict[str, Any] | None = None,
+        subject_ref: UUID | None = None,
+    ) -> MemoryEntry:
+        """Write a curiosity event to helm_memory. T0.B7b.
+
+        Distinct from `write_helm_curiosity_record()`: this records a memory
+        event about a curiosity (formation, transition); the canonical
+        curiosity row (with status, resolution, etc.) lives in helm_curiosities
+        and is written via `write_helm_curiosity_record()`. Same pattern as
+        write_entity (memory event) vs write_helm_entity_record (canonical row)."""
+        return await self.write(
+            project=project,
+            agent=agent,
+            memory_type=MemoryType.CURIOSITY,
+            content=content,
+            full_content=full_content,
+            subject_ref=subject_ref,
+        )
+
     # ── helm_frames record writer (Projectionist, T0.B3) ───────────────────
 
     async def write_helm_frame_record(
@@ -621,3 +647,153 @@ class MemoryWriter:
                     error=str(e)[:300],
                 )
                 return payload
+
+    # ── helm_curiosities writer (T0.B7b) ───────────────────────────────────
+
+    async def write_helm_curiosity_record(
+        self,
+        *,
+        project: str,
+        question: str,
+        agent: str = "helm",
+        formed_from: UUID | str | None = None,
+        priority: str | None = None,
+        status: str = "open",
+    ) -> dict[str, Any]:
+        """Write a row to `helm_curiosities` (NOT `helm_memory`).
+
+        Distinct from `write_curiosity()`: this writes the canonical curiosity
+        row (the open question itself); `write_curiosity()` writes a memory
+        event row to helm_memory about a curiosity formation/transition. Same
+        pattern as write_helm_entity_record vs write_entity.
+
+        `priority` must be 'low' | 'medium' | 'high' or NULL (not yet
+        prioritized). `status` must satisfy the schema CHECK: open |
+        investigating | resolved | abandoned. Both validated server-side
+        by the migration's CHECK constraints.
+
+        `formed_from` is the helm_memory.id that sparked this curiosity
+        (audit trail). Optional — curiosities can be authored without a
+        triggering memory entry (e.g., explicit Maxwell prompt).
+
+        Same durability contract as the other record writers: transport
+        failure routes to the outbox when configured; otherwise propagates.
+        """
+        payload: dict[str, Any] = {
+            "project": project,
+            "agent": agent,
+            "question": question,
+            "status": status,
+        }
+        if formed_from is not None:
+            payload["formed_from"] = str(formed_from)
+        if priority is not None:
+            payload["priority"] = priority
+
+        with tracer.start_as_current_span("memory.write_helm_curiosity_record") as span:
+            span.set_attribute("memory.project", project)
+            span.set_attribute("memory.curiosity_status", status)
+            try:
+                await self._client.insert("helm_curiosities", payload)
+                span.set_attribute("memory.delivery", "direct")
+                logger.info(
+                    "memory.write.helm_curiosities",
+                    project=project,
+                    status=status,
+                    delivery="direct",
+                )
+                return payload
+            except (MemoryWriteFailed, CircuitBreakerOpen) as e:
+                if self._outbox is None:
+                    span.set_attribute("memory.delivery", "failed")
+                    raise
+                row_id = await self._outbox.enqueue("helm_curiosities", payload)
+                span.set_attribute("memory.delivery", "queued")
+                span.set_attribute("memory.outbox_row_id", row_id)
+                logger.warning(
+                    "memory.write.helm_curiosities.queued",
+                    project=project,
+                    status=status,
+                    outbox_row_id=row_id,
+                    reason=type(e).__name__,
+                    error=str(e)[:300],
+                )
+                return payload
+
+
+# ─── helm_curiosities lifecycle update (T0.B7b) ─────────────────────────────
+
+
+class _PatchCapable(Protocol):
+    """Subset of ReadClient the curiosity status updater needs.
+
+    Status transitions are PATCH operations, not inserts — they don't go
+    through MemoryClient (insert-only). They go through ReadClient.patch()
+    same way Archivist's belief-strength PATCHes do.
+
+    Defined as a Protocol so tests can pass any object with a matching
+    signature.
+    """
+
+    async def patch(
+        self, table: str, filters: dict[str, Any], payload: dict[str, Any]
+    ) -> list[dict[str, Any]]: ...
+
+
+_VALID_CURIOSITY_STATUSES = ("open", "investigating", "resolved", "abandoned")
+
+
+async def update_curiosity_status(
+    client: _PatchCapable,
+    *,
+    curiosity_id: UUID | str,
+    new_status: str,
+    resolution: str | None = None,
+) -> None:
+    """Transition a curiosity to a new lifecycle state.
+
+    Lifecycle: open → investigating → resolved | abandoned.
+
+    `resolution` is the text of how the curiosity was resolved (free-form).
+    Set when transitioning to 'resolved'; ignored otherwise. When set,
+    `resolved_at` is populated server-side via the same PATCH (sets the
+    timestamp at write time so it matches when the resolution actually
+    happened, not when a later read observes it).
+
+    Validates `new_status` client-side against the same enum the schema
+    CHECK constraint enforces — fail-fast with ValueError rather than
+    surface a Postgres CHECK violation.
+
+    Returns nothing — caller can re-read via read_curiosity if it needs
+    the post-transition state.
+    """
+    if new_status not in _VALID_CURIOSITY_STATUSES:
+        raise ValueError(
+            f"new_status must be one of {_VALID_CURIOSITY_STATUSES}, got {new_status!r}"
+        )
+
+    payload: dict[str, Any] = {"status": new_status}
+    if new_status == "resolved":
+        payload["resolved_at"] = utc_now().isoformat()
+        if resolution is not None:
+            payload["resolution"] = resolution
+    elif new_status == "abandoned":
+        # Abandoned curiosities also get a resolved_at stamp (the moment
+        # they were abandoned). Resolution text is optional but commonly
+        # explains why.
+        payload["resolved_at"] = utc_now().isoformat()
+        if resolution is not None:
+            payload["resolution"] = resolution
+
+    await client.patch(
+        "helm_curiosities",
+        {"id": f"eq.{curiosity_id}"},
+        payload,
+    )
+
+    logger.info(
+        "memory.update.helm_curiosities.status",
+        curiosity_id=str(curiosity_id),
+        new_status=new_status,
+        resolution_set=resolution is not None,
+    )

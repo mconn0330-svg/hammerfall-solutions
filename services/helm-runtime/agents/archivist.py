@@ -365,12 +365,18 @@ async def _execute_contemplator_writes(
             results["errors"].append(f"pattern_entry: {e}")
 
     # --- Curiosity flags ---
-    # Note: T0.B7b lands `helm_curiosities` as a sibling table with its own
-    # MemoryType.CURIOSITY enum value. Until then, curiosity flags piggyback on
-    # `helm_memory` with `memory_type='curiosity_flag'` (legacy literal — not
-    # a Tier 1 enum value). Using writer.write() with the literal string
-    # preserves backwards compatibility; the existing rows in helm_memory
-    # remain queryable.
+    # Status as of T0.B7b: `helm_curiosities` and `MemoryType.CURIOSITY` exist
+    # (T0.B7b PR landed the table + memory module helpers
+    # write_helm_curiosity_record / write_curiosity / read_open_curiosities /
+    # update_curiosity_status). This Archivist handler still writes
+    # `memory_type='curiosity_flag'` to helm_memory for backwards compat with
+    # existing rows, but the canonical store for new curiosities is now
+    # helm_curiosities. Migrating this handler to also write a canonical
+    # row via writer.write_helm_curiosity_record() is tracked as Finding #011
+    # (deferred from T0.B7b to keep the abstraction-validation scope tight;
+    # see the T0.B7b SITREP). T0.B7c will likely bundle this migration with
+    # the parallel helm_promises Archivist integration since the integration
+    # shape will be identical for both Tier 2 types.
     for flag in payload.get("curiosity_flags", []):
         try:
             flag_type = flag.get("type", "unknown").upper()

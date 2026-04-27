@@ -14,8 +14,10 @@ from memory.models import MemoryEntry, MemoryType, slugify
 
 
 def test_memory_type_has_all_tier_1_values() -> None:
-    """Tier 1 catalog locked. New types append in T0.B7 — these never move."""
-    expected = {
+    """Tier 1 catalog locked. New types append in T0.B7 — these never move,
+    rename, or get reordered. Tier 2+ values are checked separately so this
+    test stays stable as Tier 2 lands incrementally."""
+    tier_1 = {
         "frame",
         "behavioral",
         "decision",
@@ -28,7 +30,23 @@ def test_memory_type_has_all_tier_1_values() -> None:
         "relationship",
         "scratchpad",
     }
-    assert {t.value for t in MemoryType} == expected
+    actual = {t.value for t in MemoryType}
+    # Superset check — Tier 1 values must all be present, additional Tier 2+
+    # values are allowed (and asserted separately below).
+    missing = tier_1 - actual
+    assert not missing, f"Tier 1 values missing from MemoryType: {missing}"
+
+
+def test_memory_type_has_tier_2_values() -> None:
+    """Tier 2 catalog accumulates via T0.B7 sub-PRs. As each sub-PR lands,
+    its enum value gets appended here so any rename/reorder fails this test."""
+    tier_2_landed_so_far = {
+        "curiosity",  # T0.B7b
+        # "promise",  # T0.B7c — append when shipped
+    }
+    actual = {t.value for t in MemoryType}
+    missing = tier_2_landed_so_far - actual
+    assert not missing, f"Tier 2 values missing from MemoryType: {missing}"
 
 
 def test_memory_type_round_trips_through_string() -> None:
