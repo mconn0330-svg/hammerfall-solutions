@@ -2,20 +2,25 @@
 -- T0.B5 — helm_prompts Table
 --
 -- Supabase becomes the source of truth for agent system prompts.
--- On-disk file (services/helm-runtime/agents/helm/helm_prompt.md) is
--- the boot-time fallback. PromptManager.load() tries Supabase first;
--- if Supabase is unreachable AND the file is missing, the runtime
--- refuses to boot (fail-loud, not fail-silent with stale prompt).
+-- On-disk files at services/helm-runtime/agents/prompts/<role>.md
+-- are the boot-time fallback. PromptManager.load() tries Supabase
+-- first; if Supabase is unreachable AND the file is missing, the
+-- runtime refuses to boot (fail-loud, not fail-silent with stale).
 --
 -- One active version per agent role at a time. Push deactivates the
 -- previous active row in a single transaction. Versions are kept
 -- (not deleted) so prompt history is queryable for audit.
 --
--- T0.B6 will add a SNAPSHOT header to the on-disk helm_prompt.md
--- marking it as a mirror of the canonical Supabase version.
+-- T0.B6 will add a SNAPSHOT header to the on-disk prompt files
+-- marking them as mirrors of the canonical Supabase versions.
 -- =============================================================
 
--- Reversibility: see DOWN section at the bottom. Per ADR-002.
+-- Reversibility: Class 2 (forward-only)
+-- Per ADR-002: CREATE TABLE / CREATE INDEX / CREATE POLICY are
+-- additive operations. No data is dropped or transformed; rollback
+-- means dropping the new table (which loses prompt-version history
+-- but no production behavior since file fallback always works).
+-- DOWN section retained below as documentation, not required by policy.
 
 CREATE TABLE IF NOT EXISTS helm_prompts (
   id            UUID         PRIMARY KEY DEFAULT gen_random_uuid(),

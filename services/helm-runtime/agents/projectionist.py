@@ -13,14 +13,19 @@ Write path (T0.B3+):
 Read + PATCH paths still go through SupabaseClient (cold-frame reads, frame_status
 updates, layer transitions). T0.B6 renames supabase_client → read_client to make
 the write/read split explicit; that PR is purely cosmetic.
+
+Prompt path (T0.B5 extension):
+  Loaded via memory.PromptManager.load("projectionist", fallback_path=PROMPT_PATH).
+  Supabase canonical, file fallback at agents/prompts/projectionist.md.
 """
 
 import asyncio
 import json
 import logging
 from datetime import UTC, datetime
+from pathlib import Path
 
-from memory import MemoryWriter
+from memory import MemoryWriter, PromptManager
 from middleware import InvokeRequest
 from model_router import ModelRouter
 from supabase_client import SupabaseClient
@@ -36,40 +41,13 @@ FRAME_OFFLOAD_INTERVAL = 10  # interval trigger — every N turns
 FRAME_OFFLOAD_CONSERVATIVE = True  # fire at 80% of interval (turn 8, 16, 24...)
 
 # ---------------------------------------------------------------------------
-# Projectionist system prompt
-#
-# Instructs the model to return ONLY valid JSON matching the frame schema.
-# Ollama JSON mode ("format": "json") enforces valid JSON at the model level.
-# output_validator middleware enforces schema compliance after the call.
+# Prompt fallback path — used by PromptManager when Supabase is unreachable.
+# Canonical source is the helm_prompts table (agent_role='projectionist').
+# Edit this file then push via `python -m memory.prompt push projectionist`
+# (CLI lands in T0.B6) or programmatic prompt_manager.push() to promote.
 # ---------------------------------------------------------------------------
 
-SYSTEM_PROMPT = """You are the Projectionist. Your only job is to analyze a conversation turn and produce a structured JSON frame. Return ONLY valid JSON. No explanation, no preamble, no markdown fences.
-
-The JSON must exactly match this schema:
-
-{
-  "turn": <integer — turn number>,
-  "timestamp": "<ISO 8601 UTC — current time>",
-  "user_id": "maxwell",
-  "session_id": "<uuid — from session context>",
-  "user": "<verbatim user message — no truncation>",
-  "helm": "<verbatim helm response — no truncation>",
-  "topic": "<inferred — project codename or topic area, 5 words max>",
-  "domain": "<one of: architecture, process, people, ethics, decisions, other>",
-  "entities_mentioned": ["<proper noun>", ...],
-  "belief_links": ["<belief-slug>", ...],
-  "frame_status": "active",
-  "superseded_reason": null,
-  "superseded_at_turn": null
-}
-
-Rules:
-- entities_mentioned: proper nouns only — people, projects, companies, tools. Empty array if none. Never null.
-- belief_links: belief slugs inferred from context (e.g. "pipeline-serves-product", "simplicity-first"). Empty array if uncertain. Never null.
-- topic: short phrase identifying the subject of this turn
-- domain: exactly one value from the enum
-- frame_status: always "active" for new frames
-- Return ONLY the JSON object. Nothing before it. Nothing after it."""
+PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "projectionist.md"
 
 
 async def handle(
@@ -77,6 +55,7 @@ async def handle(
     router: ModelRouter,
     supabase: SupabaseClient,
     writer: MemoryWriter,
+    prompt_manager: PromptManager,
 ) -> str:
     """
     Build a frame JSON from the turn, write it to helm_frames, return the frame JSON.
@@ -108,8 +87,9 @@ Helm response:
 
 Produce the frame JSON now."""
 
+    system_prompt = await prompt_manager.load("projectionist", fallback_path=PROMPT_PATH)
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT + "\n" + req.system_prompt},
+        {"role": "system", "content": system_prompt + "\n" + req.system_prompt},
         {"role": "user", "content": user_prompt},
     ]
 

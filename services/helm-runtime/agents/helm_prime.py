@@ -29,11 +29,12 @@ from supabase_client import SupabaseClient
 
 logger = logging.getLogger(__name__)
 
-# On-disk fallback path for helm_prime's system prompt. Mounted into the
-# container via docker-compose volume. Used by PromptManager when Supabase
-# is unreachable at boot. T0.B6 will mark this file with a SNAPSHOT header
-# noting that Supabase is canonical.
-PROMPT_PATH = Path(__file__).resolve().parent.parent / "agents" / "helm" / "helm_prompt.md"
+# On-disk fallback path for helm_prime's system prompt. Lives under the
+# unified agents/prompts/ directory alongside every other agent's fallback.
+# Mounted into the container via docker-compose volume. Used by
+# PromptManager when Supabase is unreachable at boot. T0.B6 will mark this
+# file with a SNAPSHOT header noting that Supabase is canonical.
+PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "helm_prime.md"
 
 
 async def handle(

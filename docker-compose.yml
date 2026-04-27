@@ -36,11 +36,12 @@ services:
     volumes:
       # Mount config read-only — swap models by editing config.yaml + restart
       - ./services/helm-runtime/config.yaml:/app/config.yaml:ro
-      # helm_prime handler reads helm_prompt.md at invoke time. Mount preserves
-      # the host repo path inside the container so the handler resolves it via
-      # PROMPT_PATH without an image rebuild on every prompt edit. Long-term the
-      # prompt moves into Supabase alongside helm_personality.
-      - ./agents/helm/helm_prompt.md:/app/agents/helm/helm_prompt.md:ro
+      # T0.B5: agent prompt fallbacks. Supabase is canonical (helm_prompts
+      # table); these files are the boot-time fallback used when Supabase is
+      # unreachable. Edit-and-restart UX preserved for operator convenience.
+      # Five files: helm_prime, projectionist, archivist, contemplator_pass_1,
+      # contemplator_pass_2.
+      - ./services/helm-runtime/agents/prompts:/app/agents/prompts:ro
       # T0.A7: persistent state volume for the memory-module outbox (T0.B2).
       # Read-only root means the runtime cannot write outside /tmp + this mount.
       - helm_state:/home/helm/.helm
