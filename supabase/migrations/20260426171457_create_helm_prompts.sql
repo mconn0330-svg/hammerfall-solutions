@@ -67,18 +67,6 @@ CREATE POLICY "anon_read_helm_prompts" ON helm_prompts
 GRANT SELECT ON helm_prompts TO anon;
 GRANT ALL ON helm_prompts TO service_role;
 
--- =============================================================
--- DOWN (manual revert per ADR-002)
---
--- DROP POLICY IF EXISTS "anon_read_helm_prompts" ON helm_prompts;
--- DROP POLICY IF EXISTS "service_role_full_access" ON helm_prompts;
--- ALTER TABLE helm_prompts DISABLE ROW LEVEL SECURITY;
--- DROP INDEX IF EXISTS idx_helm_prompts_created_at;
--- DROP INDEX IF EXISTS idx_helm_prompts_role_active;
--- DROP INDEX IF EXISTS uniq_active_prompt_per_role;
--- DROP TABLE IF EXISTS helm_prompts;
---
--- Reversibility category (ADR-002): destructive on revert (drops table +
--- all prompt history). Apply only with explicit Maxwell approval and
--- confirmed backup.
--- =============================================================
+-- Class 2 (forward-only, additive). No DOWN block required per ADR-002.
+-- To revert manually: drop the table + RLS policies + indexes. Loses prompt
+-- history but no production behavior since the file fallback always works.
