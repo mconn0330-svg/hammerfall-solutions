@@ -1,0 +1,51 @@
+# Example entities file — demonstrates the format the seed mechanism consumes.
+#
+# This is NOT production data. It's a small synthetic sample (5 entities)
+# that doubles as a test fixture. Real brain content lives in the brain
+# (Supabase), not in this repo.
+#
+# To bootstrap a fresh brain with your own content, author a YAML file with
+# this same shape and run:
+#   python -m memory seed-entities <your-file>
+#
+# Schema notes:
+#   - entity_type: must be one of person, project, concept, place,
+#     organization, tool, event, pet (per the helm_entities CHECK)
+#   - aliases: optional list of alternate names (used by Routine 4's
+#     duplicate guard via array-contains lookup)
+#   - attributes: optional JSONB blob for type-specific fields
+#   - summary: optional one-sentence human-readable description
+
+entities:
+  - entity_type: person
+    name: Sample Person Alice
+    aliases: [Alice, Ali]
+    attributes:
+      role: example
+      profile_complete: false
+    summary: Synthetic example person used for seed-mechanism testing.
+
+  - entity_type: person
+    name: Sample Person Bob
+    aliases: [Bob]
+    attributes:
+      role: example
+    summary: Synthetic example person used for seed-mechanism testing.
+
+  - entity_type: place
+    name: Sample Place
+    attributes:
+      type: example
+    summary: Synthetic example place used for seed-mechanism testing.
+
+  - entity_type: organization
+    name: Sample Organization
+    attributes:
+      industry: example
+    summary: Synthetic example organization used for seed-mechanism testing.
+
+  - entity_type: project
+    name: Sample Project
+    attributes:
+      status: example
+    summary: Synthetic example project used for seed-mechanism testing.

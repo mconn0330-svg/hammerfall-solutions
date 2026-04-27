@@ -1,0 +1,35 @@
+# Example relationships file — demonstrates the format the seed mechanism consumes.
+#
+# This is NOT production data. It's a small synthetic sample (3 relationships)
+# pairing entities defined in entities.yaml. Real relationship content lives
+# in the brain.
+#
+# Schema notes:
+#   - from / to: entity NAMES (NOT UUIDs). The seed mechanism queries
+#     helm_entities and resolves names to brain-assigned UUIDs at write time.
+#   - relationship: free-text label (no enum constraint at the DB layer —
+#     conventions documented in agents/helm/archivist/archivist.md)
+#   - notes: optional context (e.g. "biological", "step-relationship")
+#   - confidence: optional 0.0-1.0 score (NULL = "no score given")
+#   - active: optional bool, defaults true (false = retired relationship,
+#     kept for audit trail per migration 004's design)
+#
+# Bidirectionality is the author's responsibility: write two entries per
+# relationship pair if both directions are needed (Maxwell -> Kim 'spouse'
+# AND Kim -> Maxwell 'spouse').
+
+relationships:
+  - from: Sample Person Alice
+    to: Sample Person Bob
+    relationship: friend
+    notes: Synthetic example friendship.
+    confidence: 0.9
+
+  - from: Sample Person Alice
+    to: Sample Place
+    relationship: resident
+    confidence: 1.0
+
+  - from: Sample Organization
+    to: Sample Project
+    relationship: owner

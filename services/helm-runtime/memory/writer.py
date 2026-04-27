@@ -568,8 +568,9 @@ class MemoryWriter:
         Bidirectional convention is the caller's responsibility: callers
         write two rows per relationship, flipping the label by perspective
         (Maxwell→Kim 'spouse' / Kim→Maxwell 'spouse'; Maxwell→Emma 'parent'
-        / Emma→Maxwell 'child'). The seed_relationships.sh script's `pair()`
-        helper is the reference shape.
+        / Emma→Maxwell 'child'). The seed mechanism (`memory.seed`) treats
+        each relationship entry as one direction; authors write two entries
+        when both are needed.
 
         `confidence` (formerly `strength` pre-T0.B7a) is 0.0..1.0 — how sure
         Helm is the relationship exists. NULL is valid and means no score
