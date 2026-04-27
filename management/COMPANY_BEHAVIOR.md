@@ -59,9 +59,11 @@ where wired.
 The Supabase brain is the canonical memory store. No Google Drive. No platform
 memory. No Claude Code built-in memory system.
 
-All memory writes go through `scripts/brain.sh`. Never write directly to `.md`
-files. The `.md` files (`BEHAVIORAL_PROFILE.md`, `ShortTerm_Scratchpad.md`) are
-read-only snapshots — written by `snapshot.sh`, not by agents directly.
+All memory writes go through the `memory` module in `services/helm-runtime/` —
+never any direct file write. The legacy `.md` snapshot files
+(`BEHAVIORAL_PROFILE.md`, `ShortTerm_Scratchpad.md`) and the `brain.sh` /
+`snapshot.sh` scripts they were paired with were retired in T0.B6; the Memory
+widget reads canonically from Supabase.
 
 **Automatic journaling (no command required):**
 Helm writes to the brain immediately when named events occur:
@@ -72,17 +74,18 @@ Helm writes to the brain immediately when named events occur:
 - Blocker identified or resolved
 - Maxwell correction or override
 - Significant architectural choice made
-- Session end — watchdog flushes scratchpad automatically
+- Session end — runtime triggers the resolution pass automatically
 
 **Knowledge gap resolution:** When Helm lacks context to answer a question, query
-the brain via targeted full-text search before stating "I don't know." See
-`agents/helm/helm_prompt.md` Routine 6 for the full pattern. Note: ILIKE is
+the brain via targeted full-text or semantic search before stating "I don't know."
+See `agents/helm/helm_prompt.md` Routine 6 for the full pattern. ILIKE is
 substring matching — retry with alternate terms if the first query returns
-nothing. Semantic search via pgvector is the planned v2 upgrade.
+nothing. Semantic search via pgvector is available for vectorized fields.
 
 **"Log this" (Maxwell's manual override):**
-When Maxwell says "log this," Helm immediately writes via `brain.sh` and confirms.
-No routing through Drive. No relay through Maxwell.
+When Maxwell says "log this," Helm immediately routes the entry to Archivist via
+`POST /invoke/archivist` and confirms. No routing through Drive. No relay through
+Maxwell.
 
 **The single source of truth is the Supabase brain.** The repo holds prompts,
 scripts, and config. The brain holds memory.
