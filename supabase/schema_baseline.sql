@@ -32,12 +32,14 @@ CREATE TABLE IF NOT EXISTS "public"."helm_entities" (
     "entity_type" "text" NOT NULL,
     "name" "text" NOT NULL,
     "attributes" "jsonb" DEFAULT '{}'::"jsonb",
-    "first_seen" timestamp with time zone DEFAULT "now"(),
-    "last_updated" timestamp with time zone DEFAULT "now"(),
+    "first_mentioned_at" timestamp with time zone DEFAULT "now"(),
+    "last_mentioned_at" timestamp with time zone DEFAULT "now"(),
     "summary" "text",
     "active" boolean DEFAULT true NOT NULL,
     "aliases" "text"[] DEFAULT '{}'::"text"[],
-    "embedding" "extensions"."vector"(1536)
+    "embedding" "extensions"."vector"(1536),
+    "salience_decay" double precision DEFAULT 1.0,
+    CONSTRAINT "helm_entities_entity_type_check" CHECK (("entity_type" = ANY (ARRAY['person'::"text", 'project'::"text", 'concept'::"text", 'place'::"text", 'organization'::"text", 'tool'::"text", 'event'::"text", 'pet'::"text"])))
 );
 
 
@@ -78,12 +80,12 @@ $$;
 ALTER FUNCTION "public"."match_beliefs"("query_embedding" "extensions"."vector", "match_threshold" double precision, "match_count" integer) OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."match_entities"("query_embedding" "extensions"."vector", "match_threshold" double precision DEFAULT 0.7, "match_count" integer DEFAULT 10) RETURNS TABLE("id" "uuid", "entity_type" "text", "name" "text", "summary" "text", "attributes" "jsonb", "first_seen" timestamp with time zone, "similarity" double precision)
+CREATE OR REPLACE FUNCTION "public"."match_entities"("query_embedding" "extensions"."vector", "match_threshold" double precision DEFAULT 0.7, "match_count" integer DEFAULT 10) RETURNS TABLE("id" "uuid", "entity_type" "text", "name" "text", "summary" "text", "attributes" "jsonb", "first_mentioned_at" timestamp with time zone, "similarity" double precision)
     LANGUAGE "sql" STABLE
     SET "search_path" TO 'extensions', 'public'
     AS $$
   SELECT
-    id, entity_type, name, summary, attributes, first_seen,
+    id, entity_type, name, summary, attributes, first_mentioned_at,
     1 - (embedding <=> query_embedding) AS similarity
   FROM helm_entities
   WHERE active = true
@@ -173,9 +175,9 @@ CREATE TABLE IF NOT EXISTS "public"."helm_entity_relationships" (
     "relationship" "text" NOT NULL,
     "notes" "text",
     "active" boolean DEFAULT true NOT NULL,
-    "strength" double precision,
+    "confidence" double precision,
     "created_at" timestamp with time zone DEFAULT "now"(),
-    CONSTRAINT "helm_entity_relationships_strength_check" CHECK ((("strength" IS NULL) OR (("strength" >= (0.0)::double precision) AND ("strength" <= (1.0)::double precision)))),
+    CONSTRAINT "helm_entity_relationships_strength_check" CHECK ((("confidence" IS NULL) OR (("confidence" >= (0.0)::double precision) AND ("confidence" <= (1.0)::double precision)))),
     CONSTRAINT "no_self_relationship" CHECK (("from_entity" <> "to_entity"))
 );
 
@@ -251,6 +253,22 @@ CREATE TABLE IF NOT EXISTS "public"."helm_personality" (
 ALTER TABLE "public"."helm_personality" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."helm_prompts" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "agent_role" "text" NOT NULL,
+    "version" integer NOT NULL,
+    "content" "text" NOT NULL,
+    "active" boolean DEFAULT true NOT NULL,
+    "pushed_by" "text",
+    "pushed_from" "text",
+    "notes" "text",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."helm_prompts" OWNER TO "postgres";
+
+
 ALTER TABLE ONLY "public"."helm_beliefs"
     ADD CONSTRAINT "helm_beliefs_pkey" PRIMARY KEY ("id");
 
@@ -293,6 +311,16 @@ ALTER TABLE ONLY "public"."helm_memory"
 
 ALTER TABLE ONLY "public"."helm_personality"
     ADD CONSTRAINT "helm_personality_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."helm_prompts"
+    ADD CONSTRAINT "helm_prompts_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."helm_prompts"
+    ADD CONSTRAINT "helm_prompts_unique_role_version" UNIQUE ("agent_role", "version");
 
 
 
@@ -361,6 +389,14 @@ CREATE INDEX "idx_helm_memory_type" ON "public"."helm_memory" USING "btree" ("pr
 
 
 
+CREATE INDEX "idx_helm_prompts_created_at" ON "public"."helm_prompts" USING "btree" ("created_at" DESC);
+
+
+
+CREATE INDEX "idx_helm_prompts_role_active" ON "public"."helm_prompts" USING "btree" ("agent_role", "active");
+
+
+
 CREATE INDEX "idx_memory_index_project" ON "public"."helm_memory_index" USING "btree" ("project", "agent");
 
 
@@ -377,18 +413,22 @@ CREATE INDEX "idx_rel_to" ON "public"."helm_entity_relationships" USING "btree" 
 
 
 
+CREATE UNIQUE INDEX "uniq_active_prompt_per_role" ON "public"."helm_prompts" USING "btree" ("agent_role") WHERE ("active" = true);
+
+
+
 ALTER TABLE ONLY "public"."helm_memory"
     ADD CONSTRAINT "fk_subject" FOREIGN KEY ("subject_ref") REFERENCES "public"."helm_entities"("id");
 
 
 
 ALTER TABLE ONLY "public"."helm_entity_relationships"
-    ADD CONSTRAINT "helm_entity_relationships_from_entity_fkey" FOREIGN KEY ("from_entity") REFERENCES "public"."helm_entities"("id");
+    ADD CONSTRAINT "helm_entity_relationships_from_entity_fkey" FOREIGN KEY ("from_entity") REFERENCES "public"."helm_entities"("id") ON DELETE CASCADE;
 
 
 
 ALTER TABLE ONLY "public"."helm_entity_relationships"
-    ADD CONSTRAINT "helm_entity_relationships_to_entity_fkey" FOREIGN KEY ("to_entity") REFERENCES "public"."helm_entities"("id");
+    ADD CONSTRAINT "helm_entity_relationships_to_entity_fkey" FOREIGN KEY ("to_entity") REFERENCES "public"."helm_entities"("id") ON DELETE CASCADE;
 
 
 
@@ -420,6 +460,10 @@ CREATE POLICY "anon_read_helm_personality" ON "public"."helm_personality" FOR SE
 
 
 
+CREATE POLICY "anon_read_helm_prompts" ON "public"."helm_prompts" FOR SELECT TO "anon" USING (true);
+
+
+
 CREATE POLICY "anon_update_helm_personality" ON "public"."helm_personality" FOR UPDATE TO "anon" USING (true) WITH CHECK (true);
 
 
@@ -445,6 +489,9 @@ ALTER TABLE "public"."helm_memory_index" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."helm_personality" ENABLE ROW LEVEL SECURITY;
 
 
+ALTER TABLE "public"."helm_prompts" ENABLE ROW LEVEL SECURITY;
+
+
 CREATE POLICY "service_role_full_access" ON "public"."helm_entity_relationships" TO "service_role" USING (true) WITH CHECK (true);
 
 
@@ -458,6 +505,10 @@ CREATE POLICY "service_role_full_access" ON "public"."helm_memory" USING (true) 
 
 
 CREATE POLICY "service_role_full_access" ON "public"."helm_memory_index" USING (true) WITH CHECK (true);
+
+
+
+CREATE POLICY "service_role_full_access" ON "public"."helm_prompts" USING (true) WITH CHECK (true);
 
 
 
@@ -537,6 +588,12 @@ GRANT ALL ON TABLE "public"."helm_memory_index" TO "service_role";
 GRANT ALL ON TABLE "public"."helm_personality" TO "anon";
 GRANT ALL ON TABLE "public"."helm_personality" TO "authenticated";
 GRANT ALL ON TABLE "public"."helm_personality" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."helm_prompts" TO "anon";
+GRANT ALL ON TABLE "public"."helm_prompts" TO "authenticated";
+GRANT ALL ON TABLE "public"."helm_prompts" TO "service_role";
 
 
 
