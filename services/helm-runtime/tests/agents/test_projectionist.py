@@ -76,15 +76,26 @@ def mock_writer() -> MagicMock:
     return w
 
 
+@pytest.fixture
+def mock_prompt_manager() -> MagicMock:
+    """PromptManager stub — load() returns a canned system prompt."""
+    pm = MagicMock()
+    pm.load = AsyncMock(return_value="STUB PROJECTIONIST SYSTEM PROMPT")
+    return pm
+
+
 async def test_projectionist_writes_helm_frame_through_memory_writer(
     request_obj: InvokeRequest,
     mock_router: MagicMock,
     mock_supabase: MagicMock,
     mock_writer: MagicMock,
+    mock_prompt_manager: MagicMock,
 ) -> None:
     """The migration target: Projectionist no longer calls supabase.insert
     directly; it routes through MemoryWriter.write_helm_frame_record."""
-    await projectionist_agent.handle(request_obj, mock_router, mock_supabase, mock_writer)
+    await projectionist_agent.handle(
+        request_obj, mock_router, mock_supabase, mock_writer, mock_prompt_manager
+    )
 
     # The write went through MemoryWriter, not supabase.insert
     assert mock_writer.write_helm_frame_record.await_count == 1
@@ -103,13 +114,16 @@ async def test_projectionist_does_not_call_supabase_insert(
     mock_router: MagicMock,
     mock_supabase: MagicMock,
     mock_writer: MagicMock,
+    mock_prompt_manager: MagicMock,
 ) -> None:
     """Verification grep equivalent — supabase.insert must not be called by
     the post-migration handler. PATCHes (frame_status updates) and SELECTs
     (offload trigger checks) are still allowed through supabase."""
     mock_supabase.insert = AsyncMock(return_value={})
 
-    await projectionist_agent.handle(request_obj, mock_router, mock_supabase, mock_writer)
+    await projectionist_agent.handle(
+        request_obj, mock_router, mock_supabase, mock_writer, mock_prompt_manager
+    )
 
     assert mock_supabase.insert.await_count == 0
 
@@ -118,6 +132,7 @@ async def test_projectionist_resolution_pass_skips_writer(
     mock_router: MagicMock,
     mock_supabase: MagicMock,
     mock_writer: MagicMock,
+    mock_prompt_manager: MagicMock,
 ) -> None:
     """Resolution pass is a different code path — no model call, no
     writer.write_helm_frame_record. Just supabase PATCHes (status transitions)."""
@@ -133,7 +148,9 @@ async def test_projectionist_resolution_pass_skips_writer(
         },
     )
 
-    await projectionist_agent.handle(req, mock_router, mock_supabase, mock_writer)
+    await projectionist_agent.handle(
+        req, mock_router, mock_supabase, mock_writer, mock_prompt_manager
+    )
 
     # Resolution pass: no new frame created, so writer is not called
     assert mock_writer.write_helm_frame_record.await_count == 0
@@ -146,6 +163,7 @@ async def test_projectionist_uses_request_session_id_not_model_output(
     mock_router: MagicMock,
     mock_supabase: MagicMock,
     mock_writer: MagicMock,
+    mock_prompt_manager: MagicMock,
 ) -> None:
     """Even if the model hallucinates a different session_id, the handler
     overrides with req.session_id. Catches a class of frame-attribution bugs
@@ -156,8 +174,51 @@ async def test_projectionist_uses_request_session_id_not_model_output(
     payload["session_id"] = "MODEL-HALLUCINATED-DIFFERENT-ID"
     response.choices[0].message.content = json.dumps(payload)
 
-    await projectionist_agent.handle(request_obj, mock_router, mock_supabase, mock_writer)
+    await projectionist_agent.handle(
+        request_obj, mock_router, mock_supabase, mock_writer, mock_prompt_manager
+    )
 
     call_kwargs = mock_writer.write_helm_frame_record.await_args.kwargs
     assert call_kwargs["session_id"] == "test-session-uuid"
     assert call_kwargs["frame_json"]["session_id"] == "test-session-uuid"
+
+
+# ─── Prompt loading via PromptManager (T0.B5 extension) ─────────────────────
+
+
+async def test_projectionist_loads_prompt_via_prompt_manager(
+    request_obj: InvokeRequest,
+    mock_router: MagicMock,
+    mock_supabase: MagicMock,
+    mock_writer: MagicMock,
+    mock_prompt_manager: MagicMock,
+) -> None:
+    """Projectionist must call prompt_manager.load("projectionist", ...) — proves
+    the migration to centralized prompt loading actually fires."""
+    await projectionist_agent.handle(
+        request_obj, mock_router, mock_supabase, mock_writer, mock_prompt_manager
+    )
+
+    assert mock_prompt_manager.load.await_count == 1
+    role_arg = mock_prompt_manager.load.await_args.args[0]
+    assert role_arg == "projectionist"
+
+
+async def test_projectionist_passes_loaded_prompt_to_model(
+    request_obj: InvokeRequest,
+    mock_router: MagicMock,
+    mock_supabase: MagicMock,
+    mock_writer: MagicMock,
+    mock_prompt_manager: MagicMock,
+) -> None:
+    """The system prompt the model sees must come from PromptManager's
+    return value — not a hardcoded SYSTEM_PROMPT constant."""
+    mock_prompt_manager.load = AsyncMock(return_value="UNIQUELY-LOADED-PROMPT-STRING")
+
+    await projectionist_agent.handle(
+        request_obj, mock_router, mock_supabase, mock_writer, mock_prompt_manager
+    )
+
+    invoke_kwargs = mock_router.invoke.await_args.kwargs
+    system_msg = next(m for m in invoke_kwargs["messages"] if m["role"] == "system")
+    assert "UNIQUELY-LOADED-PROMPT-STRING" in system_msg["content"]

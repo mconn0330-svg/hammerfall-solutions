@@ -20,8 +20,10 @@ All writes expressed as a structured JSON payload sent to Archivist.
 import asyncio
 import json
 import logging
+from pathlib import Path
 from typing import Any
 
+from memory import PromptManager
 from middleware import InvokeRequest
 from model_router import ModelRouter
 from supabase_client import SupabaseClient
@@ -42,15 +44,15 @@ PASS2_MAX_TOKENS = 1500
 SESSION_START_TIMEOUT = 55.0  # seconds — hard cap for non-blocking mode
 
 # ---------------------------------------------------------------------------
-# Pass 1 — Data gathering prompt
+# Prompt fallback paths — Contemplator runs two distinct passes, each with
+# its own system prompt. Stored as separate rows in helm_prompts under
+# agent_role='contemplator_pass_1' / 'contemplator_pass_2'. Editing them
+# independently lets you tune Pass 1 (data-gathering) without touching
+# Pass 2 (evaluation/write payload).
 # ---------------------------------------------------------------------------
 
-PASS1_SYSTEM = """You are Helm's Contemplator — the inner life of the Helm agent system.
-
-You receive a brain snapshot and identify candidates for belief evaluation, pattern synthesis, curiosity flagging, and reflection.
-
-This is Pass 1: data gathering and candidate identification only. No evaluation yet.
-You always respond with valid JSON only — no prose outside the JSON structure."""
+PASS1_PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "contemplator_pass_1.md"
+PASS2_PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "contemplator_pass_2.md"
 
 PASS1_USER_TEMPLATE = """\
 Analyze the following brain snapshot for Helm.
@@ -90,13 +92,6 @@ Rules:
 # ---------------------------------------------------------------------------
 # Pass 2 — Evaluation and write payload prompt
 # ---------------------------------------------------------------------------
-
-PASS2_SYSTEM = """You are Helm's Contemplator — generating the final write payload after deep evaluation.
-
-You receive the Pass 1 candidate list and the original brain snapshot.
-You reason over each candidate and produce only what genuinely warrants action.
-
-You always respond with valid JSON only."""
 
 PASS2_USER_TEMPLATE = """\
 Brain snapshot:
@@ -201,6 +196,7 @@ async def handle(
     req: InvokeRequest,
     router: ModelRouter,
     supabase: SupabaseClient,
+    prompt_manager: PromptManager,
 ) -> str:
     """
     Contemplator entry point.
@@ -214,6 +210,12 @@ async def handle(
     """
     trigger = req.context.get("trigger", "session_end")
     logger.info("Contemplator invoked: trigger=%s session=%s", trigger, req.session_id)
+
+    # Load both pass prompts up front. Pass 2 may not fire (session_start
+    # only runs Pass 1) but we load both to fail-fast on prompt unavailability
+    # rather than discover it mid-cycle. PromptManager call is cheap (~ms).
+    pass1_system = await prompt_manager.load("contemplator_pass_1", fallback_path=PASS1_PROMPT_PATH)
+    pass2_system = await prompt_manager.load("contemplator_pass_2", fallback_path=PASS2_PROMPT_PATH)
 
     # Dual-mode think routing:
     #   session_start — think=False (lightweight, Pass 1 only, ~10s, non-blocking)
@@ -240,7 +242,7 @@ async def handle(
     _pass1_coro = router.invoke(
         role="contemplator",
         messages=[
-            {"role": "system", "content": PASS1_SYSTEM},
+            {"role": "system", "content": pass1_system},
             {"role": "user", "content": PASS1_USER_TEMPLATE.format(snapshot=snapshot)},
         ],
         stream=False,
@@ -298,7 +300,7 @@ async def handle(
     pass2_raw = await router.invoke(
         role="contemplator",
         messages=[
-            {"role": "system", "content": PASS2_SYSTEM},
+            {"role": "system", "content": pass2_system},
             {
                 "role": "user",
                 "content": PASS2_USER_TEMPLATE.format(

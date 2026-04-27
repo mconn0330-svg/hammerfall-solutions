@@ -5,14 +5,15 @@ Helm Prime is the conscious reasoning subsystem of Helm — the surface the user
 talks to. This handler is the runtime entry point for Prime invocation.
 
 Responsibilities:
-  1. Load helm_personality scores from Supabase and format as an injection block
-  2. Assemble the system prompt (helm_prompt.md + personality block + operational context)
-  3. Invoke the configured Prime model via model_router
-  4. Return the response string
+  1. Load Prime's system prompt via memory.PromptManager (Supabase canonical,
+     file fallback). Refuses to serve if both are unreachable.
+  2. Load helm_personality scores from Supabase and format as an injection block
+  3. Assemble the system prompt (base + personality block + operational context)
+  4. Invoke the configured Prime model via model_router
+  5. Return the response string
 
-Does NOT own: memory writes (Prime writes via brain.sh during its own operation,
-not through this handler), frame management (Projectionist), belief graduation
-(Contemplator → Archivist handoff).
+Does NOT own: memory writes (handled by memory module + drain loop), frame
+management (Projectionist), belief graduation (Contemplator → Archivist handoff).
 
 Model configuration lives in config.yaml under agents.helm_prime. Provider-agnostic
 by design — swap provider/model via config without touching this code.
@@ -21,35 +22,38 @@ by design — swap provider/model via config without touching this code.
 import logging
 from pathlib import Path
 
+from memory import PromptManager
 from middleware import InvokeRequest
 from model_router import ModelRouter
 from supabase_client import SupabaseClient
 
 logger = logging.getLogger(__name__)
 
-# helm_prompt.md is mounted into the container at /app/agents/helm/helm_prompt.md
-# via docker-compose volume. Edit the host file and restart the service to pick
-# up changes — no image rebuild required. This file is the canonical source.
-# Long-term the prompt moves to Supabase alongside helm_personality; mounting
-# preserves edit-and-restart UX in the meantime.
-PROMPT_PATH = Path(__file__).resolve().parent.parent / "agents" / "helm" / "helm_prompt.md"
+# On-disk fallback path for helm_prime's system prompt. Lives under the
+# unified agents/prompts/ directory alongside every other agent's fallback.
+# Mounted into the container via docker-compose volume. Used by
+# PromptManager when Supabase is unreachable at boot. T0.B6 will mark this
+# file with a SNAPSHOT header noting that Supabase is canonical.
+PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "helm_prime.md"
 
 
 async def handle(
     req: InvokeRequest,
     router: ModelRouter,
     supabase: SupabaseClient,
+    prompt_manager: PromptManager,
 ) -> str:
     """
     Helm Prime invocation.
 
-    1. Load helm_prompt.md as the base system prompt
+    1. Load Prime's base prompt via PromptManager.load("helm_prime")
+       — Supabase canonical, file fallback, refuse-to-serve on dual failure
     2. Load personality scores from Supabase, format as injection block
     3. Assemble system prompt: base + personality + operational context
     4. Invoke helm_prime via model_router with user message
     5. Return response
     """
-    base_prompt = _load_base_prompt()
+    base_prompt = await prompt_manager.load("helm_prime", fallback_path=PROMPT_PATH)
     personality_block = await _load_personality_block(supabase)
     operational_context = _build_operational_context(req)
 
@@ -78,17 +82,6 @@ async def handle(
         len(response),
     )
     return response
-
-
-def _load_base_prompt() -> str:
-    """Load helm_prompt.md as the base system prompt. Fatal if missing — Prime cannot operate without its prompt."""
-    try:
-        return PROMPT_PATH.read_text(encoding="utf-8")
-    except FileNotFoundError as e:
-        raise RuntimeError(
-            f"helm_prompt.md not found at {PROMPT_PATH}. "
-            "Confirm the docker-compose volume mount is in place."
-        ) from e
 
 
 async def _load_personality_block(supabase: SupabaseClient) -> str:

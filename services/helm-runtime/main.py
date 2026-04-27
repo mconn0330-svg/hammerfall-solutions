@@ -39,6 +39,8 @@ from memory import (
     MemorySettings,
     MemoryWriter,
     Outbox,
+    PromptManager,
+    PromptUnavailable,
     stop_drain_loop,
 )
 from middleware import InvokeRequest, MiddlewarePipeline, PrimeDirectivesViolation
@@ -67,6 +69,7 @@ embedding_client: EmbeddingClient | None = None
 memory_client: MemoryClient | None = None
 memory_writer: MemoryWriter | None = None
 outbox: Outbox | None = None
+prompt_manager: PromptManager | None = None
 _drain_task: asyncio.Task[None] | None = None
 
 
@@ -74,7 +77,7 @@ _drain_task: asyncio.Task[None] | None = None
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Initialize service globals at startup. Fail fast on config errors."""
     global router, supabase, pipeline, embedding_client
-    global memory_client, memory_writer, outbox, _drain_task
+    global memory_client, memory_writer, outbox, prompt_manager, _drain_task
 
     logger.info("Helm Runtime Service starting...")
 
@@ -118,6 +121,26 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Cancellation on shutdown is the clean stop signal.
     _drain_task = asyncio.create_task(outbox.drain_loop(memory_client))
     logger.info("Memory module wired: outbox=%s drain_loop=running", memory_settings.outbox_path)
+
+    # Prompt management (T0.B5) — Supabase canonical, file fallback, refuse
+    # to boot if dual-failure. Probes ALL agent prompts at startup so the
+    # runtime fails LOUD if any cognitive subsystem can't be served.
+    prompt_manager = PromptManager(supabase)
+    prompts_dir = Path(__file__).parent / "agents" / "prompts"
+    required_prompts = [
+        ("helm_prime", prompts_dir / "helm_prime.md"),
+        ("projectionist", prompts_dir / "projectionist.md"),
+        ("archivist", prompts_dir / "archivist.md"),
+        ("contemplator_pass_1", prompts_dir / "contemplator_pass_1.md"),
+        ("contemplator_pass_2", prompts_dir / "contemplator_pass_2.md"),
+    ]
+    for role, fallback in required_prompts:
+        try:
+            await prompt_manager.load(role, fallback_path=fallback)
+        except PromptUnavailable as e:
+            logger.critical("PromptManager startup probe failed for %s: %s", role, e)
+            raise SystemExit(1) from e
+    logger.info("PromptManager: all %d agent prompts available at startup", len(required_prompts))
 
     pipeline = MiddlewarePipeline()
 
@@ -208,17 +231,25 @@ class InvokeResponse(BaseModel):
 async def _handle_projectionist(req: InvokeRequest) -> str:
     """Route to Projectionist handler — frame creation via qwen3:4b on Ollama."""
     assert (
-        router is not None and supabase is not None and memory_writer is not None
+        router is not None
+        and supabase is not None
+        and memory_writer is not None
+        and prompt_manager is not None
     ), "service not initialized"
-    return await projectionist_agent.handle(req, router, supabase, memory_writer)
+    return await projectionist_agent.handle(req, router, supabase, memory_writer, prompt_manager)
 
 
 async def _handle_archivist(req: InvokeRequest) -> str:
     """Route to Archivist handler — frame migration with embedding via qwen3:14b on Ollama."""
     assert (
-        router is not None and supabase is not None and memory_writer is not None
+        router is not None
+        and supabase is not None
+        and memory_writer is not None
+        and prompt_manager is not None
     ), "service not initialized"
-    return await archivist_agent.handle(req, router, supabase, memory_writer, embedding_client)
+    return await archivist_agent.handle(
+        req, router, supabase, memory_writer, prompt_manager, embedding_client
+    )
 
 
 async def _handle_contemplator(req: InvokeRequest) -> str:
@@ -236,10 +267,13 @@ async def _handle_contemplator(req: InvokeRequest) -> str:
     import json as _json
 
     assert (
-        router is not None and supabase is not None and memory_writer is not None
+        router is not None
+        and supabase is not None
+        and memory_writer is not None
+        and prompt_manager is not None
     ), "service not initialized"
 
-    result_str = await contemplator_agent.handle(req, router, supabase)
+    result_str = await contemplator_agent.handle(req, router, supabase, prompt_manager)
     result = _json.loads(result_str)
 
     # session_end: hand off write payload to Archivist
@@ -254,7 +288,7 @@ async def _handle_contemplator(req: InvokeRequest) -> str:
                 context={**req.context, "contemplator_writes": payload},
             )
             await archivist_agent.handle(
-                write_req, router, supabase, memory_writer, embedding_client
+                write_req, router, supabase, memory_writer, prompt_manager, embedding_client
             )
             logger.info("Contemplator→Archivist write handoff complete. session=%s", req.session_id)
 
@@ -266,8 +300,10 @@ async def _handle_helm_prime(req: InvokeRequest) -> str:
     Helm Prime invocation via runtime.
     See agents/helm_prime.py for full implementation.
     """
-    assert router is not None and supabase is not None, "service not initialized"
-    return await helm_prime_agent.handle(req, router, supabase)
+    assert (
+        router is not None and supabase is not None and prompt_manager is not None
+    ), "service not initialized"
+    return await helm_prime_agent.handle(req, router, supabase, prompt_manager)
 
 
 AGENT_HANDLERS = {

@@ -35,10 +35,11 @@ Projectionist contract). The column value is written into full_content JSONB.
 import asyncio
 import logging
 from datetime import date
+from pathlib import Path
 from typing import Any
 
 from embedding_client import EmbeddingClient
-from memory import MemoryType, MemoryWriter, read_frames
+from memory import MemoryType, MemoryWriter, PromptManager, read_frames
 from middleware import InvokeRequest
 from model_router import ModelRouter
 from supabase_client import SupabaseClient
@@ -46,15 +47,12 @@ from supabase_client import SupabaseClient
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Summary prompt
-#
-# The model's only task: compress a turn into 1-3 sentences.
-# No JSON output required — plain prose only.
+# Prompt fallback path — Supabase canonical (agent_role='archivist'),
+# this file is the boot-time fallback. The model's only job is summarizing
+# a turn into 1-3 sentences (no JSON output required).
 # ---------------------------------------------------------------------------
 
-SUMMARY_SYSTEM_PROMPT = """You are summarizing a conversation turn for long-term memory storage. Your job is to produce a concise 1-3 sentence summary of what this turn covered.
-
-Be specific. Name the topic, the decision made or question explored, and the outcome if one was reached. Write in past tense. No preamble. Return only the summary text."""
+PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "archivist.md"
 
 
 async def handle(
@@ -62,6 +60,7 @@ async def handle(
     router: ModelRouter,
     supabase: SupabaseClient,
     writer: MemoryWriter,
+    prompt_manager: PromptManager,
     embedding_client: EmbeddingClient | None = None,
 ) -> str:
     """
@@ -86,6 +85,9 @@ async def handle(
         return await _execute_contemplator_writes(
             contemplator_payload, supabase, writer, embedding_client
         )
+
+    # Load summary prompt via PromptManager (Supabase canonical, file fallback)
+    summary_system_prompt = await prompt_manager.load("archivist", fallback_path=PROMPT_PATH)
 
     # Query all cold frames via memory.read_frames — not scoped to session,
     # Archivist clears the full cold queue.
@@ -115,6 +117,7 @@ async def handle(
             user_msg=user_msg,
             helm_msg=helm_msg,
             frame_id=frame_id,
+            system_prompt=summary_system_prompt,
         )
         if summary is None:
             # All retries exhausted — leave frame in cold, continue
@@ -184,11 +187,16 @@ async def _generate_summary(
     user_msg: str,
     helm_msg: str,
     frame_id: str,
+    system_prompt: str,
 ) -> str | None:
     """
     Generate a 1-3 sentence summary of a turn via the model.
     Retries up to 3 attempts with 0.5s backoff on transient model failure.
     Returns the summary string, or None if all attempts fail.
+
+    `system_prompt` is loaded by the caller via PromptManager — passed in
+    rather than fetched here so the prompt-load happens once per Archivist
+    invocation, not once per frame.
     """
     user_prompt = f"""User message:
 {user_msg}
@@ -199,7 +207,7 @@ Helm response:
 Summarize this turn in 1-3 sentences."""
 
     messages = [
-        {"role": "system", "content": SUMMARY_SYSTEM_PROMPT},
+        {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_prompt},
     ]
 
