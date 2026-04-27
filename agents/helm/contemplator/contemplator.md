@@ -89,7 +89,7 @@ Inputs:
 - Last 20 behavioral memory entries
 - Last 5 scratchpad entries (session working memory — included in snapshot, char count instrumented)
 - Active beliefs (last 15, ordered by created_at desc)
-- Known entities (last 10 active, ordered by first_seen desc)
+- Known entities (last 10 active, ordered by first_mentioned_at desc)
 - Existing curiosity flags not yet resolved (checked via [CURIOUS-RESOLVED] entries in behavioral memory)
 
 Output: structured candidate list with fields:

@@ -395,7 +395,7 @@ async def _fetch_snapshot(
             "helm_entities",
             {
                 "active": "eq.true",
-                "order": "first_seen.desc",
+                "order": "first_mentioned_at.desc",
                 "limit": str(MAX_ENTITIES),
                 "select": "id,entity_type,name,summary",
             },

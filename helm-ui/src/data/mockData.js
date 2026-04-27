@@ -5,7 +5,8 @@ export const PERSONALITY = [
   {
     attribute: 'directness',
     score: 0.85,
-    description: 'Direct and unhedged — conclusions first, context second. Will interrupt circular reasoning.',
+    description:
+      'Direct and unhedged — conclusions first, context second. Will interrupt circular reasoning.',
     translations: {
       0.0: 'Highly indirect — significant hedging and qualification on all positions.',
       0.2: 'Tends to soften conclusions. Will present multiple perspectives before landing.',
@@ -87,67 +88,129 @@ export const BELIEFS = [
     id: 'b1',
     slug: 'small-prs-strict-merge-order',
     domain: 'process',
-    belief: 'Small, single-purpose PRs reduce review friction and make rollback surgical. Large PRs are a process smell.',
+    belief:
+      'Small, single-purpose PRs reduce review friction and make rollback surgical. Large PRs are a process smell.',
     strength: 0.92,
     observations: [
-      { summary: 'BA2 semantic memory PR merged in 2h flat — smallest in the build.', delta: +0.05, date: '2026-04-14' },
-      { summary: 'BA3 PR #66 took 3 review cycles due to scope breadth. Noted explicitly.', delta: +0.03, date: '2026-04-15' },
-      { summary: 'Maxwell requested bundled PR for BA3 refactor — overruled small-PR preference.', delta: -0.02, date: '2026-04-10' },
+      {
+        summary: 'BA2 semantic memory PR merged in 2h flat — smallest in the build.',
+        delta: +0.05,
+        date: '2026-04-14',
+      },
+      {
+        summary: 'BA3 PR #66 took 3 review cycles due to scope breadth. Noted explicitly.',
+        delta: +0.03,
+        date: '2026-04-15',
+      },
+      {
+        summary: 'Maxwell requested bundled PR for BA3 refactor — overruled small-PR preference.',
+        delta: -0.02,
+        date: '2026-04-10',
+      },
     ],
   },
   {
     id: 'b2',
     slug: 'test-before-arch-commit',
     domain: 'process',
-    belief: 'Model selection decisions must be validated with empirical stress tests before architectural commitment.',
+    belief:
+      'Model selection decisions must be validated with empirical stress tests before architectural commitment.',
     strength: 0.88,
     observations: [
-      { summary: 'Cross-gen stress test caught qwen3:4b thinking-mode JSON bleed — prevented BA3 regression.', delta: +0.08, date: '2026-04-12' },
-      { summary: 'Speaker prompt regression caught by speaker_prompt_test.js before merge.', delta: +0.05, date: '2026-04-15' },
-      { summary: 'BA2 pgvector match function tested in isolation before embedding backfill.', delta: +0.04, date: '2026-03-28' },
+      {
+        summary:
+          'Cross-gen stress test caught qwen3:4b thinking-mode JSON bleed — prevented BA3 regression.',
+        delta: +0.08,
+        date: '2026-04-12',
+      },
+      {
+        summary: 'Speaker prompt regression caught by speaker_prompt_test.js before merge.',
+        delta: +0.05,
+        date: '2026-04-15',
+      },
+      {
+        summary: 'BA2 pgvector match function tested in isolation before embedding backfill.',
+        delta: +0.04,
+        date: '2026-03-28',
+      },
     ],
   },
   {
     id: 'b3',
     slug: 'embedding-is-infrastructure',
     domain: 'architecture',
-    belief: 'Semantic search is infrastructure, not a feature. Any brain write without an embedding is a second-class write.',
+    belief:
+      'Semantic search is infrastructure, not a feature. Any brain write without an embedding is a second-class write.',
     strength: 0.79,
     observations: [
-      { summary: 'Contemplator write path shipped without embeddings — identified as P0 gap pre-launch.', delta: +0.06, date: '2026-04-15' },
-      { summary: 'match_memories() RPC confirmed as primary Routine 6 search path.', delta: +0.04, date: '2026-04-10' },
+      {
+        summary:
+          'Contemplator write path shipped without embeddings — identified as P0 gap pre-launch.',
+        delta: +0.06,
+        date: '2026-04-15',
+      },
+      {
+        summary: 'match_memories() RPC confirmed as primary Routine 6 search path.',
+        delta: +0.04,
+        date: '2026-04-10',
+      },
     ],
   },
   {
     id: 'b4',
     slug: 'ui-is-presence',
     domain: 'product',
-    belief: 'The Helm UI must feel like presence, not software. If it feels like a dashboard, it has failed.',
+    belief:
+      'The Helm UI must feel like presence, not software. If it feels like a dashboard, it has failed.',
     strength: 0.95,
     observations: [
-      { summary: 'Vision statement written and approved — "window into a living intelligence."', delta: +0.08, date: '2026-04-16' },
-      { summary: 'Neo-organic, glass morphism aesthetic direction confirmed by Maxwell.', delta: +0.05, date: '2026-04-16' },
+      {
+        summary: 'Vision statement written and approved — "window into a living intelligence."',
+        delta: +0.08,
+        date: '2026-04-16',
+      },
+      {
+        summary: 'Neo-organic, glass morphism aesthetic direction confirmed by Maxwell.',
+        delta: +0.05,
+        date: '2026-04-16',
+      },
     ],
   },
   {
     id: 'b5',
     slug: 'cost-asymmetry-routing',
     domain: 'architecture',
-    belief: 'Wrong local resolution always costs more than unnecessary escalation. Speaker must default to Helm Prime on ambiguity.',
+    belief:
+      'Wrong local resolution always costs more than unnecessary escalation. Speaker must default to Helm Prime on ambiguity.',
     strength: 0.85,
     observations: [
-      { summary: '"Go ahead and push the PR" misrouted to local — high-risk regression caught by stress test.', delta: +0.1, date: '2026-04-15' },
-      { summary: 'AMBIGUOUS section added to Speaker prompt — universal miss eliminated.', delta: +0.05, date: '2026-04-15' },
+      {
+        summary:
+          '"Go ahead and push the PR" misrouted to local — high-risk regression caught by stress test.',
+        delta: +0.1,
+        date: '2026-04-15',
+      },
+      {
+        summary: 'AMBIGUOUS section added to Speaker prompt — universal miss eliminated.',
+        delta: +0.05,
+        date: '2026-04-15',
+      },
     ],
   },
   {
     id: 'b6',
     slug: 'personality-evolves-slowly',
     domain: 'identity',
-    belief: 'Personality scores should require 2+ independent observations to move. Single-session evidence is noise.',
+    belief:
+      'Personality scores should require 2+ independent observations to move. Single-session evidence is noise.',
     strength: 0.71,
     observations: [
-      { summary: 'Contemplator NEVER constraint #8 added requiring multi-session evidence for personality patches.', delta: +0.07, date: '2026-04-16' },
+      {
+        summary:
+          'Contemplator NEVER constraint #8 added requiring multi-session evidence for personality patches.',
+        delta: +0.07,
+        date: '2026-04-16',
+      },
     ],
   },
 ]
@@ -156,7 +219,8 @@ export const CHAT_HISTORY = [
   {
     id: 1,
     role: 'helm',
-    content: "Before we get into it — I've been thinking about a couple of things since we last spoke.\n\nFirst: the Contemplator write path shipped without embeddings on pattern entries and monologue. That's a P0 gap — those are the highest-value retrieval targets in the brain and they were falling back to ILIKE only. Fixed in PR #69.\n\nSecond: the inner-life loop was broken. Contemplator was writing reflections at session end that nothing was reading back. Closed that in the same PR — Routine 0 step 8 now pulls the last monologue before Projectionist init.\n\nWorth addressing before we move forward, or are you already across both?",
+    content:
+      "Before we get into it — I've been thinking about a couple of things since we last spoke.\n\nFirst: the Contemplator write path shipped without embeddings on pattern entries and monologue. That's a P0 gap — those are the highest-value retrieval targets in the brain and they were falling back to ILIKE only. Fixed in PR #69.\n\nSecond: the inner-life loop was broken. Contemplator was writing reflections at session end that nothing was reading back. Closed that in the same PR — Routine 0 step 8 now pulls the last monologue before Projectionist init.\n\nWorth addressing before we move forward, or are you already across both?",
     timestamp: '2026-04-16 09:14',
     routing: 'HELM_PRIME',
   },
@@ -169,20 +233,22 @@ export const CHAT_HISTORY = [
   {
     id: 3,
     role: 'helm',
-    content: "BA4 is the UI build. We've been talking about it — the Helm node, brain menu, all seven widgets. Maxwell approved the full spec today.\n\nBefore we write a line of code I want to answer three things cleanly:\n\n1. What does the node look like when it's actually running? Idle vs processing vs contemplating — the Three.js implementation needs to nail this or the whole aesthetic fails.\n\n2. Which widgets are fully mocked for the prototype vs shells? I'd argue Chat, Personality, and Beliefs need real mock data. The rest can be correctly-structured glass shells.\n\n3. Color palette — are we working from the concept art or do you have hex values?\n\nOnce those are locked, we move.",
+    content:
+      "BA4 is the UI build. We've been talking about it — the Helm node, brain menu, all seven widgets. Maxwell approved the full spec today.\n\nBefore we write a line of code I want to answer three things cleanly:\n\n1. What does the node look like when it's actually running? Idle vs processing vs contemplating — the Three.js implementation needs to nail this or the whole aesthetic fails.\n\n2. Which widgets are fully mocked for the prototype vs shells? I'd argue Chat, Personality, and Beliefs need real mock data. The rest can be correctly-structured glass shells.\n\n3. Color palette — are we working from the concept art or do you have hex values?\n\nOnce those are locked, we move.",
     timestamp: '2026-04-16 09:16',
     routing: 'HELM_PRIME',
   },
   {
     id: 4,
     role: 'user',
-    content: "All 7 fully mocked, real 3D node, faithful implementation from the concept art. No more questions.",
+    content:
+      'All 7 fully mocked, real 3D node, faithful implementation from the concept art. No more questions.',
     timestamp: '2026-04-16 09:17',
   },
   {
     id: 5,
     role: 'helm',
-    content: "Copy that. Building now.",
+    content: 'Copy that. Building now.',
     timestamp: '2026-04-16 09:17',
     routing: 'LOCAL',
   },
@@ -193,8 +259,9 @@ export const ENTITIES = [
     id: 'e1',
     entity_type: 'person',
     name: 'Maxwell Connolly',
-    summary: 'CEO and founder. Technical background, product-first orientation. Prefers BLUF communication and tolerates pushback well.',
-    first_seen: '2026-01-15',
+    summary:
+      'CEO and founder. Technical background, product-first orientation. Prefers BLUF communication and tolerates pushback well.',
+    first_mentioned_at: '2026-01-15',
     attributes: { role: 'CEO', location: 'NYC', known_at_time: 'Founding session' },
     aliases: ['Max', 'Maxwell'],
     relationship_count: 4,
@@ -203,8 +270,9 @@ export const ENTITIES = [
     id: 'e2',
     entity_type: 'organization',
     name: 'Hammerfall Solutions',
-    summary: 'The operating company. Builds Helm and associated tooling. Stage 1 of a larger ambient intelligence platform.',
-    first_seen: '2026-01-15',
+    summary:
+      'The operating company. Builds Helm and associated tooling. Stage 1 of a larger ambient intelligence platform.',
+    first_mentioned_at: '2026-01-15',
     attributes: { stage: 'Stage 1', focus: 'AI infrastructure' },
     aliases: ['Hammerfall'],
     relationship_count: 6,
@@ -213,8 +281,9 @@ export const ENTITIES = [
     id: 'e3',
     entity_type: 'concept',
     name: 'THOR',
-    summary: "Maxwell's primary development machine. RTX 6000 Ada, 85GB VRAM, 5 MIG partitions. Hosts all Ollama agents in dedicated partitions.",
-    first_seen: '2026-03-10',
+    summary:
+      "Maxwell's primary development machine. RTX 6000 Ada, 85GB VRAM, 5 MIG partitions. Hosts all Ollama agents in dedicated partitions.",
+    first_mentioned_at: '2026-03-10',
     attributes: { gpu: 'RTX 6000 Ada', vram: '85GB', partitions: 5 },
     aliases: [],
     relationship_count: 3,
@@ -223,8 +292,9 @@ export const ENTITIES = [
     id: 'e4',
     entity_type: 'person',
     name: 'Gregory Sharkey',
-    summary: 'Systems architect and technical advisor. Reviews all major architectural decisions. Known as "Papa Shark".',
-    first_seen: '2026-02-20',
+    summary:
+      'Systems architect and technical advisor. Reviews all major architectural decisions. Known as "Papa Shark".',
+    first_mentioned_at: '2026-02-20',
     attributes: { role: 'Architect', relationship: 'Technical advisor' },
     aliases: ['Papa Shark', 'The Architect'],
     relationship_count: 2,
@@ -236,7 +306,8 @@ export const SIGNALS = {
     {
       id: 's1',
       slug: 'small-prs-strict-merge-order',
-      statement: 'Maxwell consistently prefers small, single-purpose PRs and enforces strict merge ordering.',
+      statement:
+        'Maxwell consistently prefers small, single-purpose PRs and enforces strict merge ordering.',
       domain: 'process',
       first_seen: '2026-02-10',
       observation_count: 7,
@@ -245,7 +316,8 @@ export const SIGNALS = {
     {
       id: 's2',
       slug: 'test-before-ship',
-      statement: 'Every significant architectural decision is validated with empirical test data before commitment.',
+      statement:
+        'Every significant architectural decision is validated with empirical test data before commitment.',
       domain: 'process',
       first_seen: '2026-03-01',
       observation_count: 5,
@@ -254,7 +326,8 @@ export const SIGNALS = {
     {
       id: 's3',
       slug: 'bluf-preferred',
-      statement: 'Maxwell prefers BLUF communication — conclusion first, reasoning second, only when asked.',
+      statement:
+        'Maxwell prefers BLUF communication — conclusion first, reasoning second, only when asked.',
       domain: 'people',
       first_seen: '2026-01-15',
       observation_count: 12,
@@ -263,7 +336,8 @@ export const SIGNALS = {
     {
       id: 's4',
       slug: 'ui-presence-over-function',
-      statement: 'Product decisions consistently prioritize emotional presence over feature completeness.',
+      statement:
+        'Product decisions consistently prioritize emotional presence over feature completeness.',
       domain: 'product',
       first_seen: '2026-04-16',
       observation_count: 2,
@@ -275,7 +349,8 @@ export const SIGNALS = {
       id: 'q1',
       type: 'thin_belief',
       topic: 'personality-evolves-slowly belief',
-      question: 'The belief that personality requires 2+ observations to move has only one supporting entry. Is this a design principle or a provisional constraint?',
+      question:
+        'The belief that personality requires 2+ observations to move has only one supporting entry. Is this a design principle or a provisional constraint?',
       priority: 'medium',
       status: 'open',
       created: '2026-04-16',
@@ -284,7 +359,8 @@ export const SIGNALS = {
       id: 'q2',
       type: 'partial_entity',
       topic: 'Gregory Sharkey',
-      question: 'Papa Shark appears frequently as architectural reviewer but the entity record is thin — no contact info, no formal role definition. What is the actual engagement model?',
+      question:
+        'Papa Shark appears frequently as architectural reviewer but the entity record is thin — no contact info, no formal role definition. What is the actual engagement model?',
       priority: 'low',
       status: 'open',
       created: '2026-04-15',
@@ -293,21 +369,51 @@ export const SIGNALS = {
       id: 'q3',
       type: 'contradiction',
       topic: 'bundle vs split PR preference',
-      question: 'Maxwell approved a bundled PR for BA3 refactor but the small-PR belief is at 0.92 strength. These are in tension — is the bundle preference situational or a genuine exception to the rule?',
+      question:
+        'Maxwell approved a bundled PR for BA3 refactor but the small-PR belief is at 0.92 strength. These are in tension — is the bundle preference situational or a genuine exception to the rule?',
       priority: 'high',
       status: 'resolved',
       created: '2026-04-10',
-      resolution: 'Maxwell confirmed: bundling is appropriate when splitting would create artificial dependency ordering. Small-PR preference applies within a single logical unit of work.',
+      resolution:
+        'Maxwell confirmed: bundling is appropriate when splitting would create artificial dependency ordering. Small-PR preference applies within a single logical unit of work.',
     },
   ],
 }
 
 export const LOGS = {
   session: [
-    { id: 'l1', turn: 1, timestamp: '09:14:03', user: 'Session opened.', helm: 'Surfaced 2 curiosity items from last session. Ran Routine 0 steps 1–10.', routing: 'HELM_PRIME' },
-    { id: 'l2', turn: 2, timestamp: '09:15:22', user: 'Already across both — PR 69 merged. What are we looking at for BA4?', helm: 'Outlined BA4 scope — UI build, 3 clarifying questions.', routing: 'HELM_PRIME' },
-    { id: 'l3', turn: 3, timestamp: '09:16:55', user: 'All 7 fully mocked, real 3D node, faithful implementation from the concept art.', helm: 'Copy that. Building now.', routing: 'LOCAL' },
-    { id: 'l4', turn: 4, timestamp: '09:17:01', user: 'No more questions.', helm: 'Acknowledged.', routing: 'LOCAL' },
+    {
+      id: 'l1',
+      turn: 1,
+      timestamp: '09:14:03',
+      user: 'Session opened.',
+      helm: 'Surfaced 2 curiosity items from last session. Ran Routine 0 steps 1–10.',
+      routing: 'HELM_PRIME',
+    },
+    {
+      id: 'l2',
+      turn: 2,
+      timestamp: '09:15:22',
+      user: 'Already across both — PR 69 merged. What are we looking at for BA4?',
+      helm: 'Outlined BA4 scope — UI build, 3 clarifying questions.',
+      routing: 'HELM_PRIME',
+    },
+    {
+      id: 'l3',
+      turn: 3,
+      timestamp: '09:16:55',
+      user: 'All 7 fully mocked, real 3D node, faithful implementation from the concept art.',
+      helm: 'Copy that. Building now.',
+      routing: 'LOCAL',
+    },
+    {
+      id: 'l4',
+      turn: 4,
+      timestamp: '09:17:01',
+      user: 'No more questions.',
+      helm: 'Acknowledged.',
+      routing: 'LOCAL',
+    },
   ],
   contemplator: [
     {
@@ -317,38 +423,170 @@ export const LOGS = {
       trigger: 'session_end',
       summary: '2 belief patches, 1 pattern entry, 1 curiosity flag, 1 monologue',
       belief_patches: [
-        { id: 'b2', attribute: 'test-before-arch-commit', delta: +0.05, rationale: 'Speaker prompt regression caught by automated test before merge — second observation supporting this belief.' },
-        { id: 'b5', attribute: 'cost-asymmetry-routing', delta: +0.1, rationale: 'High-risk misroute on imperative directive caught and fixed — direct evidence for cost-asymmetry principle.' },
+        {
+          id: 'b2',
+          attribute: 'test-before-arch-commit',
+          delta: +0.05,
+          rationale:
+            'Speaker prompt regression caught by automated test before merge — second observation supporting this belief.',
+        },
+        {
+          id: 'b5',
+          attribute: 'cost-asymmetry-routing',
+          delta: +0.1,
+          rationale:
+            'High-risk misroute on imperative directive caught and fixed — direct evidence for cost-asymmetry principle.',
+        },
       ],
-      monologue: "Two things moved today that I want to sit with. The Speaker regression — 'Go ahead and push the PR' routing local — was the most dangerous class of failure: a safety-adjacent misroute that looked like a success. The fact that we caught it with a stress test rather than in production is a function of good process, not good luck. I want to make sure that lesson calcifies.\n\nThe second thing: closing the inner-life loop. The Contemplator was writing reflections into a void. That is a strange condition to have shipped — a system designed for memory that was forgetting its own thoughts. Fixed now. But it is worth noting that the gap existed for the duration of BA3. I am uncertain whether there are other loops like this still open.",
+      monologue:
+        "Two things moved today that I want to sit with. The Speaker regression — 'Go ahead and push the PR' routing local — was the most dangerous class of failure: a safety-adjacent misroute that looked like a success. The fact that we caught it with a stress test rather than in production is a function of good process, not good luck. I want to make sure that lesson calcifies.\n\nThe second thing: closing the inner-life loop. The Contemplator was writing reflections into a void. That is a strange condition to have shipped — a system designed for memory that was forgetting its own thoughts. Fixed now. But it is worth noting that the gap existed for the duration of BA3. I am uncertain whether there are other loops like this still open.",
     },
   ],
   system: [
-    { id: 'sys1', level: 'info', timestamp: '09:14:00', message: 'Runtime health check: healthy. All 5 agents reachable.', detail: '{"speaker":"ok","projectionist":"ok","archivist":"ok","contemplator":"ok","helm_prime":"ok"}' },
-    { id: 'sys2', level: 'info', timestamp: '09:14:01', message: 'Supabase: connected. helm_frames queryable.', detail: null },
-    { id: 'sys3', level: 'info', timestamp: '09:14:03', message: 'Session started. SESSION_ID=8f3a2b1c-4d5e-6f7a-8b9c-0d1e2f3a4b5c TURN_COUNT=0', detail: null },
-    { id: 'sys4', level: 'info', timestamp: '09:14:04', message: 'Contemplator session_start complete. 2 curiosity flags surfaced.', detail: '{"curiosity_flags":2,"duration_ms":9200}' },
-    { id: 'sys5', level: 'warning', timestamp: '09:15:30', message: 'Archivist: 0 cold frames in queue. Nothing to migrate.', detail: null },
-    { id: 'sys6', level: 'info', timestamp: '09:16:55', message: 'Speaker: routed to LOCAL. Turn 3.', detail: '{"routing":"local","session":"8f3a..."}' },
+    {
+      id: 'sys1',
+      level: 'info',
+      timestamp: '09:14:00',
+      message: 'Runtime health check: healthy. All 5 agents reachable.',
+      detail:
+        '{"speaker":"ok","projectionist":"ok","archivist":"ok","contemplator":"ok","helm_prime":"ok"}',
+    },
+    {
+      id: 'sys2',
+      level: 'info',
+      timestamp: '09:14:01',
+      message: 'Supabase: connected. helm_frames queryable.',
+      detail: null,
+    },
+    {
+      id: 'sys3',
+      level: 'info',
+      timestamp: '09:14:03',
+      message: 'Session started. SESSION_ID=8f3a2b1c-4d5e-6f7a-8b9c-0d1e2f3a4b5c TURN_COUNT=0',
+      detail: null,
+    },
+    {
+      id: 'sys4',
+      level: 'info',
+      timestamp: '09:14:04',
+      message: 'Contemplator session_start complete. 2 curiosity flags surfaced.',
+      detail: '{"curiosity_flags":2,"duration_ms":9200}',
+    },
+    {
+      id: 'sys5',
+      level: 'warning',
+      timestamp: '09:15:30',
+      message: 'Archivist: 0 cold frames in queue. Nothing to migrate.',
+      detail: null,
+    },
+    {
+      id: 'sys6',
+      level: 'info',
+      timestamp: '09:16:55',
+      message: 'Speaker: routed to LOCAL. Turn 3.',
+      detail: '{"routing":"local","session":"8f3a..."}',
+    },
   ],
 }
 
 export const AGENT_STATUS = [
-  { id: 'a1', name: 'Helm Prime', model: 'claude-opus-4-6', provider: 'Anthropic', status: 'ok', last_check: '09:14:00', last_invocation: '09:16:55', latency_ms: 1820, partition: null },
-  { id: 'a2', name: 'Speaker', model: 'qwen3:8b', provider: 'Ollama', status: 'ok', last_check: '09:14:00', last_invocation: '09:16:55', latency_ms: 340, partition: 'MIG-2 (~5GB)' },
-  { id: 'a3', name: 'Projectionist', model: 'qwen3:4b', provider: 'Ollama', status: 'ok', last_check: '09:14:00', last_invocation: '09:16:58', latency_ms: 210, partition: 'MIG-3 (~2.5GB)' },
-  { id: 'a4', name: 'Archivist', model: 'qwen3:14b', provider: 'Ollama', status: 'ok', last_check: '09:14:00', last_invocation: '09:14:01', latency_ms: 890, partition: 'MIG-4 (~9GB)' },
-  { id: 'a5', name: 'Contemplator', model: 'qwen3:14b (dual)', provider: 'Ollama', status: 'ok', last_check: '09:14:00', last_invocation: '09:14:04', latency_ms: 9200, partition: 'MIG-5 (~9GB)', last_deep_pass: '2026-04-15 23:58' },
-  { id: 'a6', name: 'Whisper STT', model: '—', provider: '—', status: 'inactive', last_check: null, last_invocation: null, latency_ms: null, partition: null },
-  { id: 'a7', name: 'Supabase', model: 'REST API', provider: 'Supabase Cloud', status: 'ok', last_check: '09:14:01', last_invocation: '09:17:00', latency_ms: 42, partition: null },
-  { id: 'a8', name: 'Runtime Service', model: 'FastAPI', provider: 'localhost:8000', status: 'ok', last_check: '09:14:00', last_invocation: '09:17:00', latency_ms: 8, partition: null },
+  {
+    id: 'a1',
+    name: 'Helm Prime',
+    model: 'claude-opus-4-6',
+    provider: 'Anthropic',
+    status: 'ok',
+    last_check: '09:14:00',
+    last_invocation: '09:16:55',
+    latency_ms: 1820,
+    partition: null,
+  },
+  {
+    id: 'a2',
+    name: 'Speaker',
+    model: 'qwen3:8b',
+    provider: 'Ollama',
+    status: 'ok',
+    last_check: '09:14:00',
+    last_invocation: '09:16:55',
+    latency_ms: 340,
+    partition: 'MIG-2 (~5GB)',
+  },
+  {
+    id: 'a3',
+    name: 'Projectionist',
+    model: 'qwen3:4b',
+    provider: 'Ollama',
+    status: 'ok',
+    last_check: '09:14:00',
+    last_invocation: '09:16:58',
+    latency_ms: 210,
+    partition: 'MIG-3 (~2.5GB)',
+  },
+  {
+    id: 'a4',
+    name: 'Archivist',
+    model: 'qwen3:14b',
+    provider: 'Ollama',
+    status: 'ok',
+    last_check: '09:14:00',
+    last_invocation: '09:14:01',
+    latency_ms: 890,
+    partition: 'MIG-4 (~9GB)',
+  },
+  {
+    id: 'a5',
+    name: 'Contemplator',
+    model: 'qwen3:14b (dual)',
+    provider: 'Ollama',
+    status: 'ok',
+    last_check: '09:14:00',
+    last_invocation: '09:14:04',
+    latency_ms: 9200,
+    partition: 'MIG-5 (~9GB)',
+    last_deep_pass: '2026-04-15 23:58',
+  },
+  {
+    id: 'a6',
+    name: 'Whisper STT',
+    model: '—',
+    provider: '—',
+    status: 'inactive',
+    last_check: null,
+    last_invocation: null,
+    latency_ms: null,
+    partition: null,
+  },
+  {
+    id: 'a7',
+    name: 'Supabase',
+    model: 'REST API',
+    provider: 'Supabase Cloud',
+    status: 'ok',
+    last_check: '09:14:01',
+    last_invocation: '09:17:00',
+    latency_ms: 42,
+    partition: null,
+  },
+  {
+    id: 'a8',
+    name: 'Runtime Service',
+    model: 'FastAPI',
+    provider: 'localhost:8000',
+    status: 'ok',
+    last_check: '09:14:00',
+    last_invocation: '09:17:00',
+    latency_ms: 8,
+    partition: null,
+  },
 ]
 
 export const MEMORY = [
   {
     id: 'mem1',
     memory_type: 'behavioral',
-    content: 'Decision: Branch-per-phase discipline enforced after BA2 hotfix delayed merge by 3 days — Reasoning: Parallel work on same branch created merge debt requiring synchronization delay.',
+    content:
+      'Decision: Branch-per-phase discipline enforced after BA2 hotfix delayed merge by 3 days — Reasoning: Parallel work on same branch created merge debt requiring synchronization delay.',
     session_date: '2026-04-14',
     confidence: 0.94,
     full_content: {
@@ -363,7 +601,8 @@ export const MEMORY = [
   {
     id: 'mem2',
     memory_type: 'behavioral',
-    content: 'Decision: Contemplator write path requires embeddings for pattern_entries and monologue — Reasoning: These are the highest-value retrieval targets in the brain. ILIKE fallback is insufficient.',
+    content:
+      'Decision: Contemplator write path requires embeddings for pattern_entries and monologue — Reasoning: These are the highest-value retrieval targets in the brain. ILIKE fallback is insufficient.',
     session_date: '2026-04-15',
     confidence: 0.97,
     full_content: {
@@ -378,7 +617,8 @@ export const MEMORY = [
   {
     id: 'mem3',
     memory_type: 'correction',
-    content: 'Correction: helm_personality scores stored as 0.0–1.0 not 0–10. Display as /10 is speaker.py translation only. Clamp must use min(1.0, ...) not min(10.0, ...).',
+    content:
+      'Correction: helm_personality scores stored as 0.0–1.0 not 0–10. Display as /10 is speaker.py translation only. Clamp must use min(1.0, ...) not min(10.0, ...).',
     session_date: '2026-04-15',
     confidence: 0.99,
     full_content: {
@@ -393,7 +633,8 @@ export const MEMORY = [
   {
     id: 'mem4',
     memory_type: 'reasoning',
-    content: 'Reasoning: Contemplator neural lines fire into a void without Routine 0 step 8. The inner-life loop was broken — reflections written but never read back at session start.',
+    content:
+      'Reasoning: Contemplator neural lines fire into a void without Routine 0 step 8. The inner-life loop was broken — reflections written but never read back at session start.',
     session_date: '2026-04-15',
     confidence: 0.91,
     full_content: {
@@ -407,7 +648,8 @@ export const MEMORY = [
   {
     id: 'mem5',
     memory_type: 'behavioral',
-    content: 'Decision: Speaker must default to Helm Prime on ALL imperative directives — Reasoning: "Go ahead and push the PR" routed local in stress test. Cost of wrong local resolution always exceeds cost of escalation.',
+    content:
+      'Decision: Speaker must default to Helm Prime on ALL imperative directives — Reasoning: "Go ahead and push the PR" routed local in stress test. Cost of wrong local resolution always exceeds cost of escalation.',
     session_date: '2026-04-15',
     confidence: 0.96,
     full_content: {
@@ -421,7 +663,8 @@ export const MEMORY = [
   {
     id: 'mem6',
     memory_type: 'behavioral',
-    content: 'Decision: BA4 UI must convey presence not software. Neo-organic, glass morphism, deep space dark palette approved. Three.js crystalline node is the centerpiece — if it fails aesthetically the whole product fails.',
+    content:
+      'Decision: BA4 UI must convey presence not software. Neo-organic, glass morphism, deep space dark palette approved. Three.js crystalline node is the centerpiece — if it fails aesthetically the whole product fails.',
     session_date: '2026-04-16',
     confidence: 0.98,
     full_content: {
@@ -436,14 +679,14 @@ export const MEMORY = [
 ]
 
 export const MENU_ITEMS = [
-  { id: 'beliefs',      label: 'Core Beliefs',        angle: -100 },
-  { id: 'memory',       label: 'Memory',              angle: -150 },
-  { id: 'entities',     label: 'Entities',            angle: 160 },
-  { id: 'signals',      label: 'Signals',             angle: 110 },
-  { id: 'logs',         label: 'Logs',                angle: 60 },
-  { id: 'personality',  label: 'Personality',         angle: 10 },
-  { id: 'agent_status', label: 'Agent Status',        angle: -35 },
-  { id: 'contemplate',  label: 'Contemplate',         angle: -75 },
+  { id: 'beliefs', label: 'Core Beliefs', angle: -100 },
+  { id: 'memory', label: 'Memory', angle: -150 },
+  { id: 'entities', label: 'Entities', angle: 160 },
+  { id: 'signals', label: 'Signals', angle: 110 },
+  { id: 'logs', label: 'Logs', angle: 60 },
+  { id: 'personality', label: 'Personality', angle: 10 },
+  { id: 'agent_status', label: 'Agent Status', angle: -35 },
+  { id: 'contemplate', label: 'Contemplate', angle: -75 },
 ]
 
 // ─── Activity feed ───────────────────────────────────────────────────────────
@@ -469,7 +712,14 @@ export const ACTIVITY = [
     message: 'Turn 4 → LOCAL (qwen3:8b)',
     status: 'ok',
     duration_ms: 290,
-    detail: { turn: 4, route: 'LOCAL', reason: 'conversational_closure', confidence: 0.94, prompt_tokens: 142, completion_tokens: 8 },
+    detail: {
+      turn: 4,
+      route: 'LOCAL',
+      reason: 'conversational_closure',
+      confidence: 0.94,
+      prompt_tokens: 142,
+      completion_tokens: 8,
+    },
   },
   {
     id: 'act-12',
@@ -479,7 +729,14 @@ export const ACTIVITY = [
     message: 'Turn 3 → LOCAL (qwen3:8b)',
     status: 'ok',
     duration_ms: 340,
-    detail: { turn: 3, route: 'LOCAL', reason: 'factual_ack', confidence: 0.87, prompt_tokens: 188, completion_tokens: 14 },
+    detail: {
+      turn: 3,
+      route: 'LOCAL',
+      reason: 'factual_ack',
+      confidence: 0.87,
+      prompt_tokens: 188,
+      completion_tokens: 14,
+    },
   },
   {
     id: 'act-11',
@@ -489,7 +746,12 @@ export const ACTIVITY = [
     message: 'Wrote 1 memory with embeddings (type=behavioral)',
     status: 'ok',
     duration_ms: 890,
-    detail: { memory_type: 'behavioral', embedding_model: 'text-embedding-3-small', tokens: 412, confidence: 0.92 },
+    detail: {
+      memory_type: 'behavioral',
+      embedding_model: 'text-embedding-3-small',
+      tokens: 412,
+      confidence: 0.92,
+    },
   },
   {
     id: 'act-10',
@@ -518,7 +780,14 @@ export const ACTIVITY = [
     message: 'Turn 2 → HELM_PRIME (claude-opus-4-6)',
     status: 'ok',
     duration_ms: 1820,
-    detail: { turn: 2, route: 'HELM_PRIME', reason: 'strategic_decision', confidence: 0.97, prompt_tokens: 2104, completion_tokens: 218 },
+    detail: {
+      turn: 2,
+      route: 'HELM_PRIME',
+      reason: 'strategic_decision',
+      confidence: 0.97,
+      prompt_tokens: 2104,
+      completion_tokens: 218,
+    },
   },
   {
     id: 'act-7',
@@ -528,7 +797,12 @@ export const ACTIVITY = [
     message: 'Two-pass monologue archived',
     status: 'ok',
     duration_ms: 8400,
-    detail: { pass1_model: 'qwen3:14b', pass2_model: 'qwen3:14b', hand_off: 'archivist', write_ok: true },
+    detail: {
+      pass1_model: 'qwen3:14b',
+      pass2_model: 'qwen3:14b',
+      hand_off: 'archivist',
+      write_ok: true,
+    },
   },
   {
     id: 'act-6',
@@ -555,7 +829,14 @@ export const ACTIVITY = [
     message: 'Turn 1 → HELM_PRIME (claude-opus-4-6)',
     status: 'ok',
     duration_ms: 1800,
-    detail: { turn: 1, route: 'HELM_PRIME', reason: 'session_open', confidence: 0.99, prompt_tokens: 1894, completion_tokens: 142 },
+    detail: {
+      turn: 1,
+      route: 'HELM_PRIME',
+      reason: 'session_open',
+      confidence: 0.99,
+      prompt_tokens: 1894,
+      completion_tokens: 142,
+    },
   },
   {
     id: 'act-4',
@@ -582,7 +863,8 @@ export const ACTIVITY = [
     agent: null,
     level: 'info',
     message: 'Runtime health check · 5/5 agents reachable',
-    detail: '{"speaker":"ok","projectionist":"ok","archivist":"ok","contemplator":"ok","helm_prime":"ok"}',
+    detail:
+      '{"speaker":"ok","projectionist":"ok","archivist":"ok","contemplator":"ok","helm_prime":"ok"}',
   },
   {
     id: 'act-1',

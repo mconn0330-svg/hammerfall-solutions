@@ -200,7 +200,8 @@ export default function EntitiesWidget() {
                   textTransform: 'uppercase',
                 }}
               >
-                First seen: {entity.first_seen} · {entity.relationship_count} relationships
+                First mentioned: {entity.first_mentioned_at} · {entity.relationship_count}{' '}
+                relationships
               </p>
             </div>
           </motion.div>
