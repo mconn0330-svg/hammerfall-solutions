@@ -10,8 +10,8 @@ Write path (T0.B3+):
   memory.MemoryWriter.write_helm_frame_record() → MemoryClient → Supabase REST → helm_frames
   On transport failure: enqueued to memory.Outbox; drain loop retries.
 
-Read + PATCH paths still go through SupabaseClient (cold-frame reads, frame_status
-updates, layer transitions). T0.B6 renames supabase_client → read_client to make
+Read + PATCH paths still go through ReadClient (cold-frame reads, frame_status
+updates, layer transitions). T0.B6 renames read_client → read_client to make
 the write/read split explicit; that PR is purely cosmetic.
 
 Prompt path (T0.B5 extension):
@@ -28,7 +28,7 @@ from pathlib import Path
 from memory import MemoryWriter, PromptManager
 from middleware import InvokeRequest
 from model_router import ModelRouter
-from supabase_client import SupabaseClient
+from read_client import ReadClient
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +53,7 @@ PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "projectionist.md"
 async def handle(
     req: InvokeRequest,
     router: ModelRouter,
-    supabase: SupabaseClient,
+    supabase: ReadClient,
     writer: MemoryWriter,
     prompt_manager: PromptManager,
 ) -> str:
@@ -201,7 +201,7 @@ Produce the frame JSON now."""
 async def _check_offload_triggers(
     session_id: str,
     turn_number: int,
-    supabase: SupabaseClient,
+    supabase: ReadClient,
 ) -> None:
     """
     Evaluate batch trigger (priority) then interval trigger.
@@ -272,7 +272,7 @@ async def _check_offload_triggers(
 async def _resolution_pass(
     session_id: str,
     turn_number: int,
-    supabase: SupabaseClient,
+    supabase: ReadClient,
 ) -> str:
     """
     Final classification pass at session end.

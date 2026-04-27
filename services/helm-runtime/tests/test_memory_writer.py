@@ -167,6 +167,54 @@ async def test_write_correction_routes_to_correction_type(
     assert rec.calls[0][1]["memory_type"] == "correction"
 
 
+# ─── Em-dash normalization (T0.B6) ──────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "raw, expected_prefix",
+    [
+        ("Pattern -- some-slug | thing | domain: x", "Pattern — "),
+        ("Pattern - some-slug | thing | domain: x", "Pattern — "),
+        ("Pattern—some-slug | thing | domain: x", "Pattern — "),
+        ("Pattern – some-slug | thing | domain: x", "Pattern — "),  # en-dash
+        ("Pattern — some-slug | thing | domain: x", "Pattern — "),  # already canonical
+    ],
+)
+async def test_write_normalizes_pattern_prefix_to_canonical_em_dash(
+    writer: tuple[MemoryWriter, _RecordingClient],
+    raw: str,
+    expected_prefix: str,
+) -> None:
+    """Pattern detection downstream uses U+2014 EM DASH. Variants typed by
+    callers (--, -, no-space, en-dash) must normalize to the canonical
+    `Pattern — ` so the dual-write hook + graduation count never miss a
+    real pattern entry."""
+    w, rec = writer
+    await w.write(
+        project="p",
+        agent="helm",
+        memory_type=MemoryType.PATTERN,
+        content=raw,
+    )
+    written = rec.calls[0][1]["content"]
+    assert written.startswith(expected_prefix)
+
+
+async def test_write_does_not_normalize_non_pattern_content(
+    writer: tuple[MemoryWriter, _RecordingClient],
+) -> None:
+    """Behavioral / scratchpad / etc. content with leading dashes is
+    passed through unchanged — only the literal Pattern prefix triggers."""
+    w, rec = writer
+    await w.write(
+        project="p",
+        agent="helm",
+        memory_type=MemoryType.BEHAVIORAL,
+        content="Decision -- ship the thing",
+    )
+    assert rec.calls[0][1]["content"] == "Decision -- ship the thing"
+
+
 async def test_write_pattern_constructs_canonical_content(
     writer: tuple[MemoryWriter, _RecordingClient],
 ) -> None:

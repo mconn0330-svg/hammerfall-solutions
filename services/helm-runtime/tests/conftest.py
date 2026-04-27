@@ -10,7 +10,7 @@ import pytest
 
 
 class _SupabaseStub:
-    """In-memory stand-in for SupabaseClient. Async methods match the real
+    """In-memory stand-in for ReadClient. Async methods match the real
     interface so call sites don't need to know they're talking to a stub.
     Tests can override individual methods or read .calls to assert behavior.
     """
@@ -45,6 +45,6 @@ class _SupabaseStub:
 
 @pytest.fixture
 def supabase_stub() -> _SupabaseStub:
-    """Fresh SupabaseClient stub per test. Tests may override methods or
+    """Fresh ReadClient stub per test. Tests may override methods or
     inspect .calls to assert what was sent to Supabase."""
     return _SupabaseStub()

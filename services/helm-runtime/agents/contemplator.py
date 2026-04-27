@@ -26,7 +26,7 @@ from typing import Any
 from memory import PromptManager
 from middleware import InvokeRequest
 from model_router import ModelRouter
-from supabase_client import SupabaseClient
+from read_client import ReadClient
 
 logger = logging.getLogger(__name__)
 
@@ -195,7 +195,7 @@ def _extract_json(raw: str) -> dict[str, Any] | None:
 async def handle(
     req: InvokeRequest,
     router: ModelRouter,
-    supabase: SupabaseClient,
+    supabase: ReadClient,
     prompt_manager: PromptManager,
 ) -> str:
     """
@@ -351,7 +351,7 @@ async def handle(
 
 
 async def _fetch_snapshot(
-    supabase: SupabaseClient,
+    supabase: ReadClient,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     """
     Fetch memories, beliefs, entities, and scratchpad entries for the brain snapshot.

@@ -25,7 +25,7 @@ from pathlib import Path
 from memory import PromptManager
 from middleware import InvokeRequest
 from model_router import ModelRouter
-from supabase_client import SupabaseClient
+from read_client import ReadClient
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "helm_prime.md"
 async def handle(
     req: InvokeRequest,
     router: ModelRouter,
-    supabase: SupabaseClient,
+    supabase: ReadClient,
     prompt_manager: PromptManager,
 ) -> str:
     """
@@ -84,7 +84,7 @@ async def handle(
     return response
 
 
-async def _load_personality_block(supabase: SupabaseClient) -> str:
+async def _load_personality_block(supabase: ReadClient) -> str:
     """
     Load helm_personality scores from Supabase and format as a calibration block.
 

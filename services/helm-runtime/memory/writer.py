@@ -21,6 +21,7 @@ is the intended pattern (one client = one HTTP pool = one circuit breaker).
 
 from __future__ import annotations
 
+import re
 from datetime import date
 from typing import Any
 from uuid import UUID
@@ -33,6 +34,26 @@ from .models import MemoryEntry, MemoryType, slugify
 from .outbox import Outbox
 
 logger = get_logger("helm.memory.writer")
+
+# T0.B6 em-dash normalization (per V2 spec):
+# Pattern detection downstream (T2.6 dual-write hook, graduation counting)
+# matches on `content.startswith("Pattern — ")` using U+2014 EM DASH.
+# Callers might type `Pattern --`, `Pattern -`, `Pattern—` (no space), or
+# even `Pattern -- ` with double-hyphen — all should normalize to the
+# canonical `Pattern — ` so detection never misses a real pattern entry
+# because of typing variation.
+_PATTERN_PREFIX_NORMALIZE = re.compile(r"^Pattern\s*(?:—|--|-|–)\s*")
+
+
+def _normalize_pattern_content(content: str) -> str:
+    """Normalize `Pattern -- foo` / `Pattern - foo` / `Pattern—foo` etc. to
+    the canonical `Pattern — foo` (with U+2014 EM DASH + spaces).
+
+    Idempotent on already-canonical input. No-op on non-pattern content.
+    """
+    if not _PATTERN_PREFIX_NORMALIZE.match(content):
+        return content
+    return _PATTERN_PREFIX_NORMALIZE.sub("Pattern — ", content, count=1)
 
 
 class MemoryWriter:
@@ -93,6 +114,12 @@ class MemoryWriter:
         """
         if isinstance(memory_type, str):
             memory_type = MemoryType(memory_type)
+
+        # T0.B6 em-dash normalization — Pattern entries written via the
+        # generic write() path (rather than write_pattern) get the same
+        # canonical prefix so dual-write detection downstream doesn't miss
+        # them when the caller types `Pattern --` or `Pattern -`.
+        content = _normalize_pattern_content(content)
 
         # session_date is optional — when None, MemoryEntry's default fires
         # (today in UTC). Frame migration (Archivist) passes the frame's

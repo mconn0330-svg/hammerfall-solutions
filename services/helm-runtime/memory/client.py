@@ -6,7 +6,7 @@ Wraps `httpx.AsyncClient` with:
   - OpenTelemetry tracing on every call
   - Structured log events on success / retry / failure / circuit transitions
 
-This is the WRITE-side client. Reads still go through `supabase_client.py`
+This is the WRITE-side client. Reads still go through `read_client.py`
 (renamed `read_client.py` in T0.B6 per the V2 spec). The split is durable:
 this module enforces write-side guarantees (retry, breaker, outbox seam)
 that the read client doesn't need.

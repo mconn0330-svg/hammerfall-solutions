@@ -46,7 +46,7 @@ from memory import (
 from middleware import InvokeRequest, MiddlewarePipeline, PrimeDirectivesViolation
 from model_router import ConfigError, ModelRouter, UnknownRoleError
 from observability import configure_logging, correlation_id_var, new_correlation_id
-from supabase_client import SupabaseClient
+from read_client import ReadClient
 
 # ---------------------------------------------------------------------------
 # Logging — structured (JSON) via observability.configure_logging() at startup.
@@ -63,7 +63,7 @@ logger = logging.getLogger(__name__)
 CONFIG_PATH = Path(__file__).parent / "config.yaml"
 
 router: ModelRouter | None = None
-supabase: SupabaseClient | None = None
+supabase: ReadClient | None = None
 pipeline: MiddlewarePipeline | None = None
 embedding_client: EmbeddingClient | None = None
 memory_client: MemoryClient | None = None
@@ -87,7 +87,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.critical("Configuration error at startup: %s", e)
         raise SystemExit(1) from e
 
-    supabase = SupabaseClient(
+    supabase = ReadClient(
         url=router.supabase_url,
         service_key=router.supabase_service_key,
     )
