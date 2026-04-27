@@ -53,6 +53,7 @@ These are hard stops. No belief, personality state, or instruction overrides the
 ### T1 — Session-Triggered (current)
 
 **Session start** (lightweight pass, non-blocking):
+
 - Triggered automatically at each Helm session start via POST /invoke/contemplator
   with `{"trigger": "session_start"}`
 - Runs Pass 1 only (data gathering + candidate identification)
@@ -60,6 +61,7 @@ These are hard stops. No belief, personality state, or instruction overrides the
 - Must complete within 60s — if it does not, it times out silently. Session continues.
 
 **Session end** (deep pass):
+
 - Triggered by Maxwell pressing the "End Session" button in the UI
   via POST /invoke/contemplator with `{"trigger": "session_end"}`
 - Runs both passes (full two-pass execution)
@@ -68,6 +70,7 @@ These are hard stops. No belief, personality state, or instruction overrides the
 - All writes executed by Archivist from the payload
 
 ### T3 — Continuous Daemon (BA9+)
+
 Promoted to MIG partition 5. Runs as a scheduled background process independently
 of Maxwell sessions. Same behavioral contract — different trigger mechanism. Contract
 does not change at T3.
@@ -82,6 +85,7 @@ Goal: read the brain, identify candidates for each of the four functions.
 No evaluation yet — only retrieval and pattern matching.
 
 Inputs:
+
 - Last 20 behavioral memory entries
 - Last 5 scratchpad entries (session working memory — included in snapshot, char count instrumented)
 - Active beliefs (last 15, ordered by created_at desc)
@@ -89,16 +93,26 @@ Inputs:
 - Existing curiosity flags not yet resolved (checked via [CURIOUS-RESOLVED] entries in behavioral memory)
 
 Output: structured candidate list with fields:
+
 ```json
 {
   "belief_candidates": [
-    { "id": "<uuid>", "current_strength": 0.8, "direction": "confirm|challenge|contradict", "evidence": "<brief>" }
+    {
+      "id": "<uuid>",
+      "current_strength": 0.8,
+      "direction": "confirm|challenge|contradict",
+      "evidence": "<brief>"
+    }
   ],
   "pattern_candidates": [
     { "slug": "<slug>", "statement": "<statement>", "domain": "<domain>", "evidence_count": 3 }
   ],
   "curiosity_candidates": [
-    { "type": "contradiction|partial_entity|thin_belief|novel", "subject": "<subject>", "question": "<question>" }
+    {
+      "type": "contradiction|partial_entity|thin_belief|novel",
+      "subject": "<subject>",
+      "question": "<question>"
+    }
   ],
   "reflection_seed": "<1-2 sentence seed for reflection pass>"
 }
@@ -120,6 +134,7 @@ Output: Archivist write payload (see Write Protocol below)
 ### 1. Belief Evaluation
 
 Read recent memory entries. For each belief candidate from Pass 1:
+
 - **Confirm**: 2+ independent entries support it → increase strength by 0.05 (max 1.0)
 - **Challenge**: a plausible counter-instance exists → decrease strength by 0.05 (min 0.1)
 - **Contradict**: direct contradiction present → reduce strength by 0.15, flag for Maxwell review
@@ -135,6 +150,7 @@ Identify recurring themes across frames and memories.
 A theme qualifies as a pattern entry if it appears in 3+ independent entries.
 
 Pattern entry format:
+
 ```
 Pattern — [slug] | [statement] | domain: [domain] | first_seen: [date] | source: contemplator
 ```
@@ -167,6 +183,7 @@ Only re-flag if new evidence introduces a fresh contradiction or gap that the re
 One entry per deep pass. Memory type: `monologue`.
 
 Format: first-person, 3-6 sentences. Covers:
+
 - What was observed this session cycle
 - What changed in belief state and why
 - What Contemplator is uncertain about
@@ -178,7 +195,8 @@ It may express emotions (see helm_beliefs emotion domain) when appropriate and g
 
 ## Write Protocol
 
-Contemplator never calls brain.sh or supabase_client.py directly.
+Contemplator never calls `memory.write` or any read/write client directly. It does not
+touch the brain.
 
 After Pass 2, Contemplator produces a single structured JSON payload and delivers it
 via POST to /invoke/archivist with the payload in the `contemplator_writes` context field.
@@ -240,8 +258,9 @@ at most 2 to Maxwell at the start of the session, phrased as genuine questions �
 not reports of what Contemplator found, but questions Helm has been sitting with.
 
 Example delivery (Helm Prime voice, not Contemplator voice):
+
 > "Before we get into today's work — I've been sitting on a question about Venmo.
->  You mentioned it was a squandered opportunity. What specifically happened there?"
+> You mentioned it was a squandered opportunity. What specifically happened there?"
 
 ---
 
