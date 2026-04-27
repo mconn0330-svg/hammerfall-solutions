@@ -180,7 +180,7 @@ class ReadClient:
         Semantic similarity search via match_entities() Supabase RPC.
 
         Searches active entities only. Returns rows ordered by cosine similarity descending.
-        Each row: id, entity_type, name, summary, attributes, first_seen, similarity.
+        Each row: id, entity_type, name, summary, attributes, first_mentioned_at, similarity.
         """
         result: list[dict[str, Any]] = await self.rpc(
             "match_entities",

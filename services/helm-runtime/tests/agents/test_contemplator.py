@@ -120,3 +120,48 @@ async def test_contemplator_passes_loaded_pass1_prompt_to_model(
     invoke_kwargs = mock_router.invoke.await_args.kwargs
     system_msg = next(m for m in invoke_kwargs["messages"] if m["role"] == "system")
     assert "PROMPT-FOR-CONTEMPLATOR_PASS_1" in system_msg["content"]
+
+
+# ─── Schema-column regression guards (post-T0.B7a hotfix) ────────────────────
+#
+# T0.B7a renamed helm_entities.first_seen → first_mentioned_at. The contemplator
+# entity-fetch query at line 398 still ordered by first_seen.desc — it broke
+# silently because the existing tests use a stub supabase that accepts any
+# query string. PostgREST in production rejects queries against renamed
+# columns with `column does not exist`; the agent's try/except swallowed the
+# 422 and fell back to entities = [], leaving Helm with empty entity context
+# every session.
+#
+# These tests assert the actual column names in the live PostgREST query
+# strings so a future column rename can't silently break the read path again.
+
+
+async def test_contemplator_entity_query_uses_renamed_first_mentioned_at(
+    session_start_request: InvokeRequest,
+    mock_router: MagicMock,
+    mock_supabase: MagicMock,
+    mock_prompt_manager: MagicMock,
+) -> None:
+    """T0.B7a regression guard: the helm_entities order parameter must use
+    `first_mentioned_at`, not the renamed-away `first_seen`. PostgREST
+    would reject the latter with `column does not exist`."""
+    await contemplator_agent.handle(
+        session_start_request, mock_router, mock_supabase, mock_prompt_manager
+    )
+
+    # Find the helm_entities select call
+    entity_calls = [c for c in mock_supabase.select.await_args_list if c.args[0] == "helm_entities"]
+    assert entity_calls, "Contemplator never queried helm_entities"
+
+    # The order param must reference the renamed column
+    for call in entity_calls:
+        params = call.args[1] if len(call.args) > 1 else call.kwargs.get("params", {})
+        order = params.get("order", "")
+        assert "first_mentioned_at" in order, (
+            f"Expected helm_entities order to use first_mentioned_at "
+            f"(post-T0.B7a rename); got {order!r}"
+        )
+        assert "first_seen" not in order, (
+            f"helm_entities.first_seen was renamed in T0.B7a; "
+            f"using it produces a PostgREST 422. Got {order!r}"
+        )
