@@ -1,5 +1,8 @@
 -- =============================================================
--- T0.B7a — helm_entities deepening (Tier 2 brain types, sub-PR 1 of 3)
+-- 20260427032105_t0b7a_helm_entities_deepening — Tier 2 brain types, sub-PR 1 of 3
+--
+-- Reversibility: Class 1
+-- DOWN section at end of file restores prior schema (per ADR-002).
 --
 -- Spec: docs/stage1/Helm_T1_Launch_Spec_V2.md §T0.B7a
 -- Arch one-pager: docs/stage1/arch_notes/T0.B7_tier2_brain_types.md
@@ -74,9 +77,41 @@ ALTER TABLE helm_entity_relationships
 -- =============================================================
 -- Notes:
 -- * 'notes' and 'active' columns on helm_entity_relationships are kept as-is
---   (production-used by seed scripts; spec doesn't mention them so they're
+--   (production-used pre-T0.B7a; spec doesn't mention them so they're
 --   non-conflicting additive context).
--- * Forward-only migration per arch note. Rollback path: drop CHECK and CASCADE,
---   rename columns back. Backups available per docs/runbooks/0002-supabase-
---   backup-restore.md.
+-- * Backups available per docs/runbooks/0002-supabase-backup-restore.md if
+--   the DOWN block below proves insufficient (it shouldn't — every change
+--   in this migration is cleanly reversible).
 -- =============================================================
+
+-- =============================================================
+-- DOWN:
+-- (The SQL below would reverse this migration. Not auto-applied.
+--  Run manually if rollback is needed. Order matters — reverse the
+--  forward order: undo CASCADE first, then renames, then CHECK,
+--  then column adds.)
+-- =============================================================
+--
+-- -- 1. Restore non-CASCADE FKs on helm_entity_relationships.
+-- ALTER TABLE helm_entity_relationships
+--   DROP CONSTRAINT helm_entity_relationships_to_entity_fkey,
+--   ADD  CONSTRAINT helm_entity_relationships_to_entity_fkey
+--        FOREIGN KEY (to_entity) REFERENCES helm_entities(id);
+--
+-- ALTER TABLE helm_entity_relationships
+--   DROP CONSTRAINT helm_entity_relationships_from_entity_fkey,
+--   ADD  CONSTRAINT helm_entity_relationships_from_entity_fkey
+--        FOREIGN KEY (from_entity) REFERENCES helm_entities(id);
+--
+-- -- 2. Reverse the column rename on helm_entity_relationships.
+-- ALTER TABLE helm_entity_relationships RENAME COLUMN confidence TO strength;
+--
+-- -- 3. Drop the entity_type CHECK constraint.
+-- ALTER TABLE helm_entities DROP CONSTRAINT helm_entities_entity_type_check;
+--
+-- -- 4. Drop the new salience_decay column.
+-- ALTER TABLE helm_entities DROP COLUMN salience_decay;
+--
+-- -- 5. Reverse the column renames on helm_entities.
+-- ALTER TABLE helm_entities RENAME COLUMN last_mentioned_at TO last_updated;
+-- ALTER TABLE helm_entities RENAME COLUMN first_mentioned_at TO first_seen;
