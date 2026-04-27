@@ -33,12 +33,12 @@ from read_client import ReadClient
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Offload trigger configuration
+# Offload trigger configuration — read from router.tunables (T0.B5b).
+# Values come from config.yaml's runtime_tunables: block, with optional
+# HELM_RUNTIME_* env overrides per-deployment. The handler reads them via
+# router.tunables.warm_queue_max_frames etc. — module-level constants
+# would force a code change for a config tweak.
 # ---------------------------------------------------------------------------
-
-WARM_QUEUE_MAX = 20  # batch trigger — offload all when warm count hits this
-FRAME_OFFLOAD_INTERVAL = 10  # interval trigger — every N turns
-FRAME_OFFLOAD_CONSERVATIVE = True  # fire at 80% of interval (turn 8, 16, 24...)
 
 # ---------------------------------------------------------------------------
 # Prompt fallback path — used by PromptManager when Supabase is unreachable.
@@ -142,7 +142,7 @@ Produce the frame JSON now."""
         frame = json.loads(raw_output)
     except json.JSONDecodeError as e:
         logger.error(
-            "Projectionist JSON parse failed before write. " "session=%s turn=%d raw=%r",
+            "Projectionist JSON parse failed before write. session=%s turn=%d raw=%r",
             req.session_id,
             req.turn_number,
             raw_output,
@@ -181,7 +181,7 @@ Produce the frame JSON now."""
 
     # Evaluate offload triggers — non-blocking best-effort (failures logged, not raised)
     try:
-        await _check_offload_triggers(req.session_id, req.turn_number, supabase)
+        await _check_offload_triggers(req.session_id, req.turn_number, supabase, router)
     except Exception as e:
         logger.error(
             "Projectionist offload trigger error: session=%s turn=%d error=%s",
@@ -202,15 +202,18 @@ async def _check_offload_triggers(
     session_id: str,
     turn_number: int,
     supabase: ReadClient,
+    router: ModelRouter,
 ) -> None:
     """
     Evaluate batch trigger (priority) then interval trigger.
 
-    Batch: if warm frame count >= WARM_QUEUE_MAX, offload all warm frames.
-    Interval: every FRAME_OFFLOAD_INTERVAL turns (or 80% of that when conservative),
-              offload the oldest single warm frame.
+    Batch: if warm frame count >= router.tunables.warm_queue_max_frames,
+           offload all warm frames.
+    Interval: every router.tunables.frame_offload_interval turns (or 80% of
+              that when conservative), offload the oldest single warm frame.
     Layer change only — frame_status is untouched here (resolution pass handles that).
     """
+    tunables = router.tunables
     warm_frames = await supabase.select(
         "helm_frames",
         {
@@ -221,7 +224,7 @@ async def _check_offload_triggers(
     )
 
     # Batch trigger (priority)
-    if len(warm_frames) >= WARM_QUEUE_MAX:
+    if len(warm_frames) >= tunables.warm_queue_max_frames:
         await supabase.patch(
             "helm_frames",
             {"session_id": session_id, "layer": "warm"},
@@ -236,9 +239,9 @@ async def _check_offload_triggers(
 
     # Interval trigger
     effective_interval = (
-        max(1, int(FRAME_OFFLOAD_INTERVAL * 0.8))
-        if FRAME_OFFLOAD_CONSERVATIVE
-        else FRAME_OFFLOAD_INTERVAL
+        max(1, int(tunables.frame_offload_interval * 0.8))
+        if tunables.frame_offload_conservative
+        else tunables.frame_offload_interval
     )
     if turn_number > 0 and turn_number % effective_interval == 0:
         oldest = await supabase.select(
