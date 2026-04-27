@@ -6,7 +6,10 @@ The tier controls proactivity and presence — not agent existence. All cognitiv
 subsystems exist at every tier. What changes is when they fire and how often Helm
 initiates.
 
-Active tier is a config value in `hammerfall-config.md`. Maxwell is sole user at Tier 1.
+Active tier is set at the runtime layer (currently T1 — Maxwell is sole user). It is
+not a runtime-tunable config value; tier transitions involve infrastructure changes
+(scheduled cron at T2, dedicated MIG-partitioned hardware at T3) that are deployment
+events, not config edits.
 
 ---
 
@@ -34,6 +37,7 @@ not a gap, it is T1 reality.
 **TRIGGER:** User-set cadence (cron or equivalent).
 
 **AGENTS:**
+
 - Helm Prime initiates on schedule
 - Projectionist pre-loads context from prior session frames
 - Archivist batches pending writes
@@ -48,6 +52,7 @@ not a gap, it is T1 reality.
 **TRIGGER:** Always on — event-driven continuous operation.
 
 **AGENTS:** Full physical separation. Each agent is a persistent process.
+
 - Helm Prime + Projectionist + Archivist + Contemplator → Thor
 - Communication via message bus (Redis or equivalent)
 
@@ -61,27 +66,30 @@ ground before Thor ships.
 
 ---
 
-## Config Values (hammerfall-config.md)
+## Config Values (services/helm-runtime/config.yaml)
 
 ```yaml
-active_tier: T1
-frame_offload_interval: 10        # Interval trigger: every N turns
-warm_queue_max_frames: 20         # Batch trigger: fires at exactly this count
-frame_offload_conservative: true  # Interval fires at 80% of interval when true
+runtime_tunables:
+  frame_offload_interval: 10 # Interval trigger: every N turns
+  warm_queue_max_frames: 20 # Batch trigger: fires at exactly this count
+  frame_offload_conservative: true # Interval fires at 80% of interval when true
 ```
 
-These values are read by the Projectionist at session start.
+These values are loaded by `ModelRouter` at startup and surfaced to the Projectionist
+via `router.tunables.<field>`. Per-deployment overrides via `HELM_RUNTIME_*` environment
+variables (e.g., `HELM_RUNTIME_WARM_QUEUE_MAX_FRAMES=50`). See T0.B5b in the V2 launch
+spec for the migration history.
 
 ---
 
 ## Agent Hardware Assignment by Tier
 
-| Agent | T1 | T2 | T3 |
-|---|---|---|---|
-| Helm Prime | Claude Code | Claude Code | Thor |
+| Agent         | T1                       | T2                       | T3   |
+| ------------- | ------------------------ | ------------------------ | ---- |
+| Helm Prime    | Claude Code              | Claude Code              | Thor |
 | Projectionist | Claude Code (Agent tool) | Claude Code (Agent tool) | Thor |
-| Archivist | Claude Code (Agent tool) | Claude Code (Agent tool) | Thor |
-| Contemplator | Claude Code (Agent tool) | Claude Code (Agent tool) | Thor |
+| Archivist     | Claude Code (Agent tool) | Claude Code (Agent tool) | Thor |
+| Contemplator  | Claude Code (Agent tool) | Claude Code (Agent tool) | Thor |
 
 ## Taskers — Stage 4 Forward Reference
 
@@ -95,5 +103,5 @@ Tasker will look like when the pattern is fully operational.
 
 ---
 
-*Canonical source: `agents/shared/tier_protocol.md`*
-*Maintained by Core Helm. Changes require Maxwell approval.*
+_Canonical source: `agents/shared/tier_protocol.md`_
+_Maintained by Core Helm. Changes require Maxwell approval._

@@ -9,21 +9,20 @@ Usage:
     python3 scripts/backfill_embeddings.py [--dry-run]
 
 Environment variables required:
-    OPENAI_API_KEY           — OpenAI API key for embedding generation
+    SUPABASE_BRAIN_URL         — Supabase brain project URL
     SUPABASE_BRAIN_SERVICE_KEY — Supabase service role key
+    OPENAI_API_KEY             — OpenAI API key for embedding generation
 
-Brain URL and service key env var name are read from hammerfall-config.md.
+See docs/onboarding.md for setup.
 """
 
 import argparse
 import os
-import re
 import sys
 import time
 import urllib.error
 import urllib.request
 import json
-from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # Config
@@ -34,32 +33,18 @@ BATCH_SIZE = 20  # rows per batch before sleeping
 BATCH_SLEEP = 1.0  # seconds between batches (rate limit headroom)
 REQUEST_TIMEOUT = 20  # seconds per OpenAI API call
 
-SCRIPT_DIR = Path(__file__).parent
-CONFIG_FILE = SCRIPT_DIR.parent / "hammerfall-config.md"
-
 
 def read_config() -> tuple[str, str]:
-    """Read BRAIN_URL and SERVICE_KEY from hammerfall-config.md + env."""
-    text = CONFIG_FILE.read_text()
+    """Read BRAIN_URL and SERVICE_KEY directly from env."""
+    brain_url = os.environ.get("SUPABASE_BRAIN_URL")
+    if not brain_url:
+        sys.exit("ERROR: SUPABASE_BRAIN_URL is not set.")
 
-    url_match = re.search(r"supabase_brain_url:\s*(\S+)", text)
-    key_env_match = re.search(r"supabase_brain_service_key_env:\s*(\S+)", text)
-
-    if not url_match:
-        sys.exit("ERROR: supabase_brain_url not found in hammerfall-config.md")
-    if not key_env_match:
-        sys.exit(
-            "ERROR: supabase_brain_service_key_env not found in hammerfall-config.md"
-        )
-
-    brain_url = url_match.group(1).rstrip("/")
-    key_env = key_env_match.group(1)
-    service_key = os.environ.get(key_env)
-
+    service_key = os.environ.get("SUPABASE_BRAIN_SERVICE_KEY")
     if not service_key:
-        sys.exit(f"ERROR: env var '{key_env}' is not set.")
+        sys.exit("ERROR: SUPABASE_BRAIN_SERVICE_KEY is not set.")
 
-    return brain_url, service_key
+    return brain_url.rstrip("/"), service_key
 
 
 def get_openai_key() -> str:
