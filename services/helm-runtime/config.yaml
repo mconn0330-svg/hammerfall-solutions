@@ -37,15 +37,24 @@
 
 service:
   port: 8000
-  log_level: info  # debug | info | warning | error | critical
+  log_level: info # debug | info | warning | error | critical
 
 supabase:
   url_env: SUPABASE_BRAIN_URL
   service_key_env: SUPABASE_BRAIN_SERVICE_KEY
 
 embeddings:
-  model: text-embedding-3-small   # 1536 dimensions — matches vector(1536) in helm_memory
+  model: text-embedding-3-small # 1536 dimensions — matches vector(1536) in helm_memory
   api_key_env: OPENAI_API_KEY
+
+# T0.B5b — Runtime tunables. Migrated from hammerfall-config.md (now deleted)
+# so a runtime running on any infrastructure (Render, local, future per-user)
+# has its tunables in one place. Per-deployment override via env vars with
+# HELM_RUNTIME_ prefix (e.g. HELM_RUNTIME_WARM_QUEUE_MAX_FRAMES=50).
+runtime_tunables:
+  frame_offload_interval: 10 # Projectionist: offload oldest warm frame every N turns
+  warm_queue_max_frames: 20 # Projectionist: batch trigger fires at this count (priority over interval)
+  frame_offload_conservative: true # When true, interval trigger fires at 80% of interval (turn 8, 16, 24...)
 
 agents:
   helm_prime:
@@ -55,22 +64,25 @@ agents:
 
   projectionist:
     provider: ollama
-    model: qwen3:4b           # Upgraded from qwen2.5:3b — 100% schema compliance vs 80%, 40% faster.
-    base_url_env: OLLAMA_BASE_URL   # No-think mode. MIG partition 3 (~2.5GB).
-                                    # T3: base_url_env → OLLAMA_PROJECTIONIST_URL
+    model: qwen3:4b # Upgraded from qwen2.5:3b — 100% schema compliance vs 80%, 40% faster.
+    base_url_env:
+      OLLAMA_BASE_URL # No-think mode. MIG partition 3 (~2.5GB).
+      # T3: base_url_env → OLLAMA_PROJECTIONIST_URL
 
   archivist:
     provider: ollama
-    model: qwen3:14b          # Upgraded from qwen2.5:3b — only model at 100% summary quality.
-    base_url_env: OLLAMA_BASE_URL   # No-think mode. MIG partition 4 (~9GB). Dedicated — does not share with Contemplator.
-                                    # T3: base_url_env → OLLAMA_ARCHIVIST_URL
+    model: qwen3:14b # Upgraded from qwen2.5:3b — only model at 100% summary quality.
+    base_url_env:
+      OLLAMA_BASE_URL # No-think mode. MIG partition 4 (~9GB). Dedicated — does not share with Contemplator.
+      # T3: base_url_env → OLLAMA_ARCHIVIST_URL
 
   contemplator:
     provider: ollama
-    model: qwen3:14b         # Two-pass inner-life agent. Upgraded from qwen2.5:14b via cross-gen test.
-    base_url_env: OLLAMA_BASE_URL   # Dedicated MIG partition 5 (~9GB). Separate from Archivist (partition 4).
-                                    # Dual-mode: think=false for session_start (lightweight), think=true for session_end (deep).
-                                    # T3 (BA9): base_url_env → OLLAMA_CONTEMPLATOR_URL (partition 5 dedicated instance).
+    model: qwen3:14b # Two-pass inner-life agent. Upgraded from qwen2.5:14b via cross-gen test.
+    base_url_env:
+      OLLAMA_BASE_URL # Dedicated MIG partition 5 (~9GB). Separate from Archivist (partition 4).
+      # Dual-mode: think=false for session_start (lightweight), think=true for session_end (deep).
+      # T3 (BA9): base_url_env → OLLAMA_CONTEMPLATOR_URL (partition 5 dedicated instance).
 
 # =============================================================================
 # BYO MODEL EXAMPLES

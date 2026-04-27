@@ -31,6 +31,7 @@ from typing import Any
 import litellm
 import yaml
 from pydantic import BaseModel, field_validator, model_validator
+from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
 
@@ -102,12 +103,54 @@ class ServiceConfigSchema(BaseModel):
         return v.lower()
 
 
+class RuntimeTunables(BaseSettings):
+    """Runtime tunables — migrated from hammerfall-config.md in T0.B5b.
+
+    Values come from config.yaml's `runtime_tunables:` block. ENV variables
+    with the HELM_RUNTIME_ prefix override yaml values at startup, so
+    per-deployment tuning (Render, local dev, demo) doesn't require editing
+    the committed config.yaml.
+
+    Precedence (highest to lowest):
+      1. HELM_RUNTIME_<FIELD_NAME> environment variable
+      2. config.yaml `runtime_tunables:` block (passed as init kwargs)
+      3. Defaults declared below
+
+    The `settings_customise_sources` override flips pydantic-settings'
+    default order (init > env) to env > init so env vars override yaml.
+    """
+
+    model_config = SettingsConfigDict(
+        env_prefix="HELM_RUNTIME_",
+        extra="ignore",
+        case_sensitive=False,
+    )
+
+    frame_offload_interval: int = 10  # turns
+    warm_queue_max_frames: int = 20  # frames per session before forced cold
+    frame_offload_conservative: bool = True  # offload at 80% of interval
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        # Env wins over init kwargs (yaml values), so per-deployment env
+        # overrides the committed config.yaml values without code change.
+        return (env_settings, init_settings, dotenv_settings, file_secret_settings)
+
+
 class HelmRuntimeConfig(BaseModel):
     """Root config schema. Validated at service startup."""
 
     service: ServiceConfigSchema = ServiceConfigSchema()
     supabase: SupabaseConfigSchema = SupabaseConfigSchema()
     embeddings: EmbeddingsConfigSchema | None = None
+    runtime_tunables: dict[str, Any] = {}
     agents: dict[str, AgentConfigSchema]
 
     @field_validator("agents")
@@ -151,8 +194,16 @@ class ModelRouter:
         self._agent_configs = self._resolve_env_vars()
         self._supabase_config = self._resolve_supabase()
         self._embeddings_config = self._resolve_embeddings()
+        # Runtime tunables: yaml block as init kwargs, env vars override.
+        # Pydantic-settings handles HELM_RUNTIME_* env precedence per
+        # RuntimeTunables.settings_customise_sources.
+        self._tunables = RuntimeTunables(**self._config.runtime_tunables)
 
-        logger.info("ModelRouter initialized. Agents: %s", list(self._agent_configs.keys()))
+        logger.info(
+            "ModelRouter initialized. Agents: %s. Tunables: %s",
+            list(self._agent_configs.keys()),
+            self._tunables.model_dump(),
+        )
 
     def _resolve_env_vars(self) -> dict[str, dict[str, Any]]:
         """
@@ -262,6 +313,14 @@ class ModelRouter:
     @property
     def supabase_service_key(self) -> str:
         return self._supabase_config["service_key"]
+
+    @property
+    def tunables(self) -> RuntimeTunables:
+        """Runtime tunables (frame offload interval, warm queue cap, etc.)
+        as a validated RuntimeTunables object. Per-deployment env override
+        via HELM_RUNTIME_* prefix; defaults from config.yaml's
+        runtime_tunables: block."""
+        return self._tunables
 
     def get_agent_config(self, role: str) -> dict[str, Any]:
         """Return resolved config for a role. Raises UnknownRoleError if not found."""
