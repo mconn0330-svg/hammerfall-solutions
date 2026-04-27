@@ -69,3 +69,55 @@ async def read_frames(
     if limit is not None:
         params["limit"] = str(limit)
     return await client.select("helm_frames", params)
+
+
+async def read_entities(
+    client: _SelectCapable,
+    *,
+    entity_type: str | None = None,
+    name: str | None = None,
+    alias: str | None = None,
+    active_only: bool = True,
+    select_cols: str = "*",
+    order: str = "last_mentioned_at.desc",
+    limit: int | None = None,
+) -> list[dict[str, Any]]:
+    """Read entities from `helm_entities`.
+
+    Args:
+        client: anything with a `select(table, params)` method (Protocol).
+        entity_type: filter to a single type (person/project/concept/place/
+            organization/tool/event/pet). Validated server-side by the CHECK.
+        name: exact-match name filter (case-sensitive at the PostgREST layer).
+        alias: array-contains match (`aliases=cs.{<alias>}`). Used by the
+            Routine 4 duplicate guard's "did we already see this nickname?"
+            step.
+        active_only: defaults True — exclude rows where `active=false`.
+        select_cols: PostgREST select expression. Defaults to all columns.
+        order: PostgREST order expression. Defaults to most-recently-mentioned
+            first.
+        limit: optional cap on rows returned.
+
+    Returns:
+        List of entity rows (dicts) ordered by `order`. Empty list if none.
+
+    Filters compose with AND. Pass nothing to read all active entities,
+    youngest-mention first.
+    """
+    params: dict[str, Any] = {
+        "select": select_cols,
+        "order": order,
+    }
+    if entity_type is not None:
+        params["entity_type"] = f"eq.{entity_type}"
+    if name is not None:
+        params["name"] = f"eq.{name}"
+    if alias is not None:
+        # PostgREST array-contains: aliases=cs.{<alias>}
+        # cs = "contains" (the array column contains the value).
+        params["aliases"] = f"cs.{{{alias}}}"
+    if active_only:
+        params["active"] = "eq.true"
+    if limit is not None:
+        params["limit"] = str(limit)
+    return await client.select("helm_entities", params)
