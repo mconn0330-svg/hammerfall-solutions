@@ -317,7 +317,7 @@ T4.5).
 
 **How T0.B7 is structured (see V2 spec for full detail):**
 
-- T0.B7a: `helm_entities` deepening (smallest, sets the template)
+- T0.B7a: `helm_entities` deepening (smallest, sets the template) — **shipped 2026-04-26**
 - T0.B7b: `helm_curiosities` (first new type, end-to-end pattern)
 - T0.B7c: `helm_promises` (second new type, proves pattern holds)
 - ARCH-tier; STOP gate after the third sub-PR.

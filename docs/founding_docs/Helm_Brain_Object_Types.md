@@ -84,12 +84,12 @@ Derived view — the at-a-glance summary of what's currently active in Helm's aw
 
 ### `helm_entities`
 
-People, projects, concepts, places, organizations Helm knows about by name.
+People, projects, concepts, places, organizations, tools, events, and pets Helm knows about by name.
 
-- **Current schema:** name, count (shallow base — deepened in Tier 2 §helm_entities deepened, landing in T0.B7a)
-- **Write triggers:** entity mention extraction during Routine 4
-- **Read patterns:** entity-scoped memory lookup, Prime prompt context for "who/what is X?"
-- **V2 work:** T2.7 (RPC `get_entities_with_counts`), T0.B7a (deepening)
+- **Current schema (post-T0.B7a):** id, name, entity_type (CHECK enum: person/project/concept/place/organization/tool/event/pet), aliases (TEXT[]), attributes (JSONB), summary, first_mentioned_at, last_mentioned_at, salience_decay (default 1.0), active, embedding (1536-dim vector). Sibling table `helm_entity_relationships` links entities in a directed graph with ON DELETE CASCADE.
+- **Write triggers:** entity mention extraction during Routine 4 (memory.write_helm_entity_record); relationship inference and Routine-4 "who knows whom" links (memory.write_helm_entity_relationship_record)
+- **Read patterns:** entity-scoped memory lookup (memory.read_entities), Prime prompt context for "who/what is X?", Routine 4 duplicate guard (alias array-contains lookup), T2.7 entity RPC
+- **V2 work:** T0.B7a deepening — **shipped** (column renames first_seen→first_mentioned_at + last_updated→last_mentioned_at; new salience_decay column; entity_type CHECK constraint; relationship FK CASCADE; renamed strength→confidence). T2.7 (RPC `get_entities_with_counts`) reads the enriched schema.
 
 ### `helm_messages`
 
@@ -160,14 +160,16 @@ Things Helm explicitly committed to do, with deadlines or check-back conditions.
 - **Read patterns:** Prime prompt ("Open promises: ..."), session-end check ("did I fulfill any promises?"), T3 ambient surfaces them at relevant moments
 - **Why important:** without this, Helm is full of intentions Maxwell has to remember on Helm's behalf. Trust corrodes.
 
-### `helm_entities` deepened (EXTEND existing — T0.B7a)
+### `helm_entities` deepened (EXTEND existing — T0.B7a) — ✓ SHIPPED
 
-Current schema is `name, count`. That's not an entity — that's a tag with a counter. A real entity model:
+**Status:** Shipped in T0.B7a. The deepened `helm_entities` row in §Tier 1 above is now canonical; the entry below preserves the original spec sketch for historical reference and notes the spec-vs-state reconciliation that happened at PR time. Migration: `supabase/migrations/20260427032105_t0b7a_helm_entities_deepening.sql`.
 
-- **Schema additions:**
+**Reconciliation note (T0.B7a PR):** Several "additions" the spec called for had already shipped piecemeal in earlier work (entity_type, aliases, attributes via migrations 003-005; helm_entity_relationships via migration 004). The actual T0.B7a delta was therefore smaller than the spec implies — three new columns (`first_mentioned_at` rename of `first_seen`, `last_mentioned_at` rename of `last_updated`, `salience_decay`), one CHECK constraint on entity_type (extended from the spec's 7-value enum to 8 to include `'pet'` — production already had 3 pet entities seeded), and ON DELETE CASCADE on the relationship FKs. Plus rename `strength`→`confidence` on relationships for spec-name alignment + cognitive disambiguation from `belief.strength`. See the T0.B7a SITREP for the full reconciliation.
+
+- **Original spec sketch (preserved for historical context):**
   ```sql
   ALTER TABLE helm_entities ADD COLUMN entity_type TEXT CHECK (
-    entity_type IN ('person', 'project', 'concept', 'place', 'organization', 'tool', 'event')
+    entity_type IN ('person', 'project', 'concept', 'place', 'organization', 'tool', 'event', 'pet')
   );
   ALTER TABLE helm_entities ADD COLUMN aliases TEXT[];
   ALTER TABLE helm_entities ADD COLUMN attributes JSONB;
@@ -176,14 +178,14 @@ Current schema is `name, count`. That's not an entity — that's a tag with a co
   ALTER TABLE helm_entities ADD COLUMN salience_decay FLOAT DEFAULT 1.0;
 
   CREATE TABLE helm_entity_relationships (
-    from_entity UUID REFERENCES helm_entities(id),
-    to_entity UUID REFERENCES helm_entities(id),
-    relationship TEXT,  -- 'works_with', 'part_of', 'opposite_of', 'similar_to'
+    from_entity UUID REFERENCES helm_entities(id) ON DELETE CASCADE,
+    to_entity UUID REFERENCES helm_entities(id) ON DELETE CASCADE,
+    relationship TEXT NOT NULL,
     formed_at TIMESTAMPTZ DEFAULT NOW(),
     confidence FLOAT
   );
   ```
-- **Why important:** Helm needs to distinguish "your friend Sarah" (person) from "the Hammerfall project" (project) from "the concept of compounding" (concept). They get different prompt context, different decay rates, different surfacing logic.
+- **Why important:** Helm needs to distinguish "your friend Sarah" (person) from "the Hammerfall project" (project) from "the concept of compounding" (concept) from "Krieger" (pet). They get different prompt context, different decay rates, different surfacing logic.
 
 ---
 

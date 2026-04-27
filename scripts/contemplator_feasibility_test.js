@@ -67,7 +67,7 @@ async function fetchBrainData(
     ).then((r) => r.json()),
 
     fetch(
-      `${brainUrl}/rest/v1/helm_entities?active=eq.true&order=first_seen.desc&limit=${entityCount}&select=entity_type,name,summary`,
+      `${brainUrl}/rest/v1/helm_entities?active=eq.true&order=first_mentioned_at.desc&limit=${entityCount}&select=entity_type,name,summary`,
       { headers }
     ).then((r) => r.json()),
   ])

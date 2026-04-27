@@ -31,7 +31,7 @@ from .client import MemoryClient, MemoryClientError, MemoryWriteFailed
 from .models import MemoryEntry, MemoryType, slugify
 from .outbox import DrainResult, Outbox, OutboxStats, stop_drain_loop
 from .prompt import PromptManager, PromptManagerError, PromptUnavailable
-from .reader import read_frames
+from .reader import read_entities, read_frames
 from .settings import MemorySettings
 from .writer import MemoryWriter
 
@@ -53,6 +53,7 @@ __all__ = [
     "PromptManagerError",
     "PromptUnavailable",
     "StateChangeCallback",
+    "read_entities",
     "read_frames",
     "slugify",
     "stop_drain_loop",

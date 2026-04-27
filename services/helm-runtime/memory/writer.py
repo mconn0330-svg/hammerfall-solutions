@@ -278,7 +278,7 @@ class MemoryWriter:
         if not normalized_slug:
             raise ValueError(f"slug {slug!r} resolves to empty after normalization")
         scope_tag = f" | scope: {scope}" if scope != "user" else ""
-        content = f"Pattern — {normalized_slug} | {statement} | " f"domain: {domain}{scope_tag}"
+        content = f"Pattern — {normalized_slug} | {statement} | domain: {domain}{scope_tag}"
         return await self.write(
             project=project,
             agent=agent,
@@ -474,6 +474,147 @@ class MemoryWriter:
                     "memory.write.helm_frames.queued",
                     session_id=session_id,
                     turn_number=turn_number,
+                    outbox_row_id=row_id,
+                    reason=type(e).__name__,
+                    error=str(e)[:300],
+                )
+                return payload
+
+    # ── helm_entities + helm_entity_relationships writers (T0.B7a) ─────────
+
+    async def write_helm_entity_record(
+        self,
+        *,
+        entity_type: str,
+        name: str,
+        aliases: list[str] | None = None,
+        attributes: dict[str, Any] | None = None,
+        summary: str | None = None,
+        salience_decay: float | None = None,
+        embedding: list[float] | None = None,
+    ) -> dict[str, Any]:
+        """Write a row to `helm_entities` (NOT `helm_memory`).
+
+        Distinct from `write_entity()`: this writes the canonical entity row
+        (the thing); `write_entity()` writes a `helm_memory` event row about
+        an entity (the mention). Most flows want both — write the record
+        once when first encountered, then write events as the entity recurs.
+
+        `entity_type` must satisfy the schema CHECK: one of person, project,
+        concept, place, organization, tool, event, pet (T0.B7a extends the
+        spec's 7-type list with 'pet' for entities like Sanchez/Krieger/Keeley
+        that exist in production).
+
+        Same durability contract as the other record writers: transport
+        failure routes to the outbox when configured; otherwise propagates.
+        """
+        payload: dict[str, Any] = {
+            "entity_type": entity_type,
+            "name": name,
+        }
+        if aliases is not None:
+            payload["aliases"] = aliases
+        if attributes is not None:
+            payload["attributes"] = attributes
+        if summary is not None:
+            payload["summary"] = summary
+        if salience_decay is not None:
+            payload["salience_decay"] = salience_decay
+        if embedding is not None:
+            payload["embedding"] = embedding
+
+        with tracer.start_as_current_span("memory.write_helm_entity_record") as span:
+            span.set_attribute("memory.entity_type", entity_type)
+            span.set_attribute("memory.entity_name", name)
+            try:
+                await self._client.insert("helm_entities", payload)
+                span.set_attribute("memory.delivery", "direct")
+                logger.info(
+                    "memory.write.helm_entities",
+                    entity_type=entity_type,
+                    name=name,
+                    delivery="direct",
+                )
+                return payload
+            except (MemoryWriteFailed, CircuitBreakerOpen) as e:
+                if self._outbox is None:
+                    span.set_attribute("memory.delivery", "failed")
+                    raise
+                row_id = await self._outbox.enqueue("helm_entities", payload)
+                span.set_attribute("memory.delivery", "queued")
+                span.set_attribute("memory.outbox_row_id", row_id)
+                logger.warning(
+                    "memory.write.helm_entities.queued",
+                    entity_type=entity_type,
+                    name=name,
+                    outbox_row_id=row_id,
+                    reason=type(e).__name__,
+                    error=str(e)[:300],
+                )
+                return payload
+
+    async def write_helm_entity_relationship_record(
+        self,
+        *,
+        from_entity: UUID | str,
+        to_entity: UUID | str,
+        relationship: str,
+        notes: str | None = None,
+        confidence: float | None = None,
+        active: bool = True,
+    ) -> dict[str, Any]:
+        """Write a row to `helm_entity_relationships`.
+
+        Bidirectional convention is the caller's responsibility: callers
+        write two rows per relationship, flipping the label by perspective
+        (Maxwell→Kim 'spouse' / Kim→Maxwell 'spouse'; Maxwell→Emma 'parent'
+        / Emma→Maxwell 'child'). The seed_relationships.sh script's `pair()`
+        helper is the reference shape.
+
+        `confidence` (formerly `strength` pre-T0.B7a) is 0.0..1.0 — how sure
+        Helm is the relationship exists. NULL is valid and means no score
+        was assigned.
+
+        `active` defaults to True. Set False to mark a retired relationship
+        without deleting (audit trail preserved).
+        """
+        payload: dict[str, Any] = {
+            "from_entity": str(from_entity),
+            "to_entity": str(to_entity),
+            "relationship": relationship,
+            "active": active,
+        }
+        if notes is not None:
+            payload["notes"] = notes
+        if confidence is not None:
+            payload["confidence"] = confidence
+
+        with tracer.start_as_current_span("memory.write_helm_entity_relationship_record") as span:
+            span.set_attribute("memory.from_entity", str(from_entity))
+            span.set_attribute("memory.to_entity", str(to_entity))
+            span.set_attribute("memory.relationship", relationship)
+            try:
+                await self._client.insert("helm_entity_relationships", payload)
+                span.set_attribute("memory.delivery", "direct")
+                logger.info(
+                    "memory.write.helm_entity_relationships",
+                    from_entity=str(from_entity),
+                    to_entity=str(to_entity),
+                    relationship=relationship,
+                    delivery="direct",
+                )
+                return payload
+            except (MemoryWriteFailed, CircuitBreakerOpen) as e:
+                if self._outbox is None:
+                    span.set_attribute("memory.delivery", "failed")
+                    raise
+                row_id = await self._outbox.enqueue("helm_entity_relationships", payload)
+                span.set_attribute("memory.delivery", "queued")
+                span.set_attribute("memory.outbox_row_id", row_id)
+                logger.warning(
+                    "memory.write.helm_entity_relationships.queued",
+                    from_entity=str(from_entity),
+                    to_entity=str(to_entity),
                     outbox_row_id=row_id,
                     reason=type(e).__name__,
                     error=str(e)[:300],
