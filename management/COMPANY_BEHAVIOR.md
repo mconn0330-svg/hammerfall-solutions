@@ -33,9 +33,10 @@ Unless otherwise specified, assume the Hammerfall stack:
 - **Mobile:** Expo and EAS
 - **Backend/Auth:** Supabase
 - **Hosting:** Vercel (web)
-- **Service configuration:** All external service config (Supabase org, Vercel team,
-  GitHub user, sync schedule) lives in `hammerfall-config.md` at the
-  hammerfall-solutions repo root. Read it before asking Maxwell for config details.
+- **Service configuration:** Runtime config (agent models, Supabase brain, runtime
+  tunables) lives in `services/helm-runtime/config.yaml`. External service identities
+  (Supabase brain ref, Vercel team, Replit/EAS accounts) and required env vars are
+  documented in `docs/onboarding.md`. Read those before asking Maxwell for config details.
 - **Never output partial code snippets with `// rest of code here`.** Always provide
   complete, copy-pasteable blocks.
 
@@ -64,6 +65,7 @@ read-only snapshots — written by `snapshot.sh`, not by agents directly.
 
 **Automatic journaling (no command required):**
 Helm writes to the brain immediately when named events occur:
+
 - PR opened, reviewed, approved, or merged
 - Technical decision that deviates from specs
 - Test results (pass or fail)

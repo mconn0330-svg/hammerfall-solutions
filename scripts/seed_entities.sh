@@ -35,14 +35,12 @@ set -e
 COUNT=0
 TOTAL=64
 
-CONFIG_FILE="$(dirname "$0")/../hammerfall-config.md"
-BRAIN_URL=$(grep "supabase_brain_url:" "$CONFIG_FILE" | awk '{print $2}')
-SERVICE_KEY_ENV=$(grep "supabase_brain_service_key_env:" "$CONFIG_FILE" | awk '{print $2}')
-SERVICE_KEY="${!SERVICE_KEY_ENV}"
+BRAIN_URL="${SUPABASE_BRAIN_URL}"
+SERVICE_KEY="${SUPABASE_BRAIN_SERVICE_KEY}"
 
 if [ -z "$BRAIN_URL" ] || [ -z "$SERVICE_KEY" ]; then
-  echo "ERROR: Brain URL or service key not configured."
-  echo "Check hammerfall-config.md and env vars."
+  echo "ERROR: SUPABASE_BRAIN_URL or SUPABASE_BRAIN_SERVICE_KEY not set."
+  echo "See docs/onboarding.md for setup."
   exit 1
 fi
 
