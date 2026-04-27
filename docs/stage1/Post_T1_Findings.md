@@ -322,6 +322,55 @@ T4.5).
 - T0.B7c: `helm_promises` (second new type, proves pattern holds)
 - ARCH-tier; STOP gate after the third sub-PR.
 
+### Finding #010 — Seed-script rewrite (mechanism-from-content separation)
+
+**Surfaced:** 2026-04-27 during T0.B7a SITREP work. While auditing scripts for
+the column-rename refs, noticed `scripts/seed_entities.sh`,
+`scripts/seed_relationships.sh`, and `scripts/patch_entity_summaries.sh` all
+called `bash scripts/brain.sh ...` — but `brain.sh` was deleted in T0.B6 (PR
+#144) per spec line 1427. The seed scripts had been silently broken since
+T0.B6 merged. T0.B5c (PR #146) touched the same files for env-var migration
+but missed the brain.sh issue (validation was `bash -n` only — syntax check,
+not invocation check).
+
+**Resolved:** 2026-04-27 in the same PR that filed this finding.
+
+**Reference:** `seed/`, `services/helm-runtime/memory/seed.py`,
+SITREP at `docs/stage1/SITREPs/finding-010-seed-mechanism-rewrite-sitrep.md`.
+
+**The fix shape (mechanism-only, no production data in repo):**
+
+The bash scripts had bundled mechanism (how to write to the brain) with
+content (Maxwell's specific entities + relationships hard-coded). The
+replacement separates them cleanly:
+
+- **Mechanism** lives in `services/helm-runtime/memory/seed.py` —
+  `seed_entities()` + `seed_relationships()` Python functions, exposed
+  via `python -m memory seed-entities|seed-relationships <yaml>` CLI.
+  Goes through the memory module's `write_helm_entity_record` /
+  `write_helm_entity_relationship_record` helpers, inheriting outbox-
+  fallback + observability + CHECK enforcement automatically. Preserves
+  the bash predecessor's 3-state safety guard (clean / already-seeded /
+  partial-state-raises).
+- **Content stays in the canonical store** (the brain). Maxwell's brain
+  content was authored to the brain once at BA5 and the brain has been
+  the source of truth ever since. The repo holds no production data.
+- **An `seed/example/` fixture** ships in the repo to demonstrate the
+  YAML format and serve as the test fixture for `tests/test_memory_seed.py` —
+  5 synthetic entities + 3 synthetic relationships, no real-world content.
+
+**Why mechanism-only:** the mechanism is reusable infrastructure (T2.9
+agent simulation harness, T4.12 demo sandbox, future per-user brains in
+productization all need a way to seed a fresh brain). The content is
+per-instance (Maxwell's brain has Maxwell's content; demo brain will have
+demo content; per-user brains have per-user content). Duplicating
+production data into the repo would create drift risk for marginal value
+since disaster recovery uses Supabase backups (per runbook 0002), not
+seed scripts. See feedback memory `feedback_separate_mechanism_from_content.md`.
+
+**Bash scripts deleted:** `scripts/seed_entities.sh`,
+`scripts/seed_relationships.sh`, `scripts/patch_entity_summaries.sh`.
+
 ---
 
 ## Maintenance notes

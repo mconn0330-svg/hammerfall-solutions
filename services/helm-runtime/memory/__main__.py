@@ -30,7 +30,15 @@ from pathlib import Path
 
 from read_client import ReadClient
 
+from .client import MemoryClient
 from .prompt import PromptManager, PromptManagerError
+from .seed import (
+    SeedError,
+    seed_entities_from_file,
+    seed_relationships_from_file,
+)
+from .settings import MemorySettings
+from .writer import MemoryWriter
 
 # Force UTF-8 output so prompt content with em-dashes / unicode renders
 # correctly on Windows consoles (cp1252 default chokes on U+2014, U+2713, etc.).
@@ -83,9 +91,7 @@ async def cmd_list(_args: argparse.Namespace) -> int:
     print(f"{'AGENT_ROLE':<24} {'VER':>4}  PUSHED_BY      PUSHED_AT")
     for r in rows:
         ts = str(r.get("created_at", ""))[:19]
-        print(
-            f"{r['agent_role']:<24} {r['version']:>4}  " f"{(r.get('pushed_by') or '?'):<14} {ts}"
-        )
+        print(f"{r['agent_role']:<24} {r['version']:>4}  {(r.get('pushed_by') or '?'):<14} {ts}")
     return 0
 
 
@@ -100,9 +106,7 @@ async def cmd_history(args: argparse.Namespace) -> int:
         ts = str(r.get("created_at", ""))[:19]
         active = "[*]" if r["active"] else "   "
         notes = (r.get("notes") or "").replace("\n", " ")[:60]
-        print(
-            f"{r['version']:>4}  {active:<6}  " f"{(r.get('pushed_by') or '?'):<14} {ts}  {notes}"
-        )
+        print(f"{r['version']:>4}  {active:<6}  {(r.get('pushed_by') or '?'):<14} {ts}  {notes}")
     return 0
 
 
@@ -180,6 +184,72 @@ async def cmd_activate(args: argparse.Namespace) -> int:
     return 0
 
 
+# ─── Seed CLI (Finding #010 — replaces deleted scripts/seed_*.sh) ──────────
+
+
+def _build_writer_and_client() -> tuple[MemoryWriter, ReadClient]:
+    """Construct a MemoryWriter (writes via MemoryClient) plus a ReadClient
+    (for the safety-guard counts and name→UUID lookups). Both bind to the
+    same env-resolved Supabase URL + service key."""
+    url = _env("HELM_MEMORY_SUPABASE_URL", "SUPABASE_BRAIN_URL")
+    key = _env("HELM_MEMORY_SUPABASE_SERVICE_KEY", "SUPABASE_BRAIN_SERVICE_KEY")
+    if not url or not key:
+        print(
+            "error: Supabase env not configured. Set HELM_MEMORY_SUPABASE_URL + "
+            "HELM_MEMORY_SUPABASE_SERVICE_KEY (or SUPABASE_BRAIN_URL + "
+            "SUPABASE_BRAIN_SERVICE_KEY).",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+    settings = MemorySettings(supabase_url=url, supabase_service_key=key)
+    writer = MemoryWriter(MemoryClient(settings))
+    read_client = ReadClient(url=url, service_key=key)
+    return writer, read_client
+
+
+async def cmd_seed_entities(args: argparse.Namespace) -> int:
+    """Seed `helm_entities` from a YAML data file."""
+    writer, read_client = _build_writer_and_client()
+    try:
+        name_to_uuid = await seed_entities_from_file(read_client, writer, args.data_file)
+    except SeedError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    print(f"seeded {len(name_to_uuid)} entities from {args.data_file}")
+    return 0
+
+
+async def cmd_seed_relationships(args: argparse.Namespace) -> int:
+    """Seed `helm_entity_relationships` from a YAML data file.
+
+    Resolves entity names to UUIDs by querying `helm_entities` first —
+    so this command can run independently of seed-entities (as long as
+    the entities are already in the brain)."""
+    writer, read_client = _build_writer_and_client()
+
+    # Build name → UUID map by re-querying current entities.
+    rows = await read_client.select("helm_entities", {"select": "id,name"})
+    if not rows:
+        print(
+            "error: helm_entities is empty — run `seed-entities` first.",
+            file=sys.stderr,
+        )
+        return 1
+    from uuid import UUID  # local import keeps top-of-file imports tidy
+
+    name_to_uuid = {row["name"]: UUID(row["id"]) for row in rows}
+
+    try:
+        count = await seed_relationships_from_file(
+            read_client, writer, name_to_uuid, args.data_file
+        )
+    except SeedError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    print(f"seeded {count} relationships from {args.data_file}")
+    return 0
+
+
 # ─── Argparse ───────────────────────────────────────────────────────────────
 
 
@@ -210,6 +280,18 @@ def _build_parser() -> argparse.ArgumentParser:
     p_act.add_argument("role")
     p_act.add_argument("version", type=int)
 
+    p_seed_e = sub.add_parser(
+        "seed-entities",
+        help="seed helm_entities from a YAML data file (Finding #010)",
+    )
+    p_seed_e.add_argument("data_file", help="path to entities.yaml")
+
+    p_seed_r = sub.add_parser(
+        "seed-relationships",
+        help="seed helm_entity_relationships from a YAML data file (Finding #010)",
+    )
+    p_seed_r.add_argument("data_file", help="path to relationships.yaml")
+
     return parser
 
 
@@ -220,6 +302,8 @@ HANDLERS = {
     "pull": cmd_pull,
     "diff": cmd_diff,
     "activate": cmd_activate,
+    "seed-entities": cmd_seed_entities,
+    "seed-relationships": cmd_seed_relationships,
 }
 
 
